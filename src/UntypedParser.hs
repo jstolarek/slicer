@@ -14,7 +14,7 @@ import Text.ParserCombinators.Parsec.Token
 import Text.ParserCombinators.Parsec.Expr
 
 import Env
-import LowerSemiLattice
+import UpperSemiLattice
 import Absyn
 
 

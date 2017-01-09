@@ -6,7 +6,7 @@ import Eval
 import Slice
 import Annot
 import Compact
-import LowerSemiLattice
+import UpperSemiLattice
 import Env
 import Profile
 import UntypedParser

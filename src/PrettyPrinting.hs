@@ -8,7 +8,7 @@ import Data.Maybe
 import qualified Data.Map as Map
 import Text.PrettyPrint
 
-import LowerSemiLattice
+import UpperSemiLattice
 import Env
 import qualified Absyn as A
 import Trace

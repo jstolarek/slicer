@@ -1,7 +1,7 @@
 module Type where
 import Env
 import Trace
-import LowerSemiLattice
+import UpperSemiLattice
 
 
 tc :: Ctx -> Exp -> Type -> Bool

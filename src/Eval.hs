@@ -3,7 +3,7 @@ module Eval where
 import Util
 import Control.Exception
 import Env
-import LowerSemiLattice
+import UpperSemiLattice
 import Trace
 import Annot
 import Slice(bslice,pslice)

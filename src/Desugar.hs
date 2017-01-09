@@ -3,7 +3,7 @@ module Desugar where
 import Env
 import Util
 import Trace
-import LowerSemiLattice
+import UpperSemiLattice
 import Data.List(elem,find)
 import qualified Data.Map as M
 import qualified Absyn as A

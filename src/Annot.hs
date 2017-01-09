@@ -8,7 +8,7 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.Traversable as T
 import Env
-import LowerSemiLattice
+import UpperSemiLattice
 
 
 -- TODO: Symbolically evaluate values over patterns
@@ -26,7 +26,7 @@ data AValue a = AValue (RValue a) a
               | AVStar
            deriving (Eq,Show)
 
-instance (LowerSemiLattice a,PP a) => PP (RValue a) where
+instance (UpperSemiLattice a,PP a) => PP (RValue a) where
     pp_partial RHole RHole = sb (text "_")
     pp_partial RHole v = sb (pp v)
     pp_partial RStar RStar = sb (text "<star>")
@@ -50,7 +50,7 @@ instance (LowerSemiLattice a,PP a) => PP (RValue a) where
 --    pp_partial (RTrace _ _ _) (RTrace _ _ _) = text "<trace>"
     pp v = pp_partial v v
 
-instance (LowerSemiLattice a,PP a) => PP (AValue a) where
+instance (UpperSemiLattice a,PP a) => PP (AValue a) where
     pp_partial AVStar AVStar = sb (text "<star>")
     pp_partial AVStar v = sb (pp v)
     pp_partial AVHole AVHole = sb (text "_")
@@ -63,12 +63,12 @@ instance (LowerSemiLattice a,PP a) => PP (AValue a) where
 class ErasableToValue a where
     erase_to_v :: a -> Value
 
-instance LowerSemiLattice a => ErasableToValue (AValue a) where
+instance UpperSemiLattice a => ErasableToValue (AValue a) where
     erase_to_v AVHole = VHole
     erase_to_v (AVStar) = VStar
     erase_to_v (AValue v a) = erase_to_v v
 
-instance LowerSemiLattice a => ErasableToValue (RValue a) where
+instance UpperSemiLattice a => ErasableToValue (RValue a) where
     erase_to_v (RBool b) = VBool b
     erase_to_v (RUnit) = VUnit
     erase_to_v (RStar) = VStar
@@ -99,7 +99,7 @@ instance Functor AValue where
     fmap f (AVStar) = AVStar
     fmap f (AValue r a) = AValue (fmap f r) (f a)
 
-instance LowerSemiLattice a => LowerSemiLattice (AValue a) where
+instance UpperSemiLattice a => UpperSemiLattice (AValue a) where
     bot = AVHole
     leq AVHole v = True
     leq (AValue v a) (AValue v' a') = v `leq` v'
@@ -124,7 +124,7 @@ rpromote (RClosure k env) = RClosure k (fmap apromote env)
 
 
 
-instance LowerSemiLattice a => LowerSemiLattice (RValue a) where
+instance UpperSemiLattice a => UpperSemiLattice (RValue a) where
     bot                               = RHole
     leq RHole v                       = True
     leq RStar v                       = v == rpromote v
@@ -206,7 +206,7 @@ uniq v = do i <- gensym
 runGensym :: Gensym a -> a
 runGensym (G f) = let (a,_) = f 0 in a
 
-lift :: LowerSemiLattice a => (Lab -> a) -> Value -> AValue a
+lift :: UpperSemiLattice a => (Lab -> a) -> Value -> AValue a
 lift f VHole = AVHole
 lift f VStar = AVStar
 lift f (VLabel v l) = AValue (rlift f v) (f l)
@@ -222,7 +222,7 @@ rlift f (VRoll _ v) = RRoll (lift f v)
 rlift f (VClosure k env) = RClosure k (fmap (lift f) env)
 
 
-inject :: LowerSemiLattice a => Value -> AValue a
+inject :: UpperSemiLattice a => Value -> AValue a
 inject VHole = AVHole
 inject VStar = AVStar
 inject v = AValue (rinject v) bot
@@ -370,7 +370,7 @@ instance (Eq a,Show a) => PP (Where a) where
     pp_partial (W(Just x)) (W(Just y)) | x == y = text (show x)
     pp w = pp_partial w w
 
-instance (Eq a) => LowerSemiLattice (Where a) where
+instance (Eq a) => UpperSemiLattice (Where a) where
     bot = W bot
     leq (W x) (W y) = x == y
     lub (W x) (W y) = W (x `lub` y)
@@ -443,7 +443,7 @@ make_expr v = fmap (\x -> (Var (V ("x_" ++ show x)))) (runGensym $ uniq v)
 newtype Dep a = D (Set.Set a)
     deriving (Eq,Show,Ord)
 
-instance (Ord a,Eq a) => LowerSemiLattice (Dep a) where
+instance (Ord a,Eq a) => UpperSemiLattice (Dep a) where
     bot = D (Set.empty)
     leq (D x) (D y) = Set.isSubsetOf x y
     lub (D x) (D y) = D (Set.union x y)
@@ -457,7 +457,7 @@ instance (Eq a, Show a) => PP (Dep a) where
     pp (D s) = ppset s
 
 
-addAnnot :: LowerSemiLattice a => AValue a -> a -> AValue a
+addAnnot :: UpperSemiLattice a => AValue a -> a -> AValue a
 addAnnot (AValue rv a) a' = AValue rv (a `lub` a')
 addAnnot (AVHole) _ = AVHole
 addAnnot (AVStar) _ = AVStar
@@ -495,7 +495,7 @@ dep env t = prov env t
 {-
 
 
-dep :: LowerSemiLattice a => Env (AValue a) -> Exp -> AValue a
+dep :: UpperSemiLattice a => Env (AValue a) -> Exp -> AValue a
 dep env (Var x) = lookupEnv' env x
 dep env (Let x t1 t2) = dep (bindEnv env x (dep env t1)) t2
 dep env Unit = AValue RUnit bot

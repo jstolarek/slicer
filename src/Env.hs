@@ -1,11 +1,11 @@
 module Env where
-import LowerSemiLattice
+import UpperSemiLattice
 import Text.PrettyPrint
 import Util
 import qualified Data.Map as Map
 newtype Var = V {unV::String} deriving (Eq,Ord)
 
-instance LowerSemiLattice Var where
+instance UpperSemiLattice Var where
     bot = V "_"
     leq (V "_") v = True
     leq v v' = v == v'
@@ -35,7 +35,7 @@ instance PP TyVar where
 newtype Env a = Env (Map.Map Var a)
     deriving (Eq,Show,Ord)
 
-instance (LowerSemiLattice a,PP a) => PP (Env a) where
+instance (UpperSemiLattice a,PP a) => PP (Env a) where
     pp_partial (Env env) (Env env') =
          brackets (hcat (punctuate comma (map ppp (Map.keys env'))))
             where ppp x =
@@ -63,7 +63,7 @@ lookupEnv (Env env) x a = case Map.lookup x env
                           of Just v -> v
                              Nothing -> a
 
-lookupEnv' :: LowerSemiLattice a => Env a -> Var  -> a
+lookupEnv' :: UpperSemiLattice a => Env a -> Var  -> a
 lookupEnv' env x = lookupEnv env x bot
 
 bindEnv :: Env a -> Var -> a -> Env a
@@ -82,7 +82,7 @@ unbind ((x,v):env) y = if x == y
                        else (x,v):unbind env y
 
 
-instance (LowerSemiLattice a) => LowerSemiLattice (Env a) where
+instance (UpperSemiLattice a) => UpperSemiLattice (Env a) where
     bot                                = Env Map.empty
     leq (Env env1) (Env env2)          = Map.isSubmapOfBy leq env1 env2
     lub (Env env1) (Env env2)          = Env (Map.unionWith lub env1 env2)

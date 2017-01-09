@@ -2,7 +2,7 @@ module Slice where
 
 import Trace
 import Env
-import LowerSemiLattice
+import UpperSemiLattice
 
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.

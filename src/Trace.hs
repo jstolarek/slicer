@@ -2,7 +2,7 @@ module Trace where
 import Data.List(union, delete, (\\), intersperse,elem)
 
 import Env
-import LowerSemiLattice
+import UpperSemiLattice
 import Data.Map as Map (Map, fromList, mapWithKey,keys, (!))
 import Data.Int
 import qualified Data.Hashable as H (hash)
@@ -21,7 +21,7 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | TraceTy Ctx Type
             deriving (Eq,Ord,Show)
 
-instance LowerSemiLattice Type where
+instance UpperSemiLattice Type where
     bot = HoleTy
     leq HoleTy _ = True
     leq IntTy IntTy = True
@@ -431,7 +431,7 @@ promote (VInR v) = VInR (promote v)
 promote (VRoll tv v) = VRoll tv (promote v)
 promote (VClosure k env) = VClosure k (fmap promote env)
 
-instance LowerSemiLattice Value where
+instance UpperSemiLattice Value where
     bot                               = VHole
     leq VHole _                       = True
     leq VStar VHole                   = False
@@ -466,7 +466,7 @@ instance LowerSemiLattice Value where
     lub (VClosure k env) (VClosure k' env')
         = VClosure (k `lub` k') (env `lub` env')
 
-instance LowerSemiLattice Exp where
+instance UpperSemiLattice Exp where
     bot                                = Hole
     leq Hole e                         = True
     leq (Var x) (Var x')               = x `leq` x'
@@ -556,7 +556,7 @@ instance LowerSemiLattice Exp where
 
 
 
-instance LowerSemiLattice Code where
+instance UpperSemiLattice Code where
     bot = Rec bot bot bot Nothing
     leq (Rec f x e l) (Rec f' x' e' l') =
         f `leq` f' && x `leq` x' && e `leq` e' && l `leq` l'
@@ -564,7 +564,7 @@ instance LowerSemiLattice Code where
         = Rec (f `lub` f') (x `lub` x') (e `lub` e') (l `lub` l')
 
 
-instance LowerSemiLattice Match where
+instance UpperSemiLattice Match where
     bot = Match (bot, bot) (bot, bot)
     leq (Match (x,m1) (y,m2)) (Match (x',m1') (y', m2'))
         = x `leq` x' && y `leq` y' && m1 `leq` m1' && m2 `leq` m2'
@@ -610,7 +610,7 @@ instance Pattern Value where
         = VLabel (extract p v) l
     extract p v = error "extract only defined if p <= v"
 
-instance (Pattern a, LowerSemiLattice a) => Pattern (Env a) where
+instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
     match (penv@(Env penv')) env1 env2
         = all (\x -> match (lookupEnv' penv x) (lookupEnv' env1 x) (lookupEnv' env2 x)) (Map.keys penv')
     extract (Env penv') env
