@@ -41,7 +41,6 @@ tests =
       , runTMLTest "reverse-trace-profile"
       , runTMLTest "reverse-trace"
       , runTMLTest "reverse-trace-where"
-      , runTMLTest "sigplanconf"
       , runTMLTest "simple-closure"
       , runTMLTest "sort-bug-2"
       , runTMLTest "sort-bug"
