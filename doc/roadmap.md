@@ -8,9 +8,7 @@ TODOs
     group.  I could then disable a group of tests if I know they don't work.
     This requires adapting more of singletons infrastructure.
 
-  * Run tests for incremental evaluation
-
-  * eliminate string typing in Absyn/Desugar/Core
+  * eliminate string typing in Absyn/Desugar/Trace
 
   * Move all the modules into the Slicer namespace.  Incremental strategy
     probably deserves its own namespace.  Absyn can have a better name
@@ -38,10 +36,6 @@ TODOs
 
   * it seems that functionality in Util module can be implemented differently
     and the whole module can then be removed:
-
-    * replace Util.P by State from Control.Monad.State
-
-    * replace Util.eq with assert from Control.Exception.Base
 
     * move PP class and sb function into PrettyPrinting module
 

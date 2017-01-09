@@ -5,6 +5,8 @@ module TraceTree
 import Trace
 import Util
 
+import Control.Monad.State ( State, runState, get )
+
 data TraceTree = THole
                | TTrue TraceForest TraceForest
                | TFalse TraceForest TraceForest
@@ -92,7 +94,7 @@ to_tree_fast t _ = error ("to_tree_fast" ++ show t)
 
 
 
-from_tree :: Exp -> P TraceForest Trace
+from_tree :: Exp -> State TraceForest Trace
 from_tree (Var x) = return (Var x)
 from_tree (Let x e1 e2)  = do t1 <- from_tree e1
                               t2 <- from_tree e2
@@ -140,6 +142,7 @@ from_tree (Unroll tv e) = do t <- from_tree e
                              return (Unroll tv t)
 
 from_tree' :: Exp -> TraceForest -> Trace
-from_tree' e cs = let P f = from_tree e
-                      (t,[]) = f cs
-                  in t
+from_tree' e cs = let (t, []) = runState (from_tree e) cs in t
+
+fetch :: State [a] a
+fetch = get >>= (\(x:xs) -> return x)
