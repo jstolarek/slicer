@@ -4,7 +4,7 @@ module Desugar
     ) where
 
 import Env
-import Util
+import PrettyPrinting
 import Trace
 import UpperSemiLattice
 import Data.List(elem,find)

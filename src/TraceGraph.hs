@@ -3,7 +3,7 @@ module TraceGraph
     ) where
 
 import Trace
-import Util
+import PrettyPrinting
 
 import Data.GraphViz
 import Data.GraphViz.Attributes.Colors

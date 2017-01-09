@@ -1,9 +1,9 @@
-module Util
+module PrettyPrinting
     ( -- * Pretty-printing
       PP(..), sb
     ) where
 
-import Text.PrettyPrint
+import           Text.PrettyPrint
 
 class PP a where
     pp :: a -> Doc

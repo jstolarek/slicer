@@ -4,7 +4,7 @@ module Annot
     , ErasableToValue(erase_to_v)
     ) where
 
-import Util
+import PrettyPrinting
 import Text.PrettyPrint ((<>),parens,hcat, punctuate,braces,comma, text,(<+>),int)
 import Trace
 import Data.List(union)

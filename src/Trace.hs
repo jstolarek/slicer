@@ -21,7 +21,7 @@ import Data.Map as Map (Map, fromList, mapWithKey,keys, (!))
 import Data.Int
 import qualified Data.Hashable as H (hash)
 import Text.PrettyPrint
-import Util
+import PrettyPrinting
 
 import qualified Data.Set as Set
 

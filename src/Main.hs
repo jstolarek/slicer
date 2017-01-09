@@ -3,13 +3,13 @@ module Main
       main
     ) where
 
-import           Absyn         ( emptyTyCtx  )
-import           Trace         ( Value, Type )
+import           Absyn          ( emptyTyCtx  )
+import           Trace          ( Value, Type )
 import           Desugar
 import           Env
 import           Eval
-import           UntypedParser ( parseIn     )
-import           Util
+import           UntypedParser  ( parseIn     )
+import           PrettyPrinting ( pp          )
 
 import           System.Environment
 

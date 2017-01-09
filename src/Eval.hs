@@ -3,7 +3,7 @@ module Eval
       eval
     ) where
 
-import Util
+import PrettyPrinting
 import Control.Exception
 import Env
 import UpperSemiLattice

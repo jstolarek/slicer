@@ -8,7 +8,7 @@ module Env
     ) where
 import UpperSemiLattice
 import Text.PrettyPrint
-import Util
+import PrettyPrinting
 import qualified Data.Map as Map
 newtype Var = V {unV::String} deriving (Eq,Ord)
 
