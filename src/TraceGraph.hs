@@ -1,4 +1,6 @@
-module TraceGraph where
+module TraceGraph
+    ( visualizePDF, visualize2PDF, visualizeSVG, visualize2SVG
+    ) where
 
 import Trace
 import Util

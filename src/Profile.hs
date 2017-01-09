@@ -1,4 +1,6 @@
-module Profile where
+module Profile
+    ( profile, profile2
+    ) where
 
 import Trace
 import TraceTree

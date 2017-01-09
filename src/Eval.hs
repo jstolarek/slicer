@@ -1,4 +1,7 @@
-module Eval where
+module Eval
+    ( -- * Evaluating TML expressions
+      eval
+    ) where
 
 import Util
 import Control.Exception

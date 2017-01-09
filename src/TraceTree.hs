@@ -1,4 +1,6 @@
-module TraceTree where
+module TraceTree
+    ( TraceTree(..), to_tree, forestsize
+    ) where
 
 import Trace
 import Util

@@ -1,4 +1,7 @@
-module Desugar where
+module Desugar
+    ( -- * Desugaring TML expressions
+      desugar
+    ) where
 
 import Env
 import Util

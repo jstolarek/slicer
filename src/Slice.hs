@@ -1,4 +1,6 @@
-module Slice where
+module Slice
+    ( bslice, pslice
+    ) where
 
 import Trace
 import Env

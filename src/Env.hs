@@ -1,4 +1,11 @@
-module Env where
+module Env
+    ( -- * Variables and type variables
+      Var(..), TyVar(..)
+
+      -- * Environment operations
+    , Env(..), emptyEnv, singletonEnv, constEnv, lookupEnv, lookupEnv', bindEnv
+    , unbindEnv, updateEnv
+    ) where
 import UpperSemiLattice
 import Text.PrettyPrint
 import Util

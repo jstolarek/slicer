@@ -1,4 +1,8 @@
-module Annot where
+module Annot
+    ( expr, make_expr, dep, make_dep, whr, make_where
+
+    , ErasableToValue(erase_to_v)
+    ) where
 
 import Util
 import Text.PrettyPrint ((<>),parens,hcat, punctuate,braces,comma, text,(<+>),int)

@@ -1,8 +1,6 @@
 TODOs
 =====
 
-  * Create export lists
-
   * Parser cleanup
 
   * Fix test failures.  In the process of doing this I can perhaps figure out a

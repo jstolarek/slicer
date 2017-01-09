@@ -1,4 +1,10 @@
-module Util where
+module Util
+    ( -- * Pretty-printing
+      PP(..), sb
+
+      -- * State monad
+    , P(..), fetch
+    ) where
 
 import Text.PrettyPrint
 
@@ -27,8 +33,5 @@ class PP a where
     pp a = pp_partial a a
     pp_partial :: a -> a -> Doc
 
+sb :: Doc -> Doc
 sb x =  brackets (text "|" <> x <> text "|")
-
--- Assert that y == x. For use as a view pattern.
-eq :: (Eq a, Show a) => a -> a -> Bool
-eq x y = if x == y then True else error $ "Found " ++ show y ++ ", expected "++ show x

@@ -1,4 +1,7 @@
-module Main where
+module Main
+    ( -- * Entry point to the program
+      main
+    ) where
 
 import           Absyn         ( emptyTyCtx  )
 import           Trace         ( Value, Type )

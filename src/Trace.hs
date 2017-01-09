@@ -1,4 +1,18 @@
-module Trace where
+module Trace
+    ( -- * Abstract syntax
+      Code(..), Exp(..), Match(..), Value(..), Type(..), Ctx, Trace
+
+    , Pattern(extract)
+
+      -- * Operators
+    , Op(..), evalOp
+
+      -- * Lables
+    , Lab, mkL, unlabel, erase_lab
+
+      -- * Free variables
+    , FVs(..)
+    ) where
 import Data.List(union, delete, (\\), intersperse,elem)
 
 import Env
@@ -139,9 +153,6 @@ data Exp = Var Var | Let Var Exp Exp
          | Trace Exp
          | TraceVar Exp Var
          | TraceUpd Exp Var Exp
-{-       | TraceVal Exp
-         | TraceReplay Exp
--}
 -- labels
          | Lab Exp Lab
          | EraseLab Exp Lab

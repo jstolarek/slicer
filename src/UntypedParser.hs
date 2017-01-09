@@ -1,6 +1,9 @@
 {-# LANGUAGE ViewPatterns, ScopedTypeVariables #-}
 
-module UntypedParser where
+module UntypedParser
+    ( -- * Parsing programs represented as strings
+      parseIn
+    ) where
 
 import Prelude hiding (exp)
 import Data.Char (isUpper,isLower)

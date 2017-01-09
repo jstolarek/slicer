@@ -1,4 +1,17 @@
-module Absyn where
+module Absyn
+    ( -- * Abstract syntax
+      Code(..), Con(..), Exp(..), Lab(..), Match(..), Type(..), Ctx
+
+      -- * Operators
+    , Op(..), opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opLt, opGt
+    , opIntNeq, opLeq, opGeq, opAnd, opOr
+
+      -- * Type declarations
+    , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName
+
+      -- * Type context
+    , TyCtx, emptyTyCtx
+    ) where
 
 import Env
 import Data.Maybe
@@ -24,36 +37,35 @@ opOr = O "||"
 opBoolEq = O "="
 
 
-newtype Lab = L {unL ::String} deriving (Show,Eq,Ord)
-newtype Con = C {unC ::String} deriving (Eq,Ord)
+newtype Lab = L String deriving (Show, Eq, Ord)
+newtype Con = C String deriving (Show, Eq, Ord)
 
-instance Show Con where
-   show = unC
+data Code = Rec    { fn    :: Var
+                   , args  :: [(Var,Type)]
+                   , ty    :: Maybe Type
+                   , body  :: Exp
+                   , label :: Maybe String}
 
-data Code = Rec {fn :: Var,
-                 args :: [(Var,Type)],
-                 ty :: Maybe Type ,
-                 body ::Exp,
-                 label::Maybe String}
-          | Lambda {args :: [(Var,Type)],
-                    body :: Exp,
-                    label :: Maybe String}
+          | Lambda { args  :: [(Var,Type)]
+                   , body  :: Exp
+                   , label :: Maybe String}
 
-           deriving (Eq,Show,Ord)
+           deriving (Show, Eq, Ord)
+
 data Match = Match (Map.Map Con ([Var], Exp))
-           deriving (Eq,Show,Ord)
+           deriving (Show, Eq, Ord)
 
 -- Synonym for a recursive type of the form rec alpha.tau1 + tau2 and its
 -- constructors.
-data TyDecl = TyDecl {
-   name :: TyVar,
-   constrs :: [(Con,[Type])]
-}
-   deriving (Eq, Show, Ord)
+data TyDecl = TyDecl
+    { name    :: TyVar
+    , constrs :: [(Con,[Type])]
+    } deriving (Show, Eq, Ord)
 
-data TyCtx = TyCtx {tydecls:: Map.Map TyVar TyDecl,
-                    constrmap:: Map.Map Con ([Type],TyVar)}
-             deriving (Show, Eq, Ord)
+data TyCtx = TyCtx
+    { tydecls   :: Map.Map TyVar TyDecl
+    , constrmap :: Map.Map Con ([Type],TyVar)
+    } deriving (Show, Eq, Ord)
 
 emptyTyCtx = TyCtx Map.empty Map.empty
 
@@ -90,14 +102,10 @@ data Exp = Var Var | Let Var Exp Exp
          | Trace Exp
          | TraceVar Exp Var
          | TraceUpd Exp Var Exp
-{-       | TraceVal Exp
-         | TraceReplay Exp
--}
--- labels, holes
+         -- labels, holes
          | Lab Exp Lab
          | EraseLab Exp Lab
          | Hole Type
-         -- toplevel commands
            deriving (Eq,Show,Ord)
 
 data Type = IntTy | BoolTy | UnitTy | StringTy
