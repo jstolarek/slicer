@@ -4,6 +4,10 @@ module UpperSemiLattice (
 
 import           Control.Exception.Base ( assert )
 
+-- | Defines an upper semilattice.  Note that the lub function (least upper
+-- bound, join) is partial, although this is not reflected in the type
+-- signature.  The way we use it ensures that it should only be called with
+-- arguments for which it is defined.
 class Eq a => UpperSemiLattice a where
     bot  :: a
     lub  :: a -> a -> a
