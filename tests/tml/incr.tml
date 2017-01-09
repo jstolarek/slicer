@@ -1,1 +1,1 @@
-(fun incr (n : int) (m: string) : intlist => n + 1) 0
+(fun incr (n : int) : int => n + 1) 0

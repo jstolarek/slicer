@@ -18,6 +18,7 @@ tests =
       , runTMLTest "example"
       , runTMLTest "filter"
       , runTMLTest "foo"
+      , runTMLTest "incr"
       , runTMLTest "map-increment-closed"
       , runTMLTest "map-increment"
       , runTMLTest "map"
