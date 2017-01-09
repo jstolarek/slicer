@@ -1,11 +1,25 @@
 module TraceGraph where
 
 import Trace
-import Data.GraphViz
 import Util
 
+import Data.GraphViz
+import Data.GraphViz.Attributes.Colors
+import Data.GraphViz.Attributes.Complete
+import Data.Text.Lazy(pack)
 
 data G a = G (Int -> DotGraph Int -> (Int,DotGraph Int,a))
+
+instance Functor G where
+    fmap f (G a) = G (\i g -> let (i', g', a') = a i g
+                              in (i', g', f a'))
+
+instance Applicative G where
+    pure a = G (\i -> \g -> (i,g,a))
+    (G f) <*> (G a) = G (\i g -> let (i' , g' , f') = f i g
+                                     (i'', g'', a') = a i' g'
+                                 in (i'', g'', f' a'))
+
 instance Monad G where
     return a = G (\i -> \g -> (i,g,a))
     (G(x)) >>= y =
@@ -30,28 +44,28 @@ node color lbl = gensym >>= \i ->
                  let n = DotNode i [FontSize 36.0,
                                     Shape BoxShape,
                                     Style [SItem Filled []],
-                                    FillColor color,
-                                    Label (StrLabel lbl)]
+                                    FillColor [WC color Nothing],
+                                    Label (StrLabel (pack lbl))]
                  in addNode n >> return i
 
 hole :: G Int
 hole = gensym >>= \i ->
        let n = DotNode i [FontSize 36.0,
                           Shape BoxShape,
-                          Label (StrLabel " ")]
+                          Label (StrLabel (pack " "))]
        in addNode n >> return i
 
 edge :: Int -> Int -> String -> G ()
-edge m m' lbl = addEdge (DotEdge m m' True [FontSize 24.0])
+edge m m' lbl = addEdge (DotEdge m m' [FontSize 24.0])
 
 oldedge :: Int -> Int -> String -> G ()
-oldedge m m' lbl = addEdge (DotEdge m m' True [FontSize 24.0,
-                                            Label (StrLabel lbl)])
+oldedge m m' lbl = addEdge (DotEdge m m' [FontSize 24.0,
+                                            Label (StrLabel (pack lbl))])
 
 
 --trace2gv :: [GlobalAttributes] -> Color -> Trace -> DotGraph Int
 trace2gv attrs node t = g
-    where g0 = DotGraph True True (Just (Str "G"))
+    where g0 = DotGraph True True (Just (Str (pack "G")))
                (DotStmts attrs [] [] [])
           G (f) = trace2gvG node edge t
           (_,g,_) = f 0 g0
@@ -152,7 +166,7 @@ trace2gvG node edge = traverse
 --traces2gv :: Attributes -> (Color,Color,Color) -> Trace -> Trace -> DotGraph Int
 traces2gv attrs (node, node1, node2) t1 t2 = g
 
-    where g0 = DotGraph True True (Just (Str "G"))
+    where g0 = DotGraph True True (Just (Str (pack "G")))
                  (DotStmts attrs [] [] [])
           G (f) = traces2gvG (node,node1,node2) edge t1 t2
           (_,g,_) = f 0 g0
@@ -269,7 +283,7 @@ traces2gvG (node,node1,node2) edge = traverse
 
 common_attrs = [GraphAttrs [RankDir FromTop,
                             Ratio (CompressRatio),
-                            Size (Point 7.5 10.0 Nothing False)]]
+                            Size (GSize 7.5 (Just 10.0) False)]]
 trace2gv_default t = trace2gv common_attrs (node (X11Color White)) t
 traces2gv_default t t' = traces2gv common_attrs (node (X11Color White),
                                        node (X11Color Gray),
@@ -277,20 +291,20 @@ traces2gv_default t t' = traces2gv common_attrs (node (X11Color White),
 
 cmd = Dot
 
-visualizePDF :: String -> Trace -> IO (Either String FilePath)
+visualizePDF :: String -> Trace -> IO FilePath
 visualizePDF fn t = runGraphvizCommand cmd (trace2gv_default t) Pdf fn
 
-visualizeSVG :: String -> Trace -> IO (Either String FilePath)
+visualizeSVG :: String -> Trace -> IO FilePath
 visualizeSVG fn t = runGraphvizCommand cmd  (trace2gv_default t) Svg fn
 
-visualize :: Trace -> IO RunResult
+visualize :: Trace -> IO ()
 visualize t = runGraphvizCanvas' (trace2gv_default t) Xlib
 
-visualize2PDF :: String -> Trace -> Trace -> IO (Either String FilePath)
+visualize2PDF :: String -> Trace -> Trace -> IO FilePath
 visualize2PDF fn t t' = runGraphvizCommand cmd (traces2gv_default t t') Pdf fn
 
-visualize2SVG :: String -> Trace -> Trace -> IO (Either String FilePath)
+visualize2SVG :: String -> Trace -> Trace -> IO FilePath
 visualize2SVG fn t t' = runGraphvizCommand cmd (traces2gv_default t t') Svg fn
 
-visualize2 :: Trace -> Trace -> IO RunResult
+visualize2 :: Trace -> Trace -> IO ()
 visualize2 t t' = runGraphvizCanvas' (traces2gv_default t t') Xlib

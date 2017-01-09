@@ -4,7 +4,7 @@ import Env
 import Util
 import Trace
 import LowerSemiLattice
-import List(elem,find)
+import Data.List(elem,find)
 import qualified Data.Map as M
 import qualified Absyn as A
 
@@ -12,10 +12,10 @@ import qualified Absyn as A
 
 
 
-intBinOp s = List.elem s ["+","-","*","/","mod"]
+intBinOp s = s `elem`["+","-","*","/","mod"]
 
-intBinRel s = List.elem s ["=","<",">"]
-boolBinOp s = List.elem s ["&&","||","="]
+intBinRel s = s `elem` ["=","<",">"]
+boolBinOp s = s `elem` ["&&","||","="]
 boolUnOp s = s == "not"
 
 -- Assuming that op name + argument types determines the op result type.

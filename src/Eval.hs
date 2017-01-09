@@ -5,7 +5,6 @@ import Control.Exception
 import Env
 import LowerSemiLattice
 import Trace
-import PrettyPrinting
 import Annot
 import Slice(bslice,pslice)
 import TraceGraph

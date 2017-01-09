@@ -1,11 +1,11 @@
 module Trace where
-import List(union, delete, (\\), intersperse,elem)
+import Data.List(union, delete, (\\), intersperse,elem)
 
 import Env
 import LowerSemiLattice
 import Data.Map as Map (Map, fromList, mapWithKey,keys, (!))
 import Data.Int
-import Data.HashTable(hashString)
+import qualified Data.Hashable as H (hash)
 import Text.PrettyPrint
 import Util
 
@@ -77,7 +77,7 @@ instance PP Type where
 type Ctx = Env Type
 
 
-data Lab = L {unL ::String, hash::Int32}
+data Lab = L {unL ::String, hash::Int}
 
 instance Eq Lab where
     l1 == l2 = hash l1 == hash l2
@@ -92,7 +92,7 @@ instance Ord Lab where
                                     o -> o
 
 mkL :: String -> Lab
-mkL s = L s (hashString s)
+mkL s = L s (H.hash s)
 
 data Op = O String [Type] Type deriving (Show,Eq,Ord)
 
@@ -651,6 +651,6 @@ evalOp :: Op -> [Value] -> Value
 evalOp f [VInt i, VInt j] = evalIntBinop f i j
 evalOp f [VBool i, VBool j] = evalBoolBinop f i j
 evalOp (O "not" _ _) [VBool b] = VBool (not b)
-evalOp f vs | List.elem VHole vs = VHole
-evalOp f vs | List.elem VStar vs = VStar
+evalOp f vs | VHole `elem` vs = VHole
+evalOp f vs | VStar `elem` vs = VStar
 evalOp f vs = error ("Op "++show f++ " not defined for "++ show vs)

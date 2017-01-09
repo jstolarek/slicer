@@ -3,7 +3,7 @@ module Annot where
 import Util
 import Text.PrettyPrint ((<>),parens,hcat, punctuate,braces,comma, text,(<+>),int)
 import Trace
-import List(union)
+import Data.List(union)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.Traversable as T
@@ -158,6 +158,17 @@ instance LowerSemiLattice a => LowerSemiLattice (RValue a) where
 
 
 newtype Gensym a = G {unG :: Int -> (a,Int)}
+
+instance Functor Gensym where
+    fmap f (G x) = G (\s -> let (x', s') = x s
+                            in (f x', s'))
+
+
+instance Applicative Gensym where
+    pure a = G (\i -> (a,i))
+    (G f) <*> (G x) = G (\s -> let (f', s' ) = f s
+                                   (x', s'') = x s'
+                               in (f' x', s''))
 
 instance Monad Gensym where
     return a = G (\i -> (a,i))
