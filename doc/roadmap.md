@@ -34,9 +34,4 @@ TODOs
       * perhaps convert Slicer to a library?  This could perhaps allow to avoid
         double compilation?
 
-  * it seems that functionality in Util module can be implemented differently
-    and the whole module can then be removed:
-
-    * move PP class and sb function into PrettyPrinting module
-
   * Separate the code into library and executable?
