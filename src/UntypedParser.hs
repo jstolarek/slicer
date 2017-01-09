@@ -116,10 +116,10 @@ var_ = do t <-  identifier token_
 -- constructors start with upper case
 constr :: CharParser st Con
 constr = do t@(a:_) <- identifier token_
-            if isUpper a 
+            if isUpper a
                then return (C t)
                else pzero
- 
+
 tyVar :: CharParser st TyVar
 tyVar = return . TV =<< identifier token_
 
@@ -130,16 +130,16 @@ typeAnnotation :: Parser Type
 typeAnnotation = colon token_ >> type_
 
 token_ :: TokenParser a
-token_ = 
+token_ =
    makeTokenParser haskellDef {
-      -- Use Haskell tokeniser, but reserve our own keywords. We don't allow explicit rolls, 
+      -- Use Haskell tokeniser, but reserve our own keywords. We don't allow explicit rolls,
       -- unrolls, inls or inrs in the concrete syntax, but we still reserve them as keywords.
-      reservedNames = 
-         [strBool, strCase, strData, strElse, strFalse, strFst, strFun, strIf, strIn, strInL, 
-          strInR, strInt, strLet, strOf, strRoll, strSnd, strThen, strTrue, strUnit, strUnroll, 
-          strWith, strTrace, strVal,strReplay, strSlice, strPSlice, strAs, strVar, strUpdate, 
-          strVisualize, strVisualize2, strProfile, strTreesize,strProfile2, strWhere, strDep, 
-          strExpr] 
+      reservedNames =
+         [strBool, strCase, strData, strElse, strFalse, strFst, strFun, strIf, strIn, strInL,
+          strInR, strInt, strLet, strOf, strRoll, strSnd, strThen, strTrue, strUnit, strUnroll,
+          strWith, strTrace, strVal,strReplay, strSlice, strPSlice, strAs, strVar, strUpdate,
+          strVisualize, strVisualize2, strProfile, strTreesize,strProfile2, strWhere, strDep,
+          strExpr]
    }
 
 type_ :: Parser Type
@@ -176,45 +176,45 @@ simpleType = bool <|> int <|> string <|> unit <|> typeVar <|> traceType <|> pare
       typeVar = tyVar >>= return . TyVar
 
       traceType = do keyword strTrace
-                     ctx <- parenthesise context 
-                     ty <- simpleType 
+                     ctx <- parenthesise context
+                     ty <- simpleType
                      return (TraceTy ctx ty)
 
       parensType :: Parser Type
-      parensType = parenthesise type_            
+      parensType = parenthesise type_
 
 typeOp :: String -> (Type -> Type -> Type) -> CharParser st (Type -> Type -> Type)
 typeOp str op = reservedOp token_ str >> return op
-         
--- An exp is an operator tree. An operator tree is a tree whose branches are 
+
+-- An exp is an operator tree. An operator tree is a tree whose branches are
 -- binary primitives and whose leaves are application chains. An application chain
 -- is a left-associative tree of simple exps. A simple exp is any exp other
 -- than an operator tree or an application chain.
 exp :: Parser (Exp)
-exp = 
+exp =
    flip buildExpressionParser appChain [
       -- each element of the _outermost_ list corresponds to a precedence level (highest first).
-      [Infix (binaryOp strTimes opTimes) AssocLeft, Infix (binaryOp strDiv opDiv) AssocLeft], 
-      [Infix (binaryOp strMinus opMinus) AssocLeft, 
+      [Infix (binaryOp strTimes opTimes) AssocLeft, Infix (binaryOp strDiv opDiv) AssocLeft],
+      [Infix (binaryOp strMinus opMinus) AssocLeft,
        Infix (binaryOp strPlus opPlus) AssocLeft],
       [Infix (binaryOp strAnd opAnd) AssocLeft],
       [Infix (binaryOp strOr opOr) AssocLeft],
-      [Infix (binaryOp strEq opIntEq) AssocRight, 
-       Infix (binaryOp strLt opLt) AssocRight, 
+      [Infix (binaryOp strEq opIntEq) AssocRight,
+       Infix (binaryOp strLt opLt) AssocRight,
        Infix (binaryOp strGt opGt) AssocRight,
-       Infix (binaryOp strEq opIntNeq) AssocRight, 
-       Infix (binaryOp strLt opLeq) AssocRight, 
+       Infix (binaryOp strEq opIntNeq) AssocRight,
+       Infix (binaryOp strLt opLeq) AssocRight,
        Infix (binaryOp strGt opGeq) AssocRight]
    ]
 
 appChain :: Parser (Exp)
-appChain = 
-   chainl1 simpleExp $ return $ 
+appChain =
+   chainl1 simpleExp $ return $
    \e1 e2 -> (App e1 e2)
 
 simpleExp :: Parser (Exp)
-simpleExp = 
-   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|> try var <|> fun 
+simpleExp =
+   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|> try var <|> fun
    <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|> snd_ <|> case_ <|> hole
    <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|> traceval_ <|> tracevar_ <|> traceupd_
    <|> visualize <|> visualize2 <|> profile_ <|> profile2_ <|> treesize_
@@ -222,8 +222,8 @@ simpleExp =
 
 
 binaryOp :: String -> Op -> Parser ((Exp) -> (Exp) -> (Exp))
-binaryOp str op@(O _) = 
-   reservedOp token_ str >> 
+binaryOp str op@(O _) =
+   reservedOp token_ str >>
    (return $ \(e1) (e2) -> (Op op [e1, e2]))
 
 hole :: Parser (Exp)
@@ -238,22 +238,22 @@ var :: Parser (Exp)
 var = do
    x <- var_
    return (Var x)
-                                                                    
+
 ctr :: Parser (Exp)
-ctr = do c <- constr 
+ctr = do c <- constr
          e <- option Unit exp
          return (Con c [e])
- 
+
 int :: Parser (Exp)
-int = do 
+int = do
    n <- integer token_
    return (CInt $ fromIntegral n)
-      
+
 string_ :: Parser (Exp)
-string_ = do 
+string_ = do
   s <- stringLiteral token_
   return (CString $ s)
-      
+
 true :: Parser (Exp)
 true = keyword strTrue >> return (CBool True)
 
@@ -291,12 +291,12 @@ pair = parenthesise $ do
    comma token_
    e2 <- exp
    return (Pair e1 e2)
-   
+
 fst_ :: Parser (Exp)
 fst_ = do
    e <- keyword strFst >> exp
    return (Fst e)
-   
+
 snd_ :: Parser (Exp)
 snd_ = do
    e <- keyword strSnd >> exp
@@ -304,40 +304,40 @@ snd_ = do
 
 case_ :: Parser (Exp)
 case_ = do
-  keyword strCase 
+  keyword strCase
   e <- exp
-  keyword strOf 
+  keyword strOf
   m <- matches
   return (Case e m)
 
-matches :: Parser (Match) 
+matches :: Parser (Match)
 matches = do ms <- semiSep token_ match
              return (Match (Map.fromList ms))
-    where match :: Parser (Con,([Var],Exp)) = 
-                   do c <- constr 
+    where match :: Parser (Con,([Var],Exp)) =
+                   do c <- constr
                       vs <- option [bot]  -- TODO: Empty list for nullary ctors
-                            ((var_ >>= \v -> return [v])  
+                            ((var_ >>= \v -> return [v])
                              <|> parenthesise (commaSep token_ var_))
                       reservedOp token_ strCaseClauseSep
                       e <- exp
-                      return (c,(vs,e)) 
+                      return (c,(vs,e))
 
 typeDef :: Parser (TyVar, TyDecl)
 typeDef = do
-   alpha <- keyword strData >> tyVar 
+   alpha <- keyword strData >> tyVar
    equals
    -- Assume all datatypes are binary for now :-/
    (con1,ty1) <- constrDef
    (con2,ty2) <- symbol token_ "|" >> constrDef
    let decl = TyDecl alpha [(con1,[ty1]), (con2,[ty2])]
    updateState (\tyctx -> addTyDecl tyctx decl)
-   return (alpha,decl) -- TODO: generalize 
+   return (alpha,decl) -- TODO: generalize
    where
       constrDef :: Parser (Con, Type)
       constrDef = do
          c <- constr
          tau <- option UnitTy type_
-         return (c, tau)   
+         return (c, tau)
 
 trace_ :: Parser (Exp)
 trace_ = do
@@ -376,7 +376,7 @@ profile2_ = do
 
 visualize :: Parser (Exp)
 visualize = do
-   keyword strVisualize 
+   keyword strVisualize
    parenthesise $ do e1 <- exp
                      comma token_
                      e2 <- exp
@@ -407,7 +407,7 @@ tracevar_ = do
 
 traceupd_ :: Parser (Exp)
 traceupd_ = do
-   keyword strUpdate 
+   keyword strUpdate
    e1 <- exp
    keyword strWith
    x <- var_
@@ -428,7 +428,7 @@ slice_ = do keyword strSlice
                           e2 <- exp
                           return (e1,e2)
             return (Op (O "slice") [e1,e2])
-   
+
 
 pslice_ :: Parser (Exp)
 pslice_ = do keyword strPSlice
@@ -438,16 +438,16 @@ pslice_ = do keyword strPSlice
                            e2 <- exp
                            return (e1,e2)
              return (Op (O "pslice") [e1,e2])
-   
+
 support :: Parser Ctx
 support = option (emptyEnv) $ do
    keyword strWith
    ctx <- context
-   keyword strIn 
+   keyword strIn
    return ctx
 
 
--- A type context, a variable context in that type context, and then an expression in that 
+-- A type context, a variable context in that type context, and then an expression in that
 -- variable context.
 program :: Parser (TyCtx,Ctx,Exp)
 program = do
@@ -455,5 +455,5 @@ program = do
    gamma <- support
    e <- exp
    eof
-   (tyCtx') <- getState 
+   (tyCtx') <- getState
    return (tyCtx', gamma, e)

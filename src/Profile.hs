@@ -13,8 +13,8 @@ empty = Profile Map.empty
 singleton k i = Profile (Map.singleton k i)
 merge (Profile p1) (Profile p2) = Profile (Map.unionWith (+) p1 p2)
 merges ps = Profile (Map.unionsWith (+) (map unProfile ps))
-diff (Profile p1) (Profile p2) 
-    = Profile (Map.differenceWith 
+diff (Profile p1) (Profile p2)
+    = Profile (Map.differenceWith
                (\x y -> if y < x then Just (x - y) else Nothing) p1 p2)
 
 incr (Profile p) x = Profile (Map.update (\x -> Just (x + 1)) x p)
@@ -31,7 +31,7 @@ profile t = profiles' (to_tree t)
           profile' (TFalse t t2) = profiles' (t ++ t2)
           profile' (TInL t t1) = profiles' (t ++ t1)
           profile' (TInR t t2) = profiles' (t ++ t2)
-          profile' (TCall k t1 t2 t) = 
+          profile' (TCall k t1 t2 t) =
               let m = case label k
                       of Nothing -> empty
                          Just lbl -> singleton lbl 1
@@ -51,9 +51,9 @@ fastprofile t mu = fastprofiles' (to_tree t) mu
           fastprofile' (TFalse t t2) mu = fastprofiles' t (fastprofiles' t2 mu)
           fastprofile' (TInL t t1) mu = fastprofiles' t (fastprofiles' t1 mu)
           fastprofile' (TInR t t2) mu = fastprofiles' t (fastprofiles' t2 mu)
-          fastprofile' (TCall k t1 t2 t) mu = 
+          fastprofile' (TCall k t1 t2 t) mu =
               let mu' = (fastprofiles' t . fastprofiles' t1 . fastprofiles' t2) mu
-              in 
+              in
               case label k
               of Nothing -> mu'
                  Just lbl -> incr mu' lbl
@@ -67,7 +67,7 @@ profile2 t = profiles' (mkL "_root") (to_tree t)
           profile' parent (TFalse t t2) = profiles' parent (t ++ t2)
           profile' parent (TInL t t1) = profiles' parent (t ++ t1)
           profile' parent (TInR t t2) = profiles' parent (t ++ t2)
-          profile' parent (TCall k t1 t2 t) = 
+          profile' parent (TCall k t1 t2 t) =
               let (lbl,m) = case label k
                       of Nothing -> (parent,empty)
                          Just lbl' -> (lbl',singleton (parent,lbl') 1)
@@ -93,9 +93,9 @@ profile (Unroll e) = (profile e)
 --traces
 profile (CaseL t m x t1) = (profile t) `merge` (profile t1)
 profile (CaseR t m x t2) = profile t `merge` profile t2
-profile (IfThen t e1 e2 t1) = (profile t) `merge` (profile t1) 
+profile (IfThen t e1 e2 t1) = (profile t) `merge` (profile t1)
 profile (IfElse t e1 e2 t2) = (profile t) `merge` (profile t2)
-profile (Call t1 t2 k t) 
+profile (Call t1 t2 k t)
     = let m = case label k
               of Nothing -> empty
                  Just lbl -> singleton lbl 1

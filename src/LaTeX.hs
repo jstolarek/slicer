@@ -23,7 +23,7 @@ testFolder :: FilePath
 testFolder = "Test//"
 
 reportAll :: String -> [Figure] -> IO ()
-reportAll testName reports = 
+reportAll testName reports =
    mapM_ (report testName) $ zip reports $ iterate (+1) 1
 
 report :: String -> (Figure, Integer) -> IO ()
@@ -39,11 +39,11 @@ report testName (fig, n) =
       writeFigure n file fig label = do
          let tag = show $ figTag $ contents fig
          let overlayRoot = file ++ "-overlay"
-         writeFile (testFolder ++ file ++ ".tex") $ 
-            "\\begin{" ++ tag ++ "}\n" ++ 
+         writeFile (testFolder ++ file ++ ".tex") $
+            "\\begin{" ++ tag ++ "}\n" ++
             (if figType fig == ContinueFig then "\\ContinuedFloat\n" else "") ++
             (showContents overlayRoot $ contents fig) ++ "\n" ++
-            "\\vspace{-8pt}\n" ++ captionTag ("[" ++ testName ++ "] " ++ caption fig) ++ 
+            "\\vspace{-8pt}\n" ++ captionTag ("[" ++ testName ++ "] " ++ caption fig) ++
             "\\label{fig:" ++ label ++ "}\n" ++
             "\\end{" ++ tag ++ "}\n"
 
@@ -60,7 +60,7 @@ data Figure = Figure {
 data FigType = ContinueFig | NewFig
    deriving Eq
 
-data FigContents = 
+data FigContents =
    SingleFig FigText |
    DoubleFig FigText FigText |          -- side-by-side, shared caption
    SubFigs FigTag [(String, FigText)]   -- bunch of subfigs, individual captions (plus shared caption)
@@ -84,51 +84,51 @@ figTag (SingleFig _) = Fig
 figTag (DoubleFig _ _) = FigStar
 figTag (SubFigs figTag _) = figTag
 
-data FigText = 
-   forall a . PP a => Pretty a |   
+data FigText =
+   forall a . PP a => Pretty a |
    Plain String
 
 style_ :: Style
 style_ = Style PageMode 115 1.5
 
 showSubfig :: FilePath -> (Integer, FigText) -> String
-showSubfig overlayRoot (n, text) = 
-   (if withOverlays then inputFile (overlay overlayRoot n) else id) $ 
+showSubfig overlayRoot (n, text) =
+   (if withOverlays then inputFile (overlay overlayRoot n) else id) $
    verbatim $ case text of
       Plain str -> str
       Pretty a -> renderStyle style_ $ pp a
 
 -- Prepend a LaTeX "input" of a file.
 inputFile :: FilePath -> String -> String
-inputFile file = 
+inputFile file =
    (("\\input{" ++ file ++ "}\n") ++)
 
 -- An overlay root pathname, augmented with an index and file extension.
 overlay :: FilePath -> Integer -> String
-overlay overlayRoot n = 
+overlay overlayRoot n =
    overlayRoot ++ "-" ++ show n ++ ".tex"
 
 showContents :: FilePath -> FigContents -> String
-showContents overlayRoot contents = 
+showContents overlayRoot contents =
    case contents of
-      SingleFig _ -> 
+      SingleFig _ ->
          showSubfig overlayRoot $ (subfigs contents)!!0
-      DoubleFig _ _ -> 
-         columnise ((subfigs contents)!!0) False ++ 
+      DoubleFig _ _ ->
+         columnise ((subfigs contents)!!0) False ++
          columnise ((subfigs contents)!!1) False
-      SubFigs figTag texts -> 
+      SubFigs figTag texts ->
          concatMap (subFloat $ figTag == Fig) $ zip (fst $ unzip texts) $ subfigs contents
    where
       columnise :: (Integer, FigText) -> Bool -> String
-      columnise (n, text) hrule = 
+      columnise (n, text) hrule =
          -- I haven't tested this overlay hackery beyond two minipages...
          (if forBeamer then onslide (show n ++ "-") "" else "") ++
-         "\\begin{minipage}[t]{0.5\\textwidth}\n" ++ 
-         showSubfig overlayRoot (n, text) ++            
+         "\\begin{minipage}[t]{0.5\\textwidth}\n" ++
+         showSubfig overlayRoot (n, text) ++
          (if hrule then "\\hrule\n" else "") ++
          "\\end{minipage}%\n"
       subFloat :: Bool -> (String, (Integer, FigText)) -> String
-      subFloat hrule (caption, (n, text)) = 
+      subFloat hrule (caption, (n, text)) =
          "\\begin{SubFloat}{" ++ caption ++ "}\n" ++
          columnise (n, text) hrule ++
          "\\end{SubFloat}\n\\vspace{4pt}\n"
@@ -144,6 +144,6 @@ onslide overlaySpec str =
 verbatim :: String -> String
 verbatim str =
    (if forBeamer then "\\vspace{5pt}\n" else "") ++
-   "{\\tiny\n\\begin{Verbatim}[commandchars=\\\\\\{\\},codes={\\catcode`$=3\\catcode`^=7}]\n" ++ 
+   "{\\tiny\n\\begin{Verbatim}[commandchars=\\\\\\{\\},codes={\\catcode`$=3\\catcode`^=7}]\n" ++
    str ++ "\n\n" ++
    "\\end{Verbatim}\n%$\n}\n"

@@ -13,63 +13,63 @@ bslice p (Var x) = (Var x, singletonEnv x p)
 bslice p Unit = (Unit, bot)
 bslice p (CBool b) = (CBool b, bot)
 bslice p (CInt i) = (CInt i, bot)
-bslice (VClosure k env) (Fun k') 
+bslice (VClosure k env) (Fun k')
     = (Fun k, env) -- assumes k <= k'
-bslice (VStar) (Fun k) 
+bslice (VStar) (Fun k)
     = (Fun k, constEnv (fvs k) VStar)
-bslice p2 (Let x t1 t2) 
+bslice p2 (Let x t1 t2)
     = let (t2',rho2) = bslice p2 t2
           p1 = lookupEnv' rho2 x
-          rho2' = unbindEnv rho2 x 
+          rho2' = unbindEnv rho2 x
           (t1',rho1) = bslice p1 t1
       in (Let x t1' t2', rho1 `lub` rho2')
-bslice p (Op f ts) 
-    = let (ts', rhos) = unzip (map (\t -> bslice VStar t) ts) 
+bslice p (Op f ts)
+    = let (ts', rhos) = unzip (map (\t -> bslice VStar t) ts)
       in (Op f ts', foldl lub bot rhos)
-bslice (VPair p1 p2) (Pair t1 t2) 
+bslice (VPair p1 p2) (Pair t1 t2)
     = let (t1',rho1) = bslice p1 t1
           (t2',rho2) = bslice p2 t2
       in (Pair t1' t2', rho1 `lub` rho2)
-bslice VStar (Pair t1 t2) 
+bslice VStar (Pair t1 t2)
     = let (t1',rho1) = bslice VStar t1
           (t2',rho2) = bslice VStar t2
       in (Pair t1' t2', rho1 `lub` rho2)
-bslice p (Fst t) 
+bslice p (Fst t)
     = let (t',rho) = bslice (VPair p bot) t
       in (Fst t', rho)
-bslice p (Snd t) 
+bslice p (Snd t)
     = let (t',rho) = bslice (VPair bot p) t
       in (Snd t', rho)
-bslice (VInL p) (InL t) 
+bslice (VInL p) (InL t)
     = let (t',rho) = bslice p t
       in (InL t',rho)
-bslice VStar (InL t) 
+bslice VStar (InL t)
     = let (t',rho) = bslice VStar t
       in (InL t',rho)
-bslice (VInR p) (InR t) 
+bslice (VInR p) (InR t)
     = let (t', rho) = bslice p t
       in (InR t', rho)
 bslice VStar (InR t)
     = let (t', rho) = bslice VStar t
       in (InR t', rho)
-bslice p1 (IfThen t e1 e2 t1) 
+bslice p1 (IfThen t e1 e2 t1)
     = let (t1',rho1) = bslice p1 t1
           (t',rho) = bslice VStar t
       in (IfThen t' e1 e2 t1', rho `lub` rho1)
-bslice p2 (IfElse t e1 e2 t2) 
+bslice p2 (IfElse t e1 e2 t2)
     = let (t2',rho2) = bslice p2 t2
           (t',rho) = bslice VStar t
       in (IfElse t' e1 e2 t2', rho `lub` rho2)
-bslice p1 (CaseL t m x t1) 
+bslice p1 (CaseL t m x t1)
     = let (t1',rho1) = bslice p1 t1
           p = lookupEnv' rho1 x
-          rho1' = unbindEnv rho1 x 
+          rho1' = unbindEnv rho1 x
           (t',rho) = bslice (VInL p) t
       in (CaseL t' m x t1', rho `lub` rho1')
-bslice p2 (CaseR t m x t2)   
+bslice p2 (CaseR t m x t2)
     = let (t2',rho2) = bslice p2 t2
           p = lookupEnv' rho2 x
-          rho2' = unbindEnv rho2 x 
+          rho2' = unbindEnv rho2 x
           (t',rho) = bslice (VInR p) t
       in (CaseR t' m x t2', rho `lub` rho2')
 bslice p (Call t1 t2 k t)
@@ -84,18 +84,18 @@ bslice p (Call t1 t2 k t)
           (t1', rho1) = bslice (p1 `lub` VClosure k0 rho0) t1
           (t2', rho2) = bslice p2 t2
       in (Call t1' t2' k (Rec f x t' Nothing), rho1 `lub` rho2)
-bslice (VRoll tv p) (Roll tv' t)     
+bslice (VRoll tv p) (Roll tv' t)
     | tv == tv'
     = let (t',rho) = bslice p t
       in (Roll tv' t', rho)
-bslice VStar (Roll tv t)         
+bslice VStar (Roll tv t)
     = let (t',rho) = bslice VStar t
       in (Roll tv t', rho)
-bslice p (Unroll tv t)         
+bslice p (Unroll tv t)
     = let (t',rho) = bslice (VRoll tv p) t
       in (Unroll tv t', rho)
 bslice p x = error $ show x
-                                 
+
 
 
 pslice :: Value -> Trace -> (Exp, Env Value)
@@ -104,63 +104,63 @@ pslice p (Var x) = (Var x, singletonEnv x p)
 pslice p Unit = (Unit, bot)
 pslice p (CBool b) = (CBool b, bot)
 pslice p (CInt i) = (CInt i, bot)
-pslice (VClosure k env) (Fun k') 
+pslice (VClosure k env) (Fun k')
     = (Fun k, env) -- assumes k <= k'
-pslice (VStar) (Fun k) 
+pslice (VStar) (Fun k)
     = (Fun k, constEnv (fvs k) VStar)
-pslice p2 (Let x t1 t2) 
+pslice p2 (Let x t1 t2)
     = let (t2',rho2) = pslice p2 t2
           p1 = lookupEnv' rho2 x
-          rho2' = unbindEnv rho2 x 
+          rho2' = unbindEnv rho2 x
           (t1',rho1) = pslice p1 t1
       in (Let x t1' t2', rho1 `lub` rho2')
-pslice p (Op f ts) 
-    = let (ts', rhos) = unzip (map (\t -> pslice VStar t) ts) 
+pslice p (Op f ts)
+    = let (ts', rhos) = unzip (map (\t -> pslice VStar t) ts)
       in (Op f ts', foldl lub bot rhos)
-pslice (VPair p1 p2) (Pair t1 t2) 
+pslice (VPair p1 p2) (Pair t1 t2)
     = let (t1',rho1) = pslice p1 t1
           (t2',rho2) = pslice p2 t2
       in (Pair t1' t2', rho1 `lub` rho2)
-pslice VStar (Pair t1 t2) 
+pslice VStar (Pair t1 t2)
     = let (t1',rho1) = pslice VStar t1
           (t2',rho2) = pslice VStar t2
       in (Pair t1' t2', rho1 `lub` rho2)
-pslice p (Fst t) 
+pslice p (Fst t)
     = let (t',rho) = pslice (VPair p bot) t
       in (Fst t', rho)
-pslice p (Snd t) 
+pslice p (Snd t)
     = let (t',rho) = pslice (VPair bot p) t
       in (Snd t', rho)
-pslice (VInL p) (InL t) 
+pslice (VInL p) (InL t)
     = let (t',rho) = pslice p t
       in (InL t',rho)
-pslice VStar (InL t) 
+pslice VStar (InL t)
     = let (t',rho) = pslice VStar t
       in (InL t',rho)
-pslice (VInR p) (InR t) 
+pslice (VInR p) (InR t)
     = let (t', rho) = pslice p t
       in (InR t', rho)
 pslice VStar (InR t)
     = let (t', rho) = pslice VStar t
       in (InR t', rho)
-pslice p1 (IfThen t e1 e2 t1) 
+pslice p1 (IfThen t e1 e2 t1)
     = let (e1,rho1) = pslice p1 t1
           (e,rho) = pslice VStar t
       in (If e e1 Hole, rho `lub` rho1)
-pslice p2 (IfElse t e1 e2 t2) 
+pslice p2 (IfElse t e1 e2 t2)
     = let (e2,rho2) = pslice p2 t2
           (e,rho) = pslice VStar t
       in (If e Hole e2, rho `lub` rho2)
-pslice p1 (CaseL t m x t1) 
+pslice p1 (CaseL t m x t1)
     = let (e1,rho1) = pslice p1 t1
           p = lookupEnv' rho1 x
-          rho1' = unbindEnv rho1 x 
+          rho1' = unbindEnv rho1 x
           (e,rho) = pslice (VInL p) t
       in (Case e (Match (x,e1) (bot,bot)), rho `lub` rho1')
-pslice p2 (CaseR t m x t2)   
+pslice p2 (CaseR t m x t2)
     = let (e2,rho2) = pslice p2 t2
           p = lookupEnv' rho2 x
-          rho2' = unbindEnv rho2 x 
+          rho2' = unbindEnv rho2 x
           (e,rho) = pslice (VInR p) t
       in (Case e (Match (bot,bot) (x,e2)), rho `lub` rho2')
 pslice p (Call t1 t2 k t)
@@ -174,17 +174,17 @@ pslice p (Call t1 t2 k t)
           (e1, rho1) = pslice (p1 `lub` VClosure k0 rho0) t1
           (e2, rho2) = pslice p2 t2
       in (App e1 e2, rho1 `lub` rho2)
-pslice (VRoll tv p) (Roll tv' t)     
+pslice (VRoll tv p) (Roll tv' t)
     | tv == tv'
     = let (t',rho) = pslice p t
       in (Roll tv' t', rho)
-pslice VStar (Roll tv' t)         
+pslice VStar (Roll tv' t)
     = let (t',rho) = pslice VStar t
       in (Roll tv' t', rho)
-pslice p (Unroll tv t)         
+pslice p (Unroll tv t)
     = let (t',rho) = pslice (VRoll tv p) t
       in (Unroll tv t', rho)
-               
+
 -- unevaluation.  Squash trace back down into expression.
 
 uneval :: Trace -> Exp

@@ -15,18 +15,18 @@ type CompactTrace = [Choice]
 
 
 
-unparse :: Trace -> CompactTrace 
+unparse :: Trace -> CompactTrace
 unparse (Var x')  = []
-unparse (Let x' t1 t2)  
+unparse (Let x' t1 t2)
     = unparse t1 ++ unparse t2
 unparse Unit = []
 unparse (CBool b') = []
 unparse (IfThen t _ _ t1) = [CTrue] ++ unparse t ++ unparse t1
 unparse (IfElse t _ _ t2) = [CFalse] ++ unparse t ++ unparse t2
 unparse (CInt i') = []
-unparse (Op f' ts) 
+unparse (Op f' ts)
     = concat (map unparse ts)
-unparse (Pair t1 t2) 
+unparse (Pair t1 t2)
     = unparse t1 ++ unparse t2
 unparse (Fst t) = unparse t
 unparse (Snd t) = unparse t
@@ -34,10 +34,10 @@ unparse (InL t) = unparse t
 unparse (InR t) = unparse t
 unparse (CaseL t m x t1)
     = [CInL] ++ unparse t ++ unparse t1
-unparse (CaseR t m y' t2) 
+unparse (CaseR t m y' t2)
     = [CInR] ++ unparse t ++ unparse t2
 unparse (Fun k') = []
-unparse (Call t1 t2 k t) 
+unparse (Call t1 t2 k t)
     = [CClosure k] ++ unparse t1 ++ unparse t2 ++ unparse (body t)
 unparse (Roll _ t) = unparse t
 unparse (Unroll _ t) = unparse t
@@ -51,8 +51,8 @@ parse (Let x e1 e2)  = do t1 <- parse e1
                           return (Let x t1 t2)
 parse Unit = return Unit
 parse (CBool b) = return (CBool b)
-parse (If e e1 e2) 
-    = do c <- fetch 
+parse (If e e1 e2)
+    = do c <- fetch
          case c of CTrue -> do t <- parse e
                                t1 <- parse e1
                                return (IfThen t e1 e2 t1)
@@ -73,9 +73,9 @@ parse (InL e) = do t <- parse e
                    return (InL t)
 parse (InR e) = do t <- parse e
                    return (InR t)
-parse (Case e m) 
+parse (Case e m)
     = let (Match (x,e1) (y,e2)) = m
-      in do c <- fetch 
+      in do c <- fetch
             case c of CInL -> do t <- parse e
                                  t1 <- parse e1
                                  return (CaseL t m x t1)
@@ -89,13 +89,12 @@ parse (App e1 e2)
          t2 <- parse e2
          t <- parse (body k)
          return (Call t1 t2 k (Rec (fn k) (arg k) t Nothing))
-parse (Roll tv e) = do t <- parse e 
+parse (Roll tv e) = do t <- parse e
                        return (Roll tv t)
-parse (Unroll tv e) = do t <- parse e 
+parse (Unroll tv e) = do t <- parse e
                          return (Unroll tv t)
 
 parse' :: Exp -> CompactTrace -> Trace
-parse' e cs = let P f = parse e 
-                  (t,[]) = f cs 
+parse' e cs = let P f = parse e
+                  (t,[]) = f cs
               in t
-                 

@@ -8,7 +8,7 @@ instance Monad (P s) where
     return a = P (\s -> (a,s))
     (P x) >>= f = P (\s -> let (a,s') = x s in unP (f a) s')
 
-fetch :: P [a] a 
+fetch :: P [a] a
 fetch = P (\(x:xs) -> (x,xs))
 
 

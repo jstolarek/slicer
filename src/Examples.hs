@@ -29,11 +29,11 @@ vmap =  (V "map")
 vfilter = (V "filter")
 
 fact = Fun (Rec vfact vx
-            (If (Op opIntEq [Var vx, (CInt 0)]) 
+            (If (Op opIntEq [Var vx, (CInt 0)])
                 (--then
                  (CInt 1)
                  )
-                (--else 
+                (--else
                  (Op opTimes [Var vx, App (Var vfact) (Op opMinus [Var vx, (CInt 1)])])
                 )
             )
@@ -44,11 +44,11 @@ e1 = (Pair (App fact (Var vx)) (CInt 1))
 
 (v1,t1) = trace (Env [(V "x", VInt 5)]) e1
 
-ifthenelse = If (Op opIntEq [Var vx, CInt 42]) 
+ifthenelse = If (Op opIntEq [Var vx, CInt 42])
                 (--then
                  (CBool True)
                  )
-                (--else 
+                (--else
                  (CBool False)
                 )
 
@@ -58,7 +58,7 @@ e2 = ifthenelse
 
 tv_intlist = TV "intlist"
 
-tyCtx = A.addTyDecl A.emptyTyCtx $ 
+tyCtx = A.addTyDecl A.emptyTyCtx $
         A.TyDecl tv_intlist $ [(A.C "Nil", [A.UnitTy]), (A.C "Cons", [A.IntTy, A.TyVar tv_intlist])]
 
 instance Valuable [Int] where
@@ -80,20 +80,20 @@ case_list l nil cons = Case (Unroll (Just tv_intlist) l)
 apps f es = foldl (\head e -> App head e) f es
 
 map_list = Fun (Rec bot vf
-                (Fun (Rec vmap vx 
-                      (case_list (Var vx) 
-                                nil_list 
-                                (\x xs ->  
+                (Fun (Rec vmap vx
+                      (case_list (Var vx)
+                                nil_list
+                                (\x xs ->
                                  cons_list (App (Var vf) x)
-                                           (apps (Var vmap) [xs]))) 
+                                           (apps (Var vmap) [xs])))
                      (Just "_map")))
                (Just "map"))
 
 filter_list = Fun (Rec bot vf
-                   (Fun (Rec vfilter vx 
-                      (case_list (Var vx) 
-                                nil_list 
-                                (\x xs ->  
+                   (Fun (Rec vfilter vx
+                      (case_list (Var vx)
+                                nil_list
+                                (\x xs ->
                                  If (App (Var vf) x)
                                     (cons_list x (App (Var vfilter) xs))
                                     (App (Var vfilter) xs)))
@@ -101,7 +101,7 @@ filter_list = Fun (Rec bot vf
                (Just "_filter"))
 
 
-ifsquare = (Fun (Rec bot vx (If (Op opIntEq [Var vx,CInt 3]) (Var vx) 
+ifsquare = (Fun (Rec bot vx (If (Op opIntEq [Var vx,CInt 3]) (Var vx)
                                (Op opTimes [Var vx,Var vx])) (Just "ifsquare")))
 ifthree = (Fun (Rec bot vx (Op opIntEq [Var vx,CInt 3]) (Just "ifthree")))
 
@@ -116,10 +116,10 @@ p3' = cons_list_v VHole (cons_list_v VHole (cons_list_v VHole VHole))
 p3'' = cons_list_v VHole (cons_list_v VStar VHole)
 
 (t3',rho3) = bslice p3 t3
-e3' =  (uneval t3') 
-(t3'',_) = bslice_naive p3 t3  
-e3'' =  (uneval t3'') 
-(e3''',_) = bslice' p3 t3  
+e3' =  (uneval t3')
+(t3'',_) = bslice_naive p3 t3
+e3'' =  (uneval t3'')
+(e3''',_) = bslice' p3 t3
 (t3'''',_) = bslice_naive p3' t3
 (e3'''',_) = bslice' p3' t3
 
@@ -134,11 +134,11 @@ p4 = cons_list_v VHole (cons_list_v VStar VHole)
 p4' =  cons_list_v VStar VHole
 
 (t4',rho4) = bslice p4 t4
-e4' =  (uneval t4') 
-(t4'',_) = bslice_naive p4 t4  
-e4'' =  (uneval t4'') 
-(t4''',_) = bslice' p4 t4  
-e4''' =  (uneval t4''') 
+e4' =  (uneval t4')
+(t4'',_) = bslice_naive p4 t4
+e4'' =  (uneval t4'')
+(t4''',_) = bslice' p4 t4
+e4''' =  (uneval t4''')
 
 (t4a,_) = bslice_naive p4 t4
 (t4b,_) = bslice_naive p4' t4
@@ -160,7 +160,7 @@ e6 = Let vt (Trace e4) ( Pair(Op opVal [Var vt])( Op opVal [Op opSlice [Var vt,O
 
 
 parse_desugar_eval :: String -> (Value)
-parse_desugar_eval s = 
+parse_desugar_eval s =
     let (tyctx,_,e) = P.parseIn s A.emptyTyCtx
         (e',ty) = desugar tyctx emptyEnv e
         (v) = eval emptyEnv e'

@@ -21,7 +21,7 @@ import PrettyPrinting
 
 
 data Test = Test {
-   testName :: FilePath, 
+   testName :: FilePath,
    runTest :: A.TyCtx -> Exp -> IO [Figure]
 }
 
@@ -62,7 +62,7 @@ run test = do
 
 assert_ :: Monad m => String -> Bool -> m ()
 assert_ msg b = unless b $ error msg
-            
+
 -- Pair of a trace and a value. Useful for prettyprinting a trace alongside the value
 -- it computes/pattern it was sliced with.
 data Result =
@@ -70,21 +70,21 @@ data Result =
    SliceResult (Env Value, Exp) Value
 
 instance PP (A.TyCtx, Result) where
-   pp_partial (tyCtx, TraceResult comp v) (eq tyCtx -> True, TraceResult comp' v') = 
-      pp_partial (tyCtx, comp) (tyCtx, comp') $$ text ">>" <+> 
+   pp_partial (tyCtx, TraceResult comp v) (eq tyCtx -> True, TraceResult comp' v') =
+      pp_partial (tyCtx, comp) (tyCtx, comp') $$ text ">>" <+>
       (pp_partial (tyCtx, val2exp v) (tyCtx, val2exp v'))
    pp_partial (tyCtx, SliceResult comp v) (eq tyCtx -> True, SliceResult comp' v') =
-      pp_partial (tyCtx, comp) (tyCtx, comp') $$ text "<<" <+> 
+      pp_partial (tyCtx, comp) (tyCtx, comp') $$ text "<<" <+>
       (pp_partial (tyCtx, val2exp v) (tyCtx, val2exp v'))
    pp x = pp_partial x x
-   
+
 -- Some common figure arrangements.
 data TwoFigs = SideBySide | Separate
-   
-sourceFig :: String -> Figure   
-sourceFig code = 
+
+sourceFig :: String -> Figure
+sourceFig code =
    Figure NewFig "Original program" $ SingleFig $ Plain code
-   
+
 traceFig :: A.TyCtx -> Env Value -> Exp -> ((Value, Trace), Figure)
 traceFig tyCtx env e =
    let (v, t) = trace env e in
@@ -92,14 +92,14 @@ traceFig tyCtx env e =
    assert (snd (trace env t) == t) $
    ((v, t), Figure NewFig "Initial trace" $ SingleFig (Pretty (tyCtx, TraceResult (env, t) v)))
 
-sliceFig :: A.TyCtx -> Trace -> Value -> Figure   
+sliceFig :: A.TyCtx -> Trace -> Value -> Figure
 sliceFig tyCtx t p =
    let (u, env) = bslice p t
        -- TODO: would really like to be able to re-enable this assertion.
        -- (p', _) = trace env u
    -- assert (p == p') $
    in Figure NewFig "After slicing" $ SingleFig (Pretty (tyCtx, SliceResult (env, u) p))
-      
+
 -- TODO: there's some redundancy with sliceFig to factor out here.
 traceVsSliceFig :: TwoFigs -> A.TyCtx -> Env Value -> Exp -> Maybe Value -> ((Trace, Env Value), [Figure])
 traceVsSliceFig layout tyCtx env e p_opt =
@@ -111,7 +111,7 @@ traceVsSliceFig layout tyCtx env e p_opt =
    -- assert (p == p') $
    in ((u, env'), case layout of
       SideBySide ->
-         [ Figure NewFig "Initial trace (left); after slicing (right)" $ 
+         [ Figure NewFig "Initial trace (left); after slicing (right)" $
            DoubleFig (Pretty (tyCtx, TraceResult (env, t) v))
                      (Pretty (tyCtx, SliceResult (env', u) p)) ]
       Separate ->
@@ -123,11 +123,11 @@ traceVsSliceFig layout tyCtx env e p_opt =
 test1 :: Test
 test1 = Test
    "simple-closure" $
-   \tyCtx e -> 
+   \tyCtx e ->
       return [snd $ traceFig tyCtx emptyEnv e]
 
 -- Copy a list of integers.
--- Picking out only the first element of the result means the nil branch of 
+-- Picking out only the first element of the result means the nil branch of
 -- the function is never used.
 test2 :: Test
 test2 = Test
@@ -137,7 +137,7 @@ test2 = Test
       return $ snd $ traceVsSliceFig SideBySide tyCtx env e $ Just $ value tyCtx "Cons (3, _:intlist)"
 
 -- Curried function calculating pointwise sum of two lists.
--- Again this shows that we never use the nil branch of the function because 
+-- Again this shows that we never use the nil branch of the function because
 -- we only look at the head of the result list.
 test3 :: Test
 test3 = Test
@@ -146,7 +146,7 @@ test3 = Test
       let env = updateEnv (singletonEnv (V "x") $ value tyCtx "3") (V "y") $ value tyCtx "2"
       return $ snd $ traceVsSliceFig SideBySide tyCtx env e $ Just $ value tyCtx "Cons (5, _:intlist)"
 
--- As test3, but show replay with a complete trace. Then backslice afterwards to 
+-- As test3, but show replay with a complete trace. Then backslice afterwards to
 -- show different recursive uses of function.
 test4 :: Test
 test4 = Test
@@ -157,7 +157,7 @@ test4 = Test
           env' = updateEnv env (V "x") $ value tyCtx "5"
           ((v, u), fig3) = traceFig tyCtx env' t
           fig4 = sliceFig tyCtx u v
-      assert_ "Result is updated list" (v == value tyCtx "Cons(7, Cons (12, Nil))")      
+      assert_ "Result is updated list" (v == value tyCtx "Cons(7, Cons (12, Nil))")
       return $ [fig2, fig3, fig4]
 
 -- Component-wise sum of two pairs (curried).
@@ -168,13 +168,13 @@ test5 = Test
       return $ snd $ traceVsSliceFig SideBySide tyCtx emptyEnv e $ Just $ value tyCtx "(8, _:int)"
 
 -- Component-wise sum of two pairs (uncurried).
-test6 :: Test 
+test6 :: Test
 test6 = Test
    "uncurried-componentwise-sum" $
    \tyCtx e ->
       return $ snd $ traceVsSliceFig SideBySide tyCtx emptyEnv e $ Just $ value tyCtx "(8, _:int)"
 
--- Pick out second element in a map of a function to a list. Previously this example 
+-- Pick out second element in a map of a function to a list. Previously this example
 -- showed how you could use a slice to update a particular element in a list, but this
 -- is no longer possible.
 test7 :: Test

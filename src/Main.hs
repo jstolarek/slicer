@@ -19,7 +19,7 @@ import qualified Absyn as A
 import Util
 
 parse_desugar_eval :: String -> (Value,Type)
-parse_desugar_eval s = 
+parse_desugar_eval s =
     let (tyctx,_,e) = P.parseIn s A.emptyTyCtx
         (e',ty) = desugar tyctx emptyEnv e
         (v) = eval emptyEnv e'
@@ -30,7 +30,7 @@ parse_desugar_eval s =
 main :: IO ()
 main = do
   args <- getArgs
-  case args 
+  case args
     of [] -> usage
        args -> do mapM run args
                   return ()
@@ -41,5 +41,5 @@ run arg = do putStrLn $ "Running " ++ arg
              putStrLn $ "val it =  " ++ show (pp v) ++ " : " ++ show (pp ty)
 
 
-usage = 
+usage =
   putStrLn $ "Usage: main <file>.tml ..."

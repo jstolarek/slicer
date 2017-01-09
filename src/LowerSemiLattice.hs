@@ -1,9 +1,9 @@
 module LowerSemiLattice where
 
 class Eq a => LowerSemiLattice a where
-    bot :: a 
+    bot :: a
     lub :: a -> a -> a
-    lubs :: [a] -> a 
+    lubs :: [a] -> a
     lubs = foldl lub bot
     leq :: a -> a -> Bool
 

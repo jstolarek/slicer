@@ -36,19 +36,19 @@ newtype Env a = Env (Map.Map Var a)
     deriving (Eq,Show,Ord)
 
 instance (LowerSemiLattice a,PP a) => PP (Env a) where
-    pp_partial (Env env) (Env env') = 
+    pp_partial (Env env) (Env env') =
          brackets (hcat (punctuate comma (map ppp (Map.keys env'))))
-            where ppp x = 
-                      case (Map.lookup x env,Map.lookup x env') 
+            where ppp x =
+                      case (Map.lookup x env,Map.lookup x env')
                       of (Nothing,Just a) -> pp x <+> text "->" <+> sb (pp a);
-                         (Just a, Just a') -> 
+                         (Just a, Just a') ->
                              pp x <+> text "->"<+> pp_partial a a'
 
-             
+
 instance Functor Env where
     fmap f (Env env) = Env (fmap f env)
 
-emptyEnv :: Env a             
+emptyEnv :: Env a
 emptyEnv = Env Map.empty
 
 singletonEnv :: Var -> a -> Env a
@@ -77,15 +77,15 @@ unbindEnv (Env env) x = Env (Map.delete x env)
 
 
 unbind [] x = []
-unbind ((x,v):env) y = if x == y 
-                       then env 
+unbind ((x,v):env) y = if x == y
+                       then env
                        else (x,v):unbind env y
 
 
 instance (LowerSemiLattice a) => LowerSemiLattice (Env a) where
     bot                                = Env Map.empty
     leq (Env env1) (Env env2)          = Map.isSubmapOfBy leq env1 env2
-    lub (Env env1) (Env env2)          = Env (Map.unionWith lub env1 env2)    
-               
+    lub (Env env1) (Env env2)          = Env (Map.unionWith lub env1 env2)
+
 
 

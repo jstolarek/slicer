@@ -15,7 +15,7 @@ import LowerSemiLattice
 
 data RValue a = RBool Bool | RInt Int | RUnit | RString String
               | RPair (AValue a) (AValue a)
-              | RInL (AValue a) | RInR (AValue a) 
+              | RInL (AValue a) | RInR (AValue a)
               | RRoll (AValue a)
               | RClosure Code (Env (AValue a))
               | RHole | RStar
@@ -31,21 +31,21 @@ instance (LowerSemiLattice a,PP a) => PP (RValue a) where
     pp_partial RHole v = sb (pp v)
     pp_partial RStar RStar = sb (text "<star>")
     pp_partial RStar v = pp v
-    pp_partial (RBool b) (RBool b') 
-        | b == b' 
+    pp_partial (RBool b) (RBool b')
+        | b == b'
         = text (if b then "true" else "false")
-    pp_partial (RInt i) (RInt i') 
+    pp_partial (RInt i) (RInt i')
         | i == i'
         = int i
-    pp_partial (RString s) (RString s') 
-        | s == s' 
+    pp_partial (RString s) (RString s')
+        | s == s'
         = text (show s)
     pp_partial (RUnit) (RUnit) = text "()"
-    pp_partial (RPair v1 v2) (RPair v1' v2') = 
+    pp_partial (RPair v1 v2) (RPair v1' v2') =
         parens (pp_partial v1 v1' <> comma <> pp_partial v2 v2')
     pp_partial (RInL v) (RInL v') = text "inl" <> parens (pp_partial v v')
     pp_partial (RInR v) (RInR v') = text "inr"  <> parens (pp_partial v v')
-    pp_partial (RRoll v) (RRoll v') = text "roll"<> parens (pp_partial v v') 
+    pp_partial (RRoll v) (RRoll v') = text "roll"<> parens (pp_partial v v')
     pp_partial (RClosure _ _) (RClosure _ _) = text "<fun>"
 --    pp_partial (RTrace _ _ _) (RTrace _ _ _) = text "<trace>"
     pp v = pp_partial v v
@@ -55,7 +55,7 @@ instance (LowerSemiLattice a,PP a) => PP (AValue a) where
     pp_partial AVStar v = sb (pp v)
     pp_partial AVHole AVHole = sb (text "_")
     pp_partial AVHole v = sb (pp v)
-    pp_partial (AValue v a) (AValue v' a') = 
+    pp_partial (AValue v a) (AValue v' a') =
         if a' == bot then pp_partial v v'
         else pp_partial v v' <+> text "@" <+> pp_partial a a'
     pp v = pp_partial v v
@@ -154,7 +154,7 @@ instance LowerSemiLattice a => LowerSemiLattice (RValue a) where
     lub (RInR v) (RInR v')            = RInR (v `lub` v')
     lub (RRoll v) (RRoll v')          = RRoll (v `lub` v')
     lub (RClosure k env) (RClosure k' env')
-        = RClosure (k `lub` k') (env `lub` env')    
+        = RClosure (k `lub` k') (env `lub` env')
 
 
 newtype Gensym a = G {unG :: Int -> (a,Int)}
@@ -188,7 +188,7 @@ uniq v = do i <- gensym
                                  return (RRoll v')
           uniq' (VClosure k (Env env)) = do env' <- T.mapM uniq env
                                             return (RClosure k (Env env'))
-                                                
+
           uniq' (VLabel v l) = uniq' v
           uniq' v  = error ("uniq': "++ show v)
 
@@ -200,9 +200,9 @@ lift f VHole = AVHole
 lift f VStar = AVStar
 lift f (VLabel v l) = AValue (rlift f v) (f l)
 lift f v = AValue (rlift f v) bot
-rlift f VUnit = RUnit 
-rlift f (VInt i) = RInt i 
-rlift f (VString i) = RString i 
+rlift f VUnit = RUnit
+rlift f (VInt i) = RInt i
+rlift f (VString i) = RString i
 rlift f (VBool b) = RBool b
 rlift f (VPair v1 v2) = RPair (lift f v1) (lift f v2)
 rlift f (VInL v) = RInL (lift f v)
@@ -215,10 +215,10 @@ inject :: LowerSemiLattice a => Value -> AValue a
 inject VHole = AVHole
 inject VStar = AVStar
 inject v = AValue (rinject v) bot
-rinject VUnit = RUnit 
+rinject VUnit = RUnit
 rinject VHole = RHole
 rinject VStar = RStar
-rinject (VInt i) = RInt i 
+rinject (VInt i) = RInt i
 rinject (VString s) = RString s
 rinject (VBool b) = RBool b
 rinject (VPair v1 v2) = RPair (inject v1) (inject v2)
@@ -230,7 +230,7 @@ rinject (VClosure k env) = RClosure k (fmap inject env)
 annots :: (Ord a) => AValue a -> Set.Set a
 annots AVHole = Set.empty
 annots AVStar = Set.empty
-annots (AValue r a) = Set.insert a (rannots r) 
+annots (AValue r a) = Set.insert a (rannots r)
 
 rannots :: (Ord a) => RValue a -> Set.Set a
 rannots (RUnit) = Set.empty
@@ -273,7 +273,7 @@ rsquash (RClosure k v) = Fun k
 
 
 -- type class of provenance semantics
--- specifies one transfer function for each syntax case 
+-- specifies one transfer function for each syntax case
 
 class Prov a where
     unit :: AValue a
@@ -301,44 +301,44 @@ prov env (Var x) = lookupEnv env x (error ("prov: unbound " ++ show x))
 prov env (Let x t1 t2) = prov (bindEnv env x (prov env t1)) t2
 prov env Unit = unit
 prov env (CBool b) = cbool b
-prov env (IfThen t _ _ t1) 
+prov env (IfThen t _ _ t1)
     = let (AValue (RBool True) a) = prov env t
       in ifthen a (prov env t1)
-prov env (IfElse t _ _ t2) 
+prov env (IfElse t _ _ t2)
     = let (AValue (RBool False) a) = prov env t
       in ifelse a (prov env t2)
-prov env (CInt i) 
-    = cint i 
-prov env (CString s) 
-    = cstring s 
-prov env (Op f ts) 
+prov env (CInt i)
+    = cint i
+prov env (CString s)
+    = cstring s
+prov env (Op f ts)
     = op f (map (prov env) ts)
 prov env (Pair e1 e2) = pair (prov env e1) (prov env e2)
-prov env (Fst e) 
-    = let (AValue (RPair v1 v2) a) = prov env e 
+prov env (Fst e)
+    = let (AValue (RPair v1 v2) a) = prov env e
       in first a v1
-prov env (Snd e) 
-    = let (AValue (RPair v1 v2) a) = prov env e 
+prov env (Snd e)
+    = let (AValue (RPair v1 v2) a) = prov env e
       in second a v2
 prov env (InL e) = inl (prov env e)
 prov env (InR e) = inr (prov env e)
 prov env (Fun k) =  fun k env
-prov env (CaseL t _ x t1) 
-    = let (AValue (RInL v) a) = prov env t 
+prov env (CaseL t _ x t1)
+    = let (AValue (RInL v) a) = prov env t
           v' = prov (bindEnv env x v) t1
       in casel a v'
-prov env (CaseR t _ x t2) 
-    = let (AValue (RInR v) a) = prov env t 
+prov env (CaseR t _ x t2)
+    = let (AValue (RInR v) a) = prov env t
           v' = prov (bindEnv env x v) t2
       in caser a v'
-prov env (Call t1 t2 _ t) 
+prov env (Call t1 t2 _ t)
     = let v1 = prov env t1
           v2 = prov env t2
           AValue (RClosure k env0) a = v1
           v = prov (bindEnv (bindEnv env0 (arg t) v2 ) (fn t) v1) (body t)
       in app a v
 prov env (Roll _ t) = roll (prov env t)
-prov env (Unroll _ t) = 
+prov env (Unroll _ t) =
     let AValue (RRoll v) a = prov env t
     in unroll a v
 
@@ -371,7 +371,7 @@ instance (Eq a) => Prov (Where a) where
     ifelse _ v = v
     cint i = AValue (RInt i) bot
     cstring s = AValue (RString s) bot
-    op f avs = 
+    op f avs =
         let (vs,as) = unzip (map (\(AValue v a) -> (erase_to_v v,a)) avs)
         in inject (evalOp f vs)
     pair v1 v2 = AValue (RPair v1 v2) bot
@@ -387,7 +387,7 @@ instance (Eq a) => Prov (Where a) where
     unroll a v = v
 
 whr :: (Eq a) => Env (AValue (Where a)) -> Exp -> AValue (Where a)
-whr env t = prov env t 
+whr env t = prov env t
 
 
 
@@ -404,8 +404,8 @@ instance Prov (Exp) where
     ifelse _ v = v
     cint i = AValue (RInt i) (CInt i)
     cstring i = AValue (RString i) (CString i)
-    
-    op f avs = 
+
+    op f avs =
         let (vs,as) = unzip (map (\(AValue v a) -> (erase_to_v v,a)) avs)
         in AValue (rinject (evalOp f vs))  (Op f as)
     pair v1 v2 = AValue (RPair v1 v2) bot
@@ -421,7 +421,7 @@ instance Prov (Exp) where
     unroll a v = v
 
 expr :: Env (AValue Exp) -> Exp -> AValue Exp
-expr env t = prov env t 
+expr env t = prov env t
 
 make_expr :: Value -> AValue ( Exp)
 make_expr v = fmap (\x -> (Var (V ("x_" ++ show x)))) (runGensym $ uniq v)
@@ -440,11 +440,11 @@ instance (Ord a,Eq a) => LowerSemiLattice (Dep a) where
 ppset s = braces (hcat (punctuate comma (map (text.show) (Set.toList s))))
 
 instance (Eq a, Show a) => PP (Dep a) where
-    pp_partial (D s) (D s') = 
+    pp_partial (D s) (D s') =
         if s == s' then ppset s
         else ppset s' <+> sb( ppset s)
     pp (D s) = ppset s
-    
+
 
 addAnnot :: LowerSemiLattice a => AValue a -> a -> AValue a
 addAnnot (AValue rv a) a' = AValue rv (a `lub` a')
@@ -458,7 +458,7 @@ instance (Ord a) => Prov (Dep a) where
     ifelse a v = addAnnot v a
     cint i = AValue (RInt i) bot
     cstring i = AValue (RString i) bot
-    op f avs = 
+    op f avs =
         let (vs,as) = unzip (map (\v -> (erase_to_v v,annots v)) avs)
         in AValue (rinject (evalOp f vs))  (Set.fold lub bot (Set.unions as))
     pair v1 v2 = AValue (RPair v1 v2) bot
@@ -496,16 +496,16 @@ dep env (IfElse t _ _ t2) = let (AValue (RBool False) a) = dep env t
 dep env (CInt i) = AValue (RInt i) bot
 dep env (Op f ts) = AValue undefined bot
 dep env (Pair e1 e2) = AValue (RPair (dep env e1) (dep env e2)) bot
-dep env (Fst e) = let (AValue (RPair v1 v2) a) = dep env e 
+dep env (Fst e) = let (AValue (RPair v1 v2) a) = dep env e
                   in addAnnot v1 a
-dep env (Snd e) = let (AValue (RPair v1 v2) a) = dep env e 
+dep env (Snd e) = let (AValue (RPair v1 v2) a) = dep env e
                   in addAnnot v2 a
 dep env (InL e) = AValue (RInL (dep env e)) bot
 dep env (InR e) = AValue (RInR (dep env e)) bot
 dep env (Fun k) = AValue (RClosure k env) bot
-dep env (CaseL t _ x t1) = let (AValue (RInL v) a) = dep env t 
+dep env (CaseL t _ x t1) = let (AValue (RInL v) a) = dep env t
                            in addAnnot (dep (bindEnv env x v) t1) a
-dep env (CaseR t _ x t2) = let (AValue (RInR v) a) = dep env t 
+dep env (CaseR t _ x t2) = let (AValue (RInR v) a) = dep env t
                            in addAnnot (dep (bindEnv env x v) t2) a
 dep env (Call t1 t2 _ t) = let v1 = dep env t1
                                v2 = dep env t2
@@ -527,15 +527,15 @@ whr env (IfElse _ _ _ t) = whr env t
 whr env (CInt i) = AValue (RInt i) Nothing
 whr env (Op f ts) = AValue undefined Nothing
 whr env (Pair e1 e2) = AValue (RPair (whr env e1) (whr env e2)) Nothing
-whr env (Fst e) = let (AValue (RPair v1 v2) _) = whr env e 
+whr env (Fst e) = let (AValue (RPair v1 v2) _) = whr env e
                   in v1
-whr env (Snd e) = let (AValue (RPair v1 v2) _) = whr env e 
+whr env (Snd e) = let (AValue (RPair v1 v2) _) = whr env e
                   in v2
 whr env (InL e) = AValue (RInL (whr env e)) Nothing
 whr env (InR e) = AValue (RInR (whr env e)) Nothing
-whr env (CaseL t _ x t1) = let (AValue (RInL v) _) = whr env t 
+whr env (CaseL t _ x t1) = let (AValue (RInL v) _) = whr env t
                            in whr (bindEnv env x v) t1
-whr env (CaseR t _ x t2) = let (AValue (RInR v) _) = whr env t 
+whr env (CaseR t _ x t2) = let (AValue (RInR v) _) = whr env t
                            in whr (bindEnv env x v) t2
 whr env (Fun k) = AValue (RClosure k env) Nothing
 whr env (Call t1 t2 _ t) = let v1 = whr env t1
@@ -557,15 +557,15 @@ expr env (IfElse _ _ _ t) = expr env t
 expr env (CInt i) = AValue (RInt i) (Just (CInt i))
 expr env (Op f ts) = AValue (undefined) (Just (Op f (map (\t -> let AValue _ (Just e) = expr env t in e) ts)))
 expr env (Pair e1 e2) = AValue (RPair (expr env e1) (expr env e2)) Nothing
-expr env (Fst e) = let (AValue (RPair v1 v2) _) = expr env e 
+expr env (Fst e) = let (AValue (RPair v1 v2) _) = expr env e
                    in v1
-expr env (Snd e) = let (AValue (RPair v1 v2) _) = expr env e 
+expr env (Snd e) = let (AValue (RPair v1 v2) _) = expr env e
                    in v2
 expr env (InL e) = AValue (RInL (expr env e)) Nothing
 expr env (InR e) = AValue (RInR (expr env e)) Nothing
-expr env (CaseL t _ x t1) = let (AValue (RInL v) _) = expr env t 
+expr env (CaseL t _ x t1) = let (AValue (RInL v) _) = expr env t
                             in expr (bindEnv env x v) t1
-expr env (CaseR t _ x t2) = let (AValue (RInR v) _) = expr env t 
+expr env (CaseR t _ x t2) = let (AValue (RInR v) _) = expr env t
                             in expr (bindEnv env x v) t2
 expr env (Fun k) = AValue (RClosure k env) Nothing
 expr env (Call t1 t2 _ t) = let v1 = expr env t1
