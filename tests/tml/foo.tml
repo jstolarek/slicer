@@ -1,0 +1,6 @@
+data intlist = Nil | Cons int * intlist
+
+
+case  Cons (1, Cons (4, Nil)) of
+         Nil -> Nil;
+         Cons x -> Cons (1,snd x)

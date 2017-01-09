@@ -1,0 +1,44 @@
+data intlist = Nil | Cons int * intlist
+
+let t = trace (
+   let sum =
+      fun sum (xs : intlist) : int =>
+         case xs of
+            Nil -> 0;
+            Cons x -> (fst x) + (sum (snd x))
+   in
+   let length =
+      fun length (xs : intlist) : int =>
+         case xs of
+            Nil -> 0;
+            Cons x -> 1 + length (snd x)
+   in
+   let average =
+      fun average (xs : intlist) : int =>
+         (sum xs) / (length xs)
+   in
+   let map =
+      fun map (f : int -> int) (xs : intlist) : intlist =>
+         case xs of
+            Nil -> Nil;
+            Cons x -> Cons(f (fst x), map f (snd x))
+   in
+   let compareTo =
+      fun compareTo (xs : intlist) (y : int) : intlist =>
+         map (fun diff (x : int) : int => x - y) xs
+   in
+   let input = Cons(1, Cons(2, Cons(8, Cons(5, Nil)))) in
+   let squares = map (fun sq (x : int) : int => x * x) input in
+   compareTo squares (average squares)
+)
+in
+let p1 = Cons(_:int, Cons(_:int, Cons(_:int, Cons(_:int, Nil)))) in
+let p2 = Cons(_:int, Cons(_:int, Cons(41, Cons(_:int, Nil)))) in
+let p3 = Cons(-22, Cons(-19, Cons(41, Cons(2, Nil)))) in
+let s1 = slice(t, p1) in
+let s2 = slice(t, p2) in
+let s3 = slice(t, p3) in
+let z = visualize2("meanSquareDiff-none.pdf", s3, s1) in
+let z = visualize2("meanSquareDiff-one.pdf", s2, s1) in
+let z = visualize2("meanSquareDiff-all.pdf", s3, s2) in
+read t

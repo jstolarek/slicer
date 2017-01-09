@@ -1,0 +1,25 @@
+data intlist = Nil | Cons int * intlist
+
+let b = true in
+let map = fun map (f : int -> int) (xs : intlist) : intlist =>
+   case xs of
+      Nil -> Nil;
+      Cons y -> Cons (f (fst y), map f (snd y))
+in
+let l =       (Cons (3, Cons (4, Cons (5, Nil)))) in
+let t = trace(
+    map
+      -- Pick increment or decrement depending on value of b:
+      (if b
+         then fun inc (x : int) : int => x + 1
+         else fun dec (x : int) : int => x - 1)
+     l
+  )
+in
+let z = visualize("map.svg", t) in
+let s = slice(t,Cons(_:int,Cons(5,_:intlist))) in
+let z2 = visualize2("map-slice.svg",t,s) in
+let z3 = where(t) in
+let z4 = expr(t) in
+let z5 = dep(t) in
+read(t)

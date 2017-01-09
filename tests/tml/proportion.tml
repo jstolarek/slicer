@@ -1,0 +1,29 @@
+data intlist = Nil | Cons int * intlist
+
+let t = trace (
+   let sum =
+      fun sum (xs : intlist) : int =>
+         case xs of
+            Nil -> 0;
+            Cons x -> (fst x) + (sum (snd x))
+   in
+   let map =
+      fun map (f : int -> int) (xs : intlist) : intlist =>
+         case xs of
+            Nil -> Nil;
+            Cons x -> Cons(f (fst x), map f (snd x))
+   in
+   let ys = Cons(1, Cons(2, Cons(8, Cons(5, Nil)))) in
+   let total = sum ys in
+   map (fun proportion (x : int) : int => x * 100 / total) ys
+)
+in
+let p0 = Cons(_:int, Cons(_:int, Cons(_:int, Cons(_:int, Nil)))) in
+let p1 = Cons(_:int, Cons(_:int, Cons(50, Cons(_:int, Nil)))) in
+let s0 = slice(t, p0) in
+let s1 = slice(t, p1) in
+let z = visualize2("proportion.pdf", s1, s0) in
+let e0 = pslice(t, p0) in
+let e1 = pslice(t, p1) in
+let z = visualize2("proportion-prog.pdf", e1, e0) in
+read t

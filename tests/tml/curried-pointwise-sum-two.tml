@@ -1,0 +1,20 @@
+data intlist = Nil | Cons int * intlist
+
+with
+   x : int,
+   y : int
+in
+let
+   l1 = Cons (x, Cons (4, Nil))
+in
+let
+   l2 = Cons (y, Cons (8, Nil))
+in
+let sum =
+   fun sum (xs : intlist) (ys : intlist) : intlist =>
+      case xs of
+         Nil -> Nil;
+         Cons x -> case ys of
+            Nil -> Nil;
+            Cons y -> Cons ((fst x) + fst y, sum (snd x) (snd y))
+in sum l1 l2

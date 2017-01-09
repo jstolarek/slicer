@@ -1,0 +1,25 @@
+data intlist = Nil | Cons int * intlist
+
+let y = 2 in
+let z = 5 in
+let f = fun f (x:int) (y:int) : int => x + y - 1 in
+let g = fun g (f:int -> int -> int) (x:int) : int => f x x in
+let times = fun t (x:int) (y:int) :int => x * y in
+let h = fun h (x:int) : int =>
+      if x > 3 then if x = f y z then g times x + x else x
+               else if g f x = z then y else z in
+let map = fun map (f : int -> int) (xs : intlist) : intlist =>
+   case xs of
+      Nil -> Nil;
+      Cons y -> Cons (f (fst y), map f (snd y))
+in
+let l = Cons(2,Cons(3,Cons(5,Cons(6,Nil)))) in
+let t = trace(map h l) in
+let s = slice(t,Cons(_:int,Cons(_:int,Cons(5,_:intlist)))) in
+let zz = visualize2("example.pdf",t,s) in
+let z = where(t) in
+let w = dep(t) in
+let k = expr(t) in
+let s2 = slice(t,(Cons(_:int,Cons(_:int,Cons(_:int,_:intlist))))) in
+let xx = visualize2("example-diff.pdf",s,s2) in
+read(t)

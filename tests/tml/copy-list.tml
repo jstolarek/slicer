@@ -1,0 +1,14 @@
+data intlist = Nil | Cons int * intlist
+
+with
+   x : int
+in
+let
+   xs = Cons (x, Cons (4, Nil))
+in
+let copy =
+   fun copy (xs : intlist) : intlist =>
+      case xs of
+         Nil -> Nil;
+         Cons x -> Cons (fst x, copy (snd x))
+in copy xs

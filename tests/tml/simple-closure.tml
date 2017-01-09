@@ -1,0 +1,1 @@
+(fun f (x : int) (y : int) : int => x) 5 6

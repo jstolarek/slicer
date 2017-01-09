@@ -1,0 +1,14 @@
+data intlist = Nil | Cons int * intlist
+
+let merge = fun merge (xs : intlist) (ys : intlist) : intlist =>
+  case xs of
+    Nil -> ys;
+    Cons x -> case ys of
+                Nil -> xs;
+                Cons y -> if ((fst x) < (fst y))
+                          then Cons(fst x,merge (snd x) ys)
+                          else Cons(fst y,merge xs (snd y))
+in
+   merge
+      (Cons (6, Cons (16, Cons (20, Nil))))
+      (Cons (3, Cons (12, Cons (13, Nil))))

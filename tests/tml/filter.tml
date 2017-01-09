@@ -1,0 +1,25 @@
+data intlist = Nil | Cons int * intlist
+
+
+let
+   xs = Cons (1, Cons (2, Cons (3, Cons (4, Cons (5, Cons (3, Cons(6,Cons(7,Cons(8,Nil)))))))))
+in
+let filter =
+    fun filter (f : int -> bool) (xs : intlist) : intlist =>
+      case xs of
+         Nil -> Nil;
+         Cons x -> if (f (fst x))
+                   then Cons (fst x, filter f (snd x))
+                   else (filter f (snd x))
+in
+let equalsthree =
+    fun equalsthree (x : int) : bool => (x = 3)
+in
+let t = trace(filter equalsthree xs) in
+let u = visualize ("filter.pdf", t) in
+let s1 = slice (t,Cons(_:int,_:intlist)) in
+let s2 = slice (t,Cons(_:int,Cons(3,_:intlist))) in
+let u = visualize2 ("filterslice.pdf", s1, s2) in
+let z = profile(t) in
+let z = profile2(t) in
+read(t)

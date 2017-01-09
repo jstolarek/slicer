@@ -1,0 +1,32 @@
+data intlist = Nil | Cons int * intlist
+
+let split = fun split (xs : intlist) : intlist * intlist =>
+   case xs of
+     Nil -> (Nil,Nil);
+     Cons x -> let y = split (snd x) in
+               (Cons(fst x, snd y), fst y)
+in
+let merge = fun merge (xs : intlist) (ys : intlist) : intlist =>
+  case xs of
+    Nil -> ys;
+    Cons x -> case ys of
+                Nil -> xs;
+                Cons y -> if ((fst x) < (fst y))
+                          then Cons(fst x,merge (snd x) ys)
+                          else Cons(fst x,merge xs (snd y))
+in
+let mergesort = fun mergesort (xs : intlist) : intlist =>
+  case xs
+  of Nil -> Nil;
+     Cons x -> case (snd x)
+                 of Nil -> Cons(fst x,Nil);
+                    Cons y -> let z = split xs in
+                              merge (mergesort (fst z)) (mergesort (snd z))
+in
+let l = Cons(1,Cons(2,Cons(3,Nil))) in
+let t = trace(mergesort(l)) in
+let s0 = slice(t,Cons(_:int,Cons(_:int,Cons(_:int,Nil)))) in
+let s1 = slice(t,Cons(_:int,Cons(3    ,Cons(_:int,Nil)))) in
+let z = visualize2("sortbug1.pdf",t,s0) in
+let zz = visualize2("sortbug2.pdf",s1,s0) in
+read(t)

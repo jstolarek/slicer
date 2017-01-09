@@ -1,0 +1,4 @@
+Running ../filter.tml
+Profile {unProfile = fromList [(filter,10),(equalsthree,9)]}
+Profile {unProfile = fromList [((_root,filter),10),((_root,equalsthree),9)]}
+val it =  roll(inr((3,roll(inr((3,roll(inl(())))))))) : intlist

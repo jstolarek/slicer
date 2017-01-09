@@ -1,0 +1,21 @@
+data intlist = Nil | Cons int * intlist
+
+let map = fun map (f : int -> int) (xs : intlist) : intlist =>
+   case xs of
+      Nil -> Nil;
+      Cons y -> Cons (f (fst y), map f (snd y))
+in
+let f = fun inc (x : int) : int => x + 1
+in
+let t = trace(
+    map f (Cons (6, Cons (7, Cons (2, Nil))))
+  )
+in
+let z = visualize("map.pdf", t) in
+let s1 = slice(t,Cons(_:int,Cons(8,Cons(_:int,Nil)))) in
+let s0 = slice(t,Cons(_:int,Cons(_:int,Cons(_:int,Nil)))) in
+let z = visualize("map-trace.pdf",t) in
+let z = visualize("map-slice.pdf",s1) in
+let z = visualize("map-slice2.pdf",s0) in
+let z = visualize2("map-slice-diff.pdf",s1,s0) in
+read(t)
