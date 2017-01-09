@@ -1,0 +1,9 @@
+# Cabal sandbox and build artifacts
+cabal.sandbox.config
+.cabal-sandbox
+dist
+
+# Files generated when running tests
+*.svg
+*.actual
+*.pdf

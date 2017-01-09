@@ -1,0 +1,32 @@
+name:                slicer
+version:             0.1.0.0
+synopsis:            Companion code to "Functional Programs that Explain their Work" paper
+license:             GPL-3
+license-file:        LICENSE
+author:              James Cheney <jcheney@inf.ed.ac.uk>, Roly Perera <rperera@inf.ed.ac.uk>
+maintainer:          Jan Stolarek <jan.stolarek@ed.ac.uk>
+bug-reports:         https://github.com/jstolarek/slicer/issues
+tested-with:         GHC == 8.0.1
+build-type:          Simple
+cabal-version:       >=1.10
+stability:           experimental
+category:            Slicing
+extra-source-files:  README.md
+
+source-repository this
+  type:     git
+  location: https://github.com/jstolarek/slicer.git
+
+executable slicer
+  main-is:          Main.hs
+  build-depends:    base       >= 4.9 && < 4.10,
+                    containers >= 0.5 && < 0.6,
+                    deepseq    >= 1.4 && < 1.5,
+                    filepath   >= 1.4 && < 1.5,
+                    graphviz   >= 2999.11,
+                    hashable   >= 1.2,
+                    parsec     >= 3.1 && < 3.2,
+                    pretty     >= 1.1 && < 1.2,
+                    text       >= 1.2
+  hs-source-dirs:   src
+  default-language: Haskell2010
