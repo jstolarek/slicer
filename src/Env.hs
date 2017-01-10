@@ -15,7 +15,10 @@ import qualified Data.Map as Map
 import           Text.PrettyPrint
 
 newtype Var = V String
-    deriving (Show, Eq, Ord)
+    deriving (Eq, Ord)
+
+instance Show Var where
+    showsPrec i (V x) = showString x
 
 instance UpperSemiLattice Var where
     bot = V "_"
@@ -33,7 +36,10 @@ instance PP Var where
     pp_partial v       v' = assert (v == v') pp v
 
 newtype TyVar = TV String
-    deriving (Show, Eq, Ord)
+    deriving (Eq, Ord)
+
+instance Show TyVar where
+    showsPrec i (TV x) = showString x
 
 instance PP TyVar where
     pp (TV x) = text x
