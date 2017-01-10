@@ -1,7 +1,7 @@
 TODOs
 =====
 
-  * Parser cleanup
+  * Add PrettyPrinting import in Main to keep it building
 
   * Fix test failures.  In the process of doing this I can perhaps figure out a
     hierarchical organisation of tests, eg. ctrace tests could go into their own
@@ -35,3 +35,11 @@ TODOs
         double compilation?
 
   * Separate the code into library and executable?
+
+  * Comments not allowed to begin a file
+
+  * Drop support for with-syntax
+
+  * add support for mod in the parser (+ add test)
+
+  * try a stronger embedding with GADTs?  See Valuable type class in Trace

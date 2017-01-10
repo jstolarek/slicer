@@ -18,7 +18,7 @@ newtype Var = V String
     deriving (Eq, Ord)
 
 instance Show Var where
-    showsPrec i (V x) = showString x
+    showsPrec _ (V x) = showString x
 
 instance UpperSemiLattice Var where
     bot = V "_"
@@ -39,7 +39,7 @@ newtype TyVar = TV String
     deriving (Eq, Ord)
 
 instance Show TyVar where
-    showsPrec i (TV x) = showString x
+    showsPrec _ (TV x) = showString x
 
 instance PP TyVar where
     pp (TV x) = text x
