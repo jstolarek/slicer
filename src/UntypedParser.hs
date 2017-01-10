@@ -95,17 +95,6 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strVisualize, strVisualize2, strProfile, strTreesize,strProfile2
            , strWhere, strDep, strExpr]
 
--- The recursive type associated with a typedef.
-roll :: TyDecl -> Type
-roll = TyVar . name
-
-pairs :: [Type] -> Type
-pairs tys = foldr (\x y -> PairTy x y) UnitTy tys
-
--- The "body" of a recursive type.
-unroll :: TyDecl -> Type
-unroll decl = foldr (\(_,ty1s) ty2 -> SumTy (pairs ty1s) ty2) UnitTy (constrs decl)
-
 -- Parse a string in a type context and the empty variable context.
 parseIn :: String -> TyCtx -> (TyCtx,Ctx,Exp)
 parseIn source tyctx =

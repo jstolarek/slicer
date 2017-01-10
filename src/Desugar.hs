@@ -169,6 +169,7 @@ desugarFun decls gamma (A.Rec f args (Just rty) e lbl) =
         (x1):tl = map fst args
         lbl' = case lbl of Nothing -> Nothing
                            Just s -> Just (mkL s)
+        -- JSTOLAREK: A potentiall bug here? Nothing instead of lbl' ?
         e'' = foldr (\(x) e0 -> Fun (Rec bot x e0 Nothing)) e' tl
         e''' = Fun (Rec f x1 e'' lbl')
     in if desugarTy rty == rty'
