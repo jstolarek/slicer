@@ -1,4 +1,0 @@
-let F = fun F f x y =
-          let z = f x
-          in if y = 1 then 90 else z
-in F (G f1) 2 3 + F (H f2) 0 1

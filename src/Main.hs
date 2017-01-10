@@ -16,9 +16,9 @@ import           System.Environment
 
 parse_desugar_eval :: String -> (Value, Type)
 parse_desugar_eval s =
-    let (tyctx, _, e) = parseIn s emptyTyCtx
-        (e', ty)      = desugar tyctx emptyEnv e
-        v             = eval emptyEnv e'
+    let (tyctx, gamma, e) = parseIn s emptyTyCtx
+        (e', ty)          = desugar tyctx (fmap desugarTy gamma) e
+        v                 = eval emptyEnv e'
     in (v, ty)
 
 main :: IO ()

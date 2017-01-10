@@ -1,1 +1,2 @@
 Running ../copy-list.tml
+val it =  roll(inr(([|_|],roll(inr((4,roll(inl(())))))))) : intlist

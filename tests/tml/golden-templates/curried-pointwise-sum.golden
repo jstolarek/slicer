@@ -1,1 +1,2 @@
 Running ../curried-pointwise-sum.tml
+val it =  roll(inr(([|_|],roll(inr((12,roll(inl(())))))))) : intlist

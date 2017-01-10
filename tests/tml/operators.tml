@@ -1,0 +1,19 @@
+let plus  = (fun plus  (n : int) : int => n + 2) 2 in
+let minus = (fun minus (n : int) : int => n - 1) 0 in
+let times = (fun times (n : int) : int => n * 2) 2 in
+let div   = (fun div   (n : int) : int => n / 2) 7 in
+
+let int_eq  = (fun int_eq  (n : int) : bool => n  = 42) 42 in
+let int_neq = (fun int_neq (n : int) : bool => n /= 42) 42 in
+let int_leq = (fun int_leq (n : int) : bool => n <= 42) 42 in
+let int_geq = (fun int_geq (n : int) : bool => n >= 42) 42 in
+let int_le  = (fun int_le  (n : int) : bool => n <  42) 42 in
+let int_ge  = (fun int_ge  (n : int) : bool => n >  42) 42 in
+
+let bool_and = (fun bool_and (n : bool) : bool => n && true) false in
+let bool_or  = (fun bool_or  (n : bool) : bool => n || true) false in
+let bool_not = (fun bool_eq  (n : bool) : bool => not n    ) false in
+let bool_eq  = (fun bool_eq  (n : bool) : bool => n = true ) false in
+let bool_neq = (fun bool_neq (n : bool) : bool => n /= true) false in
+
+()
