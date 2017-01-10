@@ -2,8 +2,6 @@ module UpperSemiLattice (
     UpperSemiLattice(..)
   ) where
 
-import           Control.Exception.Base ( assert )
-
 -- | Defines an upper semilattice.  Note that the lub function (least upper
 -- bound, join) is partial, although this is not reflected in the type
 -- signature.  The way we use it ensures that it should only be called with
@@ -21,7 +19,8 @@ instance Eq a => UpperSemiLattice (Maybe a) where
 
     lub Nothing  x        = x
     lub x        Nothing  = x
-    lub (Just x) (Just y) = assert (x == y) $ Just x
+    lub (Just x) (Just y) | x == y = Just x
+    lub x y = error "UpperSemiLattice Maybe: error taking lub"
 
     leq Nothing  _        = True
     leq _        Nothing  = False

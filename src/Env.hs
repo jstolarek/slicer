@@ -10,7 +10,6 @@ module Env
 import           UpperSemiLattice
 import           PrettyPrinting
 
-import           Control.Exception.Base ( assert )
 import qualified Data.Map as Map
 import           Text.PrettyPrint
 
@@ -25,15 +24,19 @@ instance UpperSemiLattice Var where
 
     lub (V "_") v       = v
     lub v       (V "_") = v
-    lub v       v'      = assert (v == v') v
+    lub v v' | v == v'  = v
+    lub v v' = error $ "UpperSemiLattice Var: error taking lub of " ++
+                        show v ++ " and " ++ show v'
 
     leq (V "_") _  = True
     leq v       v' = v == v'
 
 instance PP Var where
     pp (V x) = text x
-    pp_partial (V "_") v  = sb (pp v)
-    pp_partial v       v' = assert (v == v') pp v
+    pp_partial (V "_") v      = sb (pp v)
+    pp_partial v v' | v == v' = pp v
+    pp_partial v v' = error ("Error pretty-printing Var: v is " ++ show v ++
+                             " and v' is " ++ show v')
 
 newtype TyVar = TV String
     deriving (Eq, Ord)
@@ -44,7 +47,9 @@ instance Show TyVar where
 instance PP TyVar where
     pp (TV x) = text x
     pp_partial (TV "_") v  = sb (pp v)
-    pp_partial v        v' = assert (v == v') (pp v)
+    pp_partial v v' | v == v' = pp v
+    pp_partial v v' = error ("Error pretty-printing TyVar: v is " ++ show v ++
+                             " and v' is " ++ show v')
 
 newtype Env a = Env (Map.Map Var a)
     deriving (Eq,Show,Ord)
