@@ -128,10 +128,11 @@ opGeq = O ">=" [IntTy, IntTy] BoolTy
 opAnd = O "&&" [BoolTy, BoolTy] BoolTy
 opOr = O "||" [BoolTy, BoolTy] BoolTy
 opBoolEq = O "=" [BoolTy, BoolTy] BoolTy
+opBoolNeq = O "/=" [BoolTy, BoolTy] BoolTy
 opNot = O "not" [BoolTy] BoolTy
 
 optable = [opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opLt, opGt,
-           opAnd, opOr, opBoolEq, opNot]
+           opAnd, opOr, opBoolEq, opBoolNeq, opNot]
 
 
 
@@ -649,7 +650,8 @@ boolOps :: Map Op ((Bool, Bool) -> Value)
 boolOps = fromList [
       (opAnd, to_val . uncurry (&&)),
       (opOr, to_val . uncurry (||)),
-      (opBoolEq, to_val . uncurry (==))
+      (opBoolEq, to_val . uncurry (==)),
+      (opBoolNeq, to_val . uncurry (/=))
    ]
 
 evalIntBinop :: Op -> Int -> Int -> Value

@@ -17,8 +17,8 @@ import qualified Absyn as A
 
 intBinOp s = s `elem`["+","-","*","/","mod"]
 
-intBinRel s = s `elem` ["=","<",">"]
-boolBinOp s = s `elem` ["&&","||","="]
+intBinRel s = s `elem` ["=","<",">","/=",">=", "<="]
+boolBinOp s = s `elem` ["&&","||","=","/="]
 boolUnOp s = s == "not"
 
 -- Assuming that op name + argument types determines the op result type.
