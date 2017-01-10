@@ -1,1 +1,3 @@
 Running ../sort.tml
+Profile {unProfile = fromList [(split,43),(mergesort,19),(merge,9)]}
+val it =  55 : int

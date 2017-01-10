@@ -51,7 +51,7 @@ let sum = fun sum (xs : intlist) : int =>
     of Nil -> 0;
        Cons x -> (fst x) + (sum (snd x))
 in
-let l = mklist 1000 in
+let l = mklist 20 in
 let t = trace(mergesort(l)) in
 let w = dep(t) in
 let v = read(t) in

@@ -1,1 +1,3 @@
 Running ../sort-eval-trace-slice-profile.tml
+Profile {unProfile = fromList [(split,10975),(mergesort,1999),(merge,999)]}
+val it =  500500 : int

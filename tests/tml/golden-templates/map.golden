@@ -1,1 +1,5 @@
 Running ../map.tml
+roll(inr((4,roll(inr((5,roll(inr((6,roll(inl(())))))))))))
+roll(inr((4 @ +(x_3,1),roll(inr((5 @ +(x_7,1),roll(inr((6 @ +(x_11,1),roll(inl(())))))))))))
+roll(inr((4 @ {0,2,3},roll(inr((5 @ {0,6,7},roll(inr((6 @ {0,10,11},roll(inl(())) @ {0,10,12,13}))) @ {0,6,8,9}))) @ {0,2,4,5}))) @ {0,1}
+val it =  roll(inr((4,roll(inr((5,roll(inr((6,roll(inl(()))))))))))) : intlist

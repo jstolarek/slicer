@@ -2,6 +2,7 @@ let plus  = (fun plus  (n : int) : int => n + 2) 2 in
 let minus = (fun minus (n : int) : int => n - 1) 0 in
 let times = (fun times (n : int) : int => n * 2) 2 in
 let div   = (fun div   (n : int) : int => n / 2) 7 in
+let mod   = (fun mod   (n : int) : int => n % 2) 7 in
 
 let int_eq  = (fun int_eq  (n : int) : bool => n  = 42) 42 in
 let int_neq = (fun int_neq (n : int) : bool => n /= 42) 42 in

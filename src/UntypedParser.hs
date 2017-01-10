@@ -23,9 +23,9 @@ import           UpperSemiLattice
 -- Some constants for keywords, etc.
 strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse, strEq,
       strFalse, strFst, strFun, strFunBodySep, strGeq, strGt, strHole, strIf,
-      strIn, strInL, strInR, strInt, strLeq, strLet, strLt, strMinus, strNeq,
-      strOf, strOr, strPlus, strRoll, strSnd, strString, strThen, strTimes,
-      strTrue, strUnit, strUnitVal, strUnroll, strWith :: String
+      strIn, strInL, strInR, strInt, strLeq, strLet, strLt, strMinus, strMod,
+      strNeq, strOf, strOr, strPlus, strRoll, strSnd, strString, strThen,
+      strTimes, strTrue, strUnit, strUnitVal, strUnroll, strWith :: String
 strAnd           = "&&"
 strBool          = "bool"
 strCase          = "case"
@@ -50,6 +50,7 @@ strLeq           = "<="
 strLet           = "let"
 strLt            = "<"
 strMinus         = "-"
+strMod           = "%"
 strNeq           = "/="
 strOf            = "of"
 strOr            = "||"
@@ -191,7 +192,8 @@ exp =
    flip buildExpressionParser appChain
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
-      [ [ Infix (binaryOp strTimes opTimes ) AssocLeft
+      [ [ Infix (binaryOp strMod   opMod   ) AssocLeft ]
+      , [ Infix (binaryOp strTimes opTimes ) AssocLeft
         , Infix (binaryOp strDiv   opDiv   ) AssocLeft  ]
       , [ Infix (binaryOp strMinus opMinus ) AssocLeft
         , Infix (binaryOp strPlus  opPlus  ) AssocLeft  ]
@@ -207,13 +209,11 @@ exp =
       ]
 
 appChain :: Parser Exp
-appChain =
-   chainl1 simpleExp $ return $
-   \e1 e2 -> (App e1 e2)
+appChain = chainl1 simpleExp (return App)
 
 simpleExp :: Parser Exp
 simpleExp =
-   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
+   unitVal <|> int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
    try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
    snd_ <|> case_ <|> hole <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|>
    traceval_ <|> tracevar_ <|> traceupd_ <|> visualize <|> visualize2 <|>
@@ -221,7 +221,7 @@ simpleExp =
 
 
 binaryOp :: String -> Op -> Parser (Exp -> Exp -> Exp)
-binaryOp str op@(O _) =
+binaryOp str op =
    reservedOp token_ str >>
    (return $ \e1 e2 -> (Op op [e1, e2]))
 
@@ -240,7 +240,7 @@ ctr = do c <- constr
          return (Con c [e])
 
 int :: Parser Exp
-int = (CInt . fromIntegral) `liftM` integer token_
+int = (CInt . fromIntegral) `liftM` natural token_
 
 string_ :: Parser Exp
 string_ = CString `liftM` stringLiteral token_

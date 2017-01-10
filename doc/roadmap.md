@@ -3,6 +3,8 @@ TODOs
 
   * Add PrettyPrinting import in Main to keep it building
 
+  * not is not listed as a prefix operator in exp
+
   * Fix test failures.  In the process of doing this I can perhaps figure out a
     hierarchical organisation of tests, eg. ctrace tests could go into their own
     group.  I could then disable a group of tests if I know they don't work.
