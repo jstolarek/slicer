@@ -254,7 +254,7 @@ ctr = do c <- constr
 
 int :: Parser Exp
 int = (CInt . fromIntegral) `liftM` natural token_ <|>
-      parenthesise (char '-' >> (CInt . fromIntegral) `liftM` natural token_)
+      (parenthesise (char '-' >> (CInt . fromIntegral) `liftM` natural token_) >>= \(CInt x) -> return (CInt (-x)))
 
 string_ :: Parser Exp
 string_ = CString `liftM` stringLiteral token_
