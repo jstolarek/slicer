@@ -192,13 +192,11 @@ exp =
    flip buildExpressionParser appChain
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
-      [ [ Infix (binaryOp strMod   opMod   ) AssocLeft ]
-      , [ Infix (binaryOp strTimes opTimes ) AssocLeft
+      [ [ Infix (binaryOp strMod   opMod   ) AssocLeft
+        , Infix (binaryOp strTimes opTimes ) AssocLeft
         , Infix (binaryOp strDiv   opDiv   ) AssocLeft  ]
       , [ Infix (binaryOp strMinus opMinus ) AssocLeft
         , Infix (binaryOp strPlus  opPlus  ) AssocLeft  ]
-      , [ Infix (binaryOp strAnd   opAnd   ) AssocLeft  ]
-      , [ Infix (binaryOp strOr    opOr    ) AssocLeft  ]
       , [ Infix (binaryOp strEq    opIntEq ) AssocRight
         , Infix (binaryOp strLt    opLt    ) AssocRight
         , Infix (binaryOp strGt    opGt    ) AssocRight
@@ -206,6 +204,8 @@ exp =
         , Infix (binaryOp strLeq   opLeq   ) AssocRight
         , Infix (binaryOp strGeq   opGeq   ) AssocRight
         ]
+      , [ Infix (binaryOp strAnd   opAnd   ) AssocLeft  ]
+      , [ Infix (binaryOp strOr    opOr    ) AssocLeft  ]
       ]
 
 appChain :: Parser Exp
