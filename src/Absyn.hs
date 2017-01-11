@@ -90,7 +90,7 @@ getTyDeclByName decls a = Map.lookup a (tydecls decls)
 getConstrs :: TyCtx -> TyVar -> [Con]
 getConstrs tyCtx = map fst . constrs . fromJust . getTyDeclByName tyCtx
 
-data Exp = Var Var | Let Var Exp Exp
+data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Unit
          | CBool Bool | If Exp Exp Exp
          | CInt Int | Op Op [Exp]

@@ -1,6 +1,6 @@
 module Desugar
     ( -- * Desugaring TML expressions
-      desugar
+      desugar, desugarTy
     ) where
 
 import Env
@@ -70,6 +70,7 @@ desugar decls gamma (A.Let x e1 e2)
     = let (e1',ty1) = desugar decls gamma e1
           (e2',ty2) = desugar decls (bindEnv gamma x ty1) e2
       in (Let x e1' e2',ty2)
+desugar decls gamma (A.LetR _ e1) = desugar decls gamma e1
 desugar decls gamma (A.Unit) = (Unit, UnitTy)
 desugar decls gamma (A.If e e1 e2)
     = let (e',BoolTy) = desugar decls gamma e

@@ -2,7 +2,7 @@
 
 module UntypedParser
     ( -- * Parsing programs represented as strings
-      parseIn
+      parseIn, parseRepl
 
       -- * Language keywords.  Used for resugaring
     , strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse
@@ -16,6 +16,7 @@ module UntypedParser
 import           Prelude hiding ( exp     )
 import           Control.Monad  ( liftM   )
 import           Data.Char      ( isUpper )
+import           Data.Function  ( fix     )
 import qualified Data.Map as Map
 
 import           Text.ParserCombinators.Parsec hiding (Parser)
@@ -117,6 +118,10 @@ parseIn source tyctx =
       Left err          -> error $ "Syntax error: " ++ show err
       Right (tyctx', e) -> (tyctx', e)
 
+-- Parse a repl line in a type context and the empty variable context.
+parseRepl :: String -> TyCtx -> Either ParseError (TyCtx, Maybe Exp)
+parseRepl line tyctx = runParser repl tyctx "" line
+
 type Parser a = CharParser TyCtx a
 
 -- Some helpers.
@@ -202,9 +207,9 @@ typeOp str op = reservedOp token_ str >> return op
 -- binary primitives and whose leaves are application chains. An application
 -- chain is a left-associative tree of simple exps. A simple exp is any exp
 -- other than an operator tree or an application chain.
-exp :: Parser Exp
-exp =
-   flip buildExpressionParser appChain
+exp :: Parser Exp -> Parser Exp
+exp lp =
+   flip buildExpressionParser (appChain lp)
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
       [ [ Infix  (binaryOp strMod   opMod   ) AssocLeft
@@ -224,17 +229,20 @@ exp =
       , [ Prefix (unaryOp  strNot   opNot   )            ]
       ]
 
-appChain :: Parser Exp
-appChain = chainl1 simpleExp (return App)
+appChain :: Parser Exp -> Parser Exp
+appChain lp = chainl1 (simpleExp lp) (return App)
 
-simpleExp :: Parser Exp
-simpleExp =
-   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
-   try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
-   snd_ <|> case_ <|> hole <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|>
-   traceval_ <|> tracevar_ <|> traceupd_ <|> visualize <|> visualize2 <|>
-   profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
-
+-- Expressions common to compiler and REPL: everything except different forms of
+-- let-bindings. lp stands for "let parser"
+simpleExp :: Parser Exp -> Parser Exp
+simpleExp lp =
+   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ lp <|>
+   try (ctr lp) <|> try var <|> fun lp <|> try (parenthesise (exp lp)) <|>
+   lp <|> pair lp <|> fst_ lp <|> snd_ lp <|> case_ lp <|> hole <|>
+   trace_ lp <|> replay_ lp <|> slice_ lp <|> pslice_ lp <|> traceval_ lp <|>
+   tracevar_ lp <|> traceupd_ lp <|> visualize lp <|> visualize2 lp <|>
+   profile_ lp <|> profile2_ lp <|> treesize_ lp <|> where_ lp <|> dep_ lp <|>
+   expr_ lp
 
 unaryOp :: String -> Op -> Parser (Exp -> Exp)
 unaryOp str op =
@@ -255,10 +263,10 @@ unitVal = reservedOp token_ strUnitVal >> return Unit
 var :: Parser Exp
 var = Var `liftM` var_
 
-ctr :: Parser Exp
-ctr = do c <- constr
-         e <- option Unit exp
-         return (Con c [e])
+ctr :: Parser Exp -> Parser Exp
+ctr lp = do c <- constr
+            e <- option Unit (exp lp)
+            return (Con c [e])
 
 int :: Parser Exp
 int = (CInt . fromIntegral) `liftM` natural token_ <|>
@@ -273,65 +281,73 @@ true = keyword strTrue >> return (CBool True)
 false :: Parser Exp
 false = keyword strFalse >> return (CBool False)
 
-fun :: Parser Exp
-fun = do
+fun :: Parser Exp -> Parser Exp
+fun lp = do
    f <- keyword strFun >> var_
    params :: [(Var,Type)] <- many1 $ parenthesise (do v  <- var_
                                                       ty <- typeAnnotation
                                                       return (v, ty))
    tau <- option Nothing (Just `liftM` typeAnnotation)
    reservedOp token_ strFunBodySep
-   e <- exp
+   e <- exp lp
    return (Fun (Rec f params tau e (Just (show f))))
 
-if_ :: Parser Exp
-if_ = do
-   e  <- keyword strIf   >> exp
-   e1 <- keyword strThen >> exp
-   e2 <- keyword strElse >> exp
+if_ :: Parser Exp -> Parser Exp
+if_ lp = do
+   e  <- keyword strIf   >> exp lp
+   e1 <- keyword strThen >> exp lp
+   e2 <- keyword strElse >> exp lp
    return (If e e1 e2)
 
-let_ :: Parser Exp
-let_ = do
+let_ :: Parser Exp -> Parser Exp
+let_ lp = do
    x  <- keyword strLet >> var_
-   e1 <- equals         >> exp
-   e2 <- keyword strIn  >> exp
+   e1 <- equals         >> exp lp
+   e2 <- keyword strIn  >> exp lp
    return (Let x e1 e2)
 
-pair :: Parser Exp
-pair = parenthesise $ do
-   e1 <- exp
+-- let binding used in a REPL
+letR_ :: Parser Exp -> Parser Exp
+letR_ lp = do
+   x <- keyword strLet >> var_
+   e <- equals         >> exp lp
+   return (LetR x e)
+
+
+pair :: Parser Exp -> Parser Exp
+pair lp = parenthesise $ do
+   e1 <- exp lp
    _  <- comma token_
-   e2 <- exp
+   e2 <- exp lp
    return (Pair e1 e2)
 
-fst_ :: Parser Exp
-fst_ = do
-   e <- keyword strFst >> exp
+fst_ :: Parser Exp -> Parser Exp
+fst_ lp = do
+   e <- keyword strFst >> exp lp
    return (Fst e)
 
-snd_ :: Parser Exp
-snd_ = do
-   e <- keyword strSnd >> exp
+snd_ :: Parser Exp -> Parser Exp
+snd_ lp = do
+   e <- keyword strSnd >> exp lp
    return (Snd e)
 
-case_ :: Parser Exp
-case_ = do
+case_ :: Parser Exp -> Parser Exp
+case_ lp = do
   keyword strCase
-  e <- exp
+  e <- exp lp
   keyword strOf
-  m <- matches
+  m <- matches lp
   return (Case e m)
 
-matches :: Parser Match
-matches = (Match . Map.fromList) `liftM` semiSep token_ match
+matches :: Parser Exp -> Parser Match
+matches lp = (Match . Map.fromList) `liftM` semiSep token_ match
     where match :: Parser (Con,([Var],Exp)) =
                    do c  <- constr
                       vs <- option [bot]  -- TODO: Empty list for nullary ctors
                             ((pure `liftM` var_) -- construct singleton list
                              <|> parenthesise (commaSep token_ var_))
                       reservedOp token_ strCaseClauseSep
-                      e <- exp
+                      e <- exp lp
                       return (c, (vs, e))
 
 typeDef :: Parser (TyVar, TyDecl)
@@ -351,112 +367,119 @@ typeDef = do
          tau <- option UnitTy type_
          return (c, tau)
 
-trace_ :: Parser Exp
-trace_ = do
-   e <- keyword strTrace >> exp
+trace_ :: Parser Exp -> Parser Exp
+trace_ lp = do
+   e <- keyword strTrace >> exp lp
    return (Trace e)
 
-profile_ :: Parser Exp
-profile_ = do
-   e <- keyword strProfile >> exp
+profile_ :: Parser Exp -> Parser Exp
+profile_ lp = do
+   e <- keyword strProfile >> exp lp
    return (Op (O "profile") [e])
 
-treesize_ :: Parser Exp
-treesize_ = do
-   e <- keyword strTreesize >> exp
+treesize_ :: Parser Exp -> Parser Exp
+treesize_ lp = do
+   e <- keyword strTreesize >> exp lp
    return (Op (O "treesize") [e])
 
-where_ :: Parser Exp
-where_ = do
-   e <- keyword strWhere >> exp
+where_ :: Parser Exp -> Parser Exp
+where_ lp = do
+   e <- keyword strWhere >> exp lp
    return (Op (O "where") [e])
 
-dep_ :: Parser Exp
-dep_ = do
-   e <- keyword strDep >> exp
+dep_ :: Parser Exp -> Parser Exp
+dep_ lp = do
+   e <- keyword strDep >> exp lp
    return (Op (O "dep") [e])
 
-expr_ :: Parser Exp
-expr_ = do
-   e <- keyword strExpr >> exp
+expr_ :: Parser Exp -> Parser Exp
+expr_ lp = do
+   e <- keyword strExpr >> exp lp
    return (Op (O "expr") [e])
 
-profile2_ :: Parser Exp
-profile2_ = do
-   e <- keyword strProfile2 >> exp
+profile2_ :: Parser Exp -> Parser Exp
+profile2_ lp = do
+   e <- keyword strProfile2 >> exp lp
    return (Op (O "profile2") [e])
 
-visualize :: Parser Exp
-visualize = do
+visualize :: Parser Exp -> Parser Exp
+visualize lp = do
    keyword strVisualize
-   parenthesise $ do e1 <- exp
+   parenthesise $ do e1 <- exp lp
                      _  <- comma token_
-                     e2 <- exp
+                     e2 <- exp lp
                      return (Op (O "visualize") [e1, e2])
 
-visualize2 :: Parser Exp
-visualize2 = do
+visualize2 :: Parser Exp -> Parser Exp
+visualize2 lp = do
    keyword strVisualize2
-   parenthesise $ do e  <- exp
+   parenthesise $ do e  <- exp lp
                      _  <- comma token_
-                     e1 <- exp
+                     e1 <- exp lp
                      _  <- comma token_
-                     e2 <- exp
+                     e2 <- exp lp
                      return (Op (O "visualize2") [e, e1, e2])
 
-traceval_ :: Parser Exp
-traceval_ = do
-   e <- keyword strVal >> exp
+traceval_ :: Parser Exp -> Parser Exp
+traceval_ lp = do
+   e <- keyword strVal >> exp lp
    return (Op (O "val") [e])
 
-tracevar_ :: Parser Exp
-tracevar_ = do
+tracevar_ :: Parser Exp -> Parser Exp
+tracevar_ lp = do
   keyword strVar
   x <- var_
   keyword strIn
-  e <- exp
+  e <- exp lp
   return (TraceVar e x)
 
-traceupd_ :: Parser Exp
-traceupd_ = do
+traceupd_ :: Parser Exp -> Parser Exp
+traceupd_ lp = do
    keyword strUpdate
-   e1 <- exp
+   e1 <- exp lp
    keyword strWith
    x <- var_
    keyword strAs
-   e2 <- exp
+   e2 <- exp lp
    return (TraceUpd e1 x e2)
 
-replay_ :: Parser Exp
-replay_ = do
-   e <- keyword strReplay >> exp
+replay_ :: Parser Exp -> Parser Exp
+replay_ lp = do
+   e <- keyword strReplay >> exp lp
    return (Op (O "replay") [e])
 
-slice_ :: Parser Exp
-slice_ = do keyword strSlice
-            (e1,e2) <-  parenthesise $ do
-                          e1 <- exp
+slice_ :: Parser Exp -> Parser Exp
+slice_ lp = do keyword strSlice
+               (e1,e2) <- parenthesise $ do
+                          e1 <- exp lp
                           _  <- comma token_
-                          e2 <- exp
+                          e2 <- exp lp
                           return (e1,e2)
-            return (Op (O "slice") [e1,e2])
+               return (Op (O "slice") [e1,e2])
 
 
-pslice_ :: Parser Exp
-pslice_ = do keyword strPSlice
-             (e1,e2) <-  parenthesise $ do
-                           e1 <- exp
-                           _  <- comma token_
-                           e2 <- exp
-                           return (e1,e2)
-             return (Op (O "pslice") [e1,e2])
+pslice_ :: Parser Exp -> Parser Exp
+pslice_ lp = do keyword strPSlice
+                (e1,e2) <-  parenthesise $ do
+                            e1 <- exp lp
+                            _  <- comma token_
+                            e2 <- exp lp
+                            return (e1,e2)
+                return (Op (O "pslice") [e1,e2])
+
+repl :: Parser (TyCtx, Maybe Exp)
+repl =
+  (typeDef >> getState >>= (\s -> return (s, Nothing))) <|>
+  (do e <- exp (fix letR_)
+      s <- getState
+      return (s, Just e))
 
 -- A type context, a variable context in that type context, and then an
 -- expression in that variable context.
 program :: Parser (TyCtx, Exp)
 program = do
    _      <- many typeDef -- discards type ctxt, we'll read it from parser state
-   e      <- exp
+   e      <- exp (fix let_)
    eof
    tyCtx' <- getState
    return (tyCtx', e)

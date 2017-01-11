@@ -3,7 +3,8 @@ TODOs
 
   * eliminate string typing in Absyn/Desugar/Trace
 
-  * add a simple REPL?
+  * implement proper error handling so tha REPL doesn't blow in my face every
+    time something goes wrong
 
   * Move all the modules into the Slicer namespace.  Incremental strategy
     probably deserves its own namespace.  Absyn can have a better name
