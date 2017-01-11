@@ -4,12 +4,13 @@ module Main
     ) where
 
 import           Absyn          ( emptyTyCtx  )
-import           Trace          ( Value, Type )
 import           Desugar
 import           Env
 import           Eval
-import           UntypedParser  ( parseIn     )
 import           PrettyPrinting ( pp          )
+import           Resugar        () -- dummy import to force module compilation
+import           Trace          ( Value, Type )
+import           UntypedParser  ( parseIn     )
 
 import           System.Environment
 

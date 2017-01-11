@@ -3,6 +3,14 @@
 module UntypedParser
     ( -- * Parsing programs represented as strings
       parseIn
+
+      -- * Language keywords.  Used for resugaring
+    , strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse
+    , strEq,  strFalse, strFst, strFun, strFunBodySep, strGeq, strGt, strHole
+    , strIf,  strIn, strInL, strInR, strInt, strLeq, strLet, strLt, strMinus
+    , strMod, strNeq, strNot, strOf, strOr, strPlus, strRoll, strSnd, strString
+    , strThen, strTimes, strTrue, strUnit, strUnitVal, strUnroll
+    , strWith
     ) where
 
 import           Prelude hiding ( exp     )
@@ -101,7 +109,6 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
 operators :: [String]
 operators = [ strMod, strTimes, strDiv, strMinus, strPlus, strEq, strLt, strGt
             , strNeq, strLeq, strGeq, strAnd, strOr, strNot ]
-
 
 -- Parse a string in a type context and the empty variable context.
 parseIn :: String -> TyCtx -> (TyCtx, Exp)

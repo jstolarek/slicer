@@ -1,8 +1,6 @@
 TODOs
 =====
 
-  * Add PrettyPrinting import in Main to keep it building
-
   * eliminate string typing in Absyn/Desugar/Trace
 
   * add a simple REPL?

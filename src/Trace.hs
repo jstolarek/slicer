@@ -12,6 +12,8 @@ module Trace
 
       -- * Free variables
     , FVs(..)
+
+    , val2exp
     ) where
 
 

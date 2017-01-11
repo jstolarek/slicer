@@ -7,10 +7,10 @@ module Absyn
     , opIntNeq, opLeq, opGeq, opAnd, opOr, opNot
 
       -- * Type declarations
-    , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName
+    , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName, getConstrs
 
       -- * Type context
-    , TyCtx, emptyTyCtx
+    , TyCtx(..), emptyTyCtx
     ) where
 
 import Env
