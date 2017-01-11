@@ -4,7 +4,7 @@ module Absyn
 
       -- * Operators
     , Op(..), opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opLt, opGt
-    , opIntNeq, opLeq, opGeq, opAnd, opOr
+    , opIntNeq, opLeq, opGeq, opAnd, opOr, opNot
 
       -- * Type declarations
     , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName
@@ -35,7 +35,7 @@ opGeq = O ">="
 opAnd = O "&&"
 opOr = O "||"
 opBoolEq = O "="
-
+opNot = O "not"
 
 newtype Lab = L String deriving (Show, Eq, Ord)
 newtype Con = C String deriving (Show, Eq, Ord)

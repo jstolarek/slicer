@@ -1,20 +1,20 @@
-let plus  = (fun plus  (n : int) : int => n + 2) 2 in
-let minus = (fun minus (n : int) : int => n - 1) 0 in
-let times = (fun times (n : int) : int => n * 2) 2 in
-let div   = (fun div   (n : int) : int => n / 2) 7 in
-let mod   = (fun mod   (n : int) : int => n % 2) 7 in
+let plus  = where (trace ((fun plus  (n : int) : int => n + 2) 2)) in
+let minus = where (trace ((fun minus (n : int) : int => n - 1) 0)) in
+let times = where (trace ((fun times (n : int) : int => n * 2) 2)) in
+let div   = where (trace ((fun div   (n : int) : int => n / 2) 7)) in
+let mod   = where (trace ((fun mod   (n : int) : int => n % 2) 7)) in
 
-let int_eq  = (fun int_eq  (n : int) : bool => n  = 42) 42 in
-let int_neq = (fun int_neq (n : int) : bool => n /= 42) 42 in
-let int_leq = (fun int_leq (n : int) : bool => n <= 42) 42 in
-let int_geq = (fun int_geq (n : int) : bool => n >= 42) 42 in
-let int_le  = (fun int_le  (n : int) : bool => n <  42) 42 in
-let int_ge  = (fun int_ge  (n : int) : bool => n >  42) 42 in
+let int_eq  = where (trace ((fun int_eq  (n : int) : bool => n  = 42) 42)) in
+let int_neq = where (trace ((fun int_neq (n : int) : bool => n /= 42) 42)) in
+let int_leq = where (trace ((fun int_leq (n : int) : bool => n <= 42) 42)) in
+let int_geq = where (trace ((fun int_geq (n : int) : bool => n >= 42) 42)) in
+let int_le  = where (trace ((fun int_le  (n : int) : bool => n <  42) 42)) in
+let int_ge  = where (trace ((fun int_ge  (n : int) : bool => n >  42) 42)) in
 
-let bool_and = (fun bool_and (n : bool) : bool => n && true) false in
-let bool_or  = (fun bool_or  (n : bool) : bool => n || true) false in
-let bool_not = (fun bool_eq  (n : bool) : bool => not n    ) false in
-let bool_eq  = (fun bool_eq  (n : bool) : bool => n = true ) false in
-let bool_neq = (fun bool_neq (n : bool) : bool => n /= true) false in
+let bool_and = where (trace ((fun bool_and (n : bool) : bool => n && true) false)) in
+let bool_or  = where (trace ((fun bool_or  (n : bool) : bool => n || true) false)) in
+let bool_not = where (trace ((fun bool_eq  (n : bool) : bool => not n    ) false)) in
+let bool_eq  = where (trace ((fun bool_eq  (n : bool) : bool => n = true ) false)) in
+let bool_neq = where (trace ((fun bool_neq (n : bool) : bool => n /= true) false)) in
 
 ()

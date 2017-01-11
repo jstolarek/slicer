@@ -52,6 +52,7 @@ strLt            = "<"
 strMinus         = "-"
 strMod           = "%"
 strNeq           = "/="
+strNot           = "not"
 strOf            = "of"
 strOr            = "||"
 strPlus          = "+"
@@ -192,20 +193,21 @@ exp =
    flip buildExpressionParser appChain
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
-      [ [ Infix (binaryOp strMod   opMod   ) AssocLeft
-        , Infix (binaryOp strTimes opTimes ) AssocLeft
-        , Infix (binaryOp strDiv   opDiv   ) AssocLeft  ]
-      , [ Infix (binaryOp strMinus opMinus ) AssocLeft
-        , Infix (binaryOp strPlus  opPlus  ) AssocLeft  ]
-      , [ Infix (binaryOp strEq    opIntEq ) AssocRight
-        , Infix (binaryOp strLt    opLt    ) AssocRight
-        , Infix (binaryOp strGt    opGt    ) AssocRight
-        , Infix (binaryOp strNeq   opIntNeq) AssocRight
-        , Infix (binaryOp strLeq   opLeq   ) AssocRight
-        , Infix (binaryOp strGeq   opGeq   ) AssocRight
+      [ [ Infix  (binaryOp strMod   opMod   ) AssocLeft
+        , Infix  (binaryOp strTimes opTimes ) AssocLeft
+        , Infix  (binaryOp strDiv   opDiv   ) AssocLeft  ]
+      , [ Infix  (binaryOp strMinus opMinus ) AssocLeft
+        , Infix  (binaryOp strPlus  opPlus  ) AssocLeft  ]
+      , [ Infix  (binaryOp strEq    opIntEq ) AssocRight
+        , Infix  (binaryOp strLt    opLt    ) AssocRight
+        , Infix  (binaryOp strGt    opGt    ) AssocRight
+        , Infix  (binaryOp strNeq   opIntNeq) AssocRight
+        , Infix  (binaryOp strLeq   opLeq   ) AssocRight
+        , Infix  (binaryOp strGeq   opGeq   ) AssocRight
         ]
-      , [ Infix (binaryOp strAnd   opAnd   ) AssocLeft  ]
-      , [ Infix (binaryOp strOr    opOr    ) AssocLeft  ]
+      , [ Infix  (binaryOp strAnd   opAnd   ) AssocLeft  ]
+      , [ Infix  (binaryOp strOr    opOr    ) AssocLeft  ]
+      , [ Prefix (unaryOp  strNot   opNot   )            ]
       ]
 
 appChain :: Parser Exp
@@ -219,6 +221,11 @@ simpleExp =
    traceval_ <|> tracevar_ <|> traceupd_ <|> visualize <|> visualize2 <|>
    profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
 
+
+unaryOp :: String -> Op -> Parser (Exp -> Exp)
+unaryOp str op =
+   reservedOp token_ str >>
+   (return $ \e1 -> (Op op [e1]))
 
 binaryOp :: String -> Op -> Parser (Exp -> Exp -> Exp)
 binaryOp str op =
