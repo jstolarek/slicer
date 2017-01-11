@@ -1,14 +1,15 @@
 data intlist = Nil | Cons int * intlist
 
-with
-   x : int
-in
 let
-   xs = Cons (x, Cons (4, Nil))
+   xs = Cons (1, Cons (4, Nil))
 in
 let copy =
    fun copy (xs : intlist) : intlist =>
       case xs of
          Nil -> Nil;
          Cons x -> Cons (fst x, copy (snd x))
-in copy xs
+in
+let p = Cons(_:int, Cons (4, Nil)) in
+let t = trace (copy xs) in
+let s = slice (t, p) in
+read s

@@ -24,8 +24,9 @@ import           UpperSemiLattice
 strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse, strEq,
       strFalse, strFst, strFun, strFunBodySep, strGeq, strGt, strHole, strIf,
       strIn, strInL, strInR, strInt, strLeq, strLet, strLt, strMinus, strMod,
-      strNeq, strOf, strOr, strPlus, strRoll, strSnd, strString, strThen,
-      strTimes, strTrue, strUnit, strUnitVal, strUnroll, strWith :: String
+      strNeq, strNot, strOf, strOr, strPlus, strRoll, strSnd, strString,
+      strThen, strTimes, strTrue, strUnit, strUnitVal, strUnroll,
+      strWith :: String
 strAnd           = "&&"
 strBool          = "bool"
 strCase          = "case"
@@ -103,11 +104,11 @@ operators = [ strMod, strTimes, strDiv, strMinus, strPlus, strEq, strLt, strGt
 
 
 -- Parse a string in a type context and the empty variable context.
-parseIn :: String -> TyCtx -> (TyCtx,Ctx,Exp)
+parseIn :: String -> TyCtx -> (TyCtx, Exp)
 parseIn source tyctx =
    case runParser program tyctx "" source of
-      Left err               -> error $ "Syntax error: " ++ show err
-      Right (tyctx',gamma,e) -> (tyctx',gamma,e)
+      Left err          -> error $ "Syntax error: " ++ show err
+      Right (tyctx', e) -> (tyctx', e)
 
 type Parser a = CharParser TyCtx a
 
@@ -443,21 +444,12 @@ pslice_ = do keyword strPSlice
                            return (e1,e2)
              return (Op (O "pslice") [e1,e2])
 
-support :: Parser Ctx
-support = option (emptyEnv) $ do
-   keyword strWith
-   ctx <- context
-   keyword strIn
-   return ctx
-
-
 -- A type context, a variable context in that type context, and then an
 -- expression in that variable context.
-program :: Parser (TyCtx,Ctx,Exp)
+program :: Parser (TyCtx, Exp)
 program = do
    _      <- many typeDef -- discards type ctxt, we'll read it from parser state
-   gamma  <- support
    e      <- exp
    eof
    tyCtx' <- getState
-   return (tyCtx', gamma, e)
+   return (tyCtx', e)

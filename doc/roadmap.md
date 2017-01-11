@@ -3,11 +3,6 @@ TODOs
 
   * Add PrettyPrinting import in Main to keep it building
 
-  * Fix test failures.  In the process of doing this I can perhaps figure out a
-    hierarchical organisation of tests, eg. ctrace tests could go into their own
-    group.  I could then disable a group of tests if I know they don't work.
-    This requires adapting more of singletons infrastructure.
-
   * eliminate string typing in Absyn/Desugar/Trace
 
   * add a simple REPL?
@@ -39,7 +34,5 @@ TODOs
   * Separate the code into library and executable?
 
   * Comments not allowed to begin a file
-
-  * Drop support for with-syntax
 
   * try a stronger embedding with GADTs?  See Valuable type class in Trace

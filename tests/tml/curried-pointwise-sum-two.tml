@@ -1,14 +1,10 @@
 data intlist = Nil | Cons int * intlist
 
-with
-   x : int,
-   y : int
+let
+   l1 = Cons (2, Cons (4, Nil))
 in
 let
-   l1 = Cons (x, Cons (4, Nil))
-in
-let
-   l2 = Cons (y, Cons (8, Nil))
+   l2 = Cons (4, Cons (8, Nil))
 in
 let sum =
    fun sum (xs : intlist) (ys : intlist) : intlist =>
@@ -16,5 +12,8 @@ let sum =
          Nil -> Nil;
          Cons x -> case ys of
             Nil -> Nil;
-            Cons y -> Cons ((fst x) + fst y, sum (snd x) (snd y))
-in sum l1 l2
+            Cons y -> Cons ((fst x) + fst y, sum (snd x) (snd y)) in
+let p = Cons(_:int, Cons (12, Nil)) in
+let t = trace (sum l1 l2) in
+let s = slice (t, p) in
+read s
