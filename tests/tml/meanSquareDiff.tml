@@ -34,7 +34,7 @@ let t = trace (
 in
 let p1 = Cons(_:int, Cons(_:int, Cons(_:int, Cons(_:int, Nil)))) in
 let p2 = Cons(_:int, Cons(_:int, Cons(41, Cons(_:int, Nil)))) in
-let p3 = Cons(-22, Cons(-19, Cons(41, Cons(2, Nil)))) in
+let p3 = Cons((-22), Cons((-19), Cons(41, Cons(2, Nil)))) in
 let s1 = slice(t, p1) in
 let s2 = slice(t, p2) in
 let s3 = slice(t, p3) in

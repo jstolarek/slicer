@@ -97,6 +97,11 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strVisualize, strVisualize2, strProfile, strTreesize,strProfile2
            , strWhere, strDep, strExpr]
 
+operators :: [String]
+operators = [ strMod, strTimes, strDiv, strMinus, strPlus, strEq, strLt, strGt
+            , strNeq, strLeq, strGeq, strAnd, strOr, strNot ]
+
+
 -- Parse a string in a type context and the empty variable context.
 parseIn :: String -> TyCtx -> (TyCtx,Ctx,Exp)
 parseIn source tyctx =
@@ -135,7 +140,8 @@ typeAnnotation = colon token_ >> type_
 
 -- Use Haskell tokeniser, but reserve our own keywords
 token_ :: TokenParser a
-token_ = makeTokenParser haskellDef { reservedNames = keywords }
+token_ = makeTokenParser haskellDef { reservedNames   = keywords
+                                    , reservedOpNames = operators }
 
 type_ :: Parser Type
 type_ = flip buildExpressionParser simpleType
@@ -215,7 +221,7 @@ appChain = chainl1 simpleExp (return App)
 
 simpleExp :: Parser Exp
 simpleExp =
-   unitVal <|> int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
+   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
    try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
    snd_ <|> case_ <|> hole <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|>
    traceval_ <|> tracevar_ <|> traceupd_ <|> visualize <|> visualize2 <|>
@@ -247,7 +253,8 @@ ctr = do c <- constr
          return (Con c [e])
 
 int :: Parser Exp
-int = (CInt . fromIntegral) `liftM` natural token_
+int = (CInt . fromIntegral) `liftM` natural token_ <|>
+      parenthesise (char '-' >> (CInt . fromIntegral) `liftM` natural token_)
 
 string_ :: Parser Exp
 string_ = CString `liftM` stringLiteral token_
