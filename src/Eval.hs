@@ -27,10 +27,12 @@ evalTraceOp (O "slice" _ _) [VTrace v t env, p]
           v' = extract p v
           env' = extract penv env
       in v' `seq` t' `seq` env' `seq` VTrace v' t' env'
+    | otherwise = error ("slice: criterion "++ show p ++ " is not a prefix of output " ++ show v)
 evalTraceOp (O "pslice" _ _) [VTrace v t e, p]
     | p `leq` v
     = let (t',env') = pslice p t
       in VTrace p t' env'
+    | otherwise = error ("pslice: criterion "++ show p ++ " is not a prefix of output " ++ show v)
 evalTraceOp (O "where" _ _) [VTrace _ t env] =
     let env' = fmap (make_where ) env
         v' = whr env' t
