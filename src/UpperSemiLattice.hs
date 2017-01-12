@@ -20,7 +20,7 @@ instance Eq a => UpperSemiLattice (Maybe a) where
     lub Nothing  x        = x
     lub x        Nothing  = x
     lub (Just x) (Just y) | x == y = Just x
-    lub x y = error "UpperSemiLattice Maybe: error taking lub"
+    lub _ _ = error "UpperSemiLattice Maybe: error taking lub"
 
     leq Nothing  _        = True
     leq _        Nothing  = False
