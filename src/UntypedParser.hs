@@ -31,21 +31,30 @@ import           UpperSemiLattice
 
 -- | Which parsing mode are we in: Compiler or Repl? The two differ in the form
 -- of let statements
-data ParserMode = Compiler | Repl
+data ParserMode = Compiler | Repl deriving (Eq)
 
-type Parser a = CharParser TyCtx a
+type ParserState = (TyCtx, ParserMode)
+
+type Parser a = CharParser ParserState a
 
 -- Parse a string in a type context and the empty variable context.
 parseIn :: String -> TyCtx -> (TyCtx, Exp)
 parseIn source tyctx =
-   case runParser program tyctx "" source of
-      Left err          -> error $ "Syntax error: " ++ show err
-      Right (tyctx', e) -> (tyctx', e)
+   case runParser program (tyctx, Compiler) "" source of
+      Right ((tyctx', _), e) -> (tyctx', e)
+      Left err               -> error $ "Syntax error: " ++ show err
 
 -- Parse a repl line in a type context and the empty variable context.
 parseRepl :: String -> TyCtx -> Either ParseError (TyCtx, Maybe Exp)
-parseRepl line tyctx = runParser repl tyctx "" line
+parseRepl line tyctx =
+    case runParser repl (tyctx, Repl) "" line of
+      Right ((tyctx', _), e) -> Right (tyctx', e)
+      Left err               -> Left err
 
+isCompilerMode :: Parser Bool
+isCompilerMode = do
+  (_, mode) <- getState
+  return (mode == Compiler)
 
 -- Some constants for keywords, etc.
 strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse, strEq,
@@ -212,9 +221,9 @@ typeOp str op = reservedOp token_ str >> return op
 -- binary primitives and whose leaves are application chains. An application
 -- chain is a left-associative tree of simple exps. A simple exp is any exp
 -- other than an operator tree or an application chain.
-exp :: Parser Exp -> Parser Exp
-exp lp =
-   flip buildExpressionParser (appChain lp)
+exp :: Parser Exp
+exp =
+   flip buildExpressionParser appChain
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
       [ [ Infix  (binaryOp strMod   opMod   ) AssocLeft
@@ -234,20 +243,18 @@ exp lp =
       , [ Prefix (unaryOp  strNot   opNot   )            ]
       ]
 
-appChain :: Parser Exp -> Parser Exp
-appChain lp = chainl1 (simpleExp lp) (return App)
+appChain :: Parser Exp
+appChain = chainl1 simpleExp (return App)
 
 -- Expressions common to compiler and REPL: everything except different forms of
 -- let-bindings. lp stands for "let parser"
-simpleExp :: Parser Exp -> Parser Exp
-simpleExp lp =
-   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ lp <|>
-   try (ctr lp) <|> try var <|> fun lp <|> try (parenthesise (exp lp)) <|>
-   lp <|> pair lp <|> fst_ lp <|> snd_ lp <|> case_ lp <|> hole <|>
-   trace_ lp <|> replay_ lp <|> slice_ lp <|> pslice_ lp <|> traceval_ lp <|>
-   tracevar_ lp <|> traceupd_ lp <|> visualize lp <|> visualize2 lp <|>
-   profile_ lp <|> profile2_ lp <|> treesize_ lp <|> where_ lp <|> dep_ lp <|>
-   expr_ lp
+simpleExp :: Parser Exp
+simpleExp =
+   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
+   try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
+   snd_ <|> case_ <|> hole <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|>
+   traceval_ <|> tracevar_ <|> traceupd_ <|> visualize <|> visualize2 <|>
+   profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
 
 unaryOp :: String -> Op -> Parser (Exp -> Exp)
 unaryOp str op =
@@ -268,10 +275,10 @@ unitVal = reservedOp token_ strUnitVal >> return Unit
 var :: Parser Exp
 var = Var `liftM` var_
 
-ctr :: Parser Exp -> Parser Exp
-ctr lp = do c <- constr
-            e <- option Unit (exp lp)
-            return (Con c [e])
+ctr :: Parser Exp
+ctr = do c <- constr
+         e <- option Unit (exp)
+         return (Con c [e])
 
 int :: Parser Exp
 int = (CInt . fromIntegral) `liftM` natural token_ <|>
@@ -286,73 +293,81 @@ true = keyword strTrue >> return (CBool True)
 false :: Parser Exp
 false = keyword strFalse >> return (CBool False)
 
-fun :: Parser Exp -> Parser Exp
-fun lp = do
+fun :: Parser Exp
+fun = do
    f <- keyword strFun >> var_
    params :: [(Var,Type)] <- many1 $ parenthesise (do v  <- var_
                                                       ty <- typeAnnotation
                                                       return (v, ty))
    tau <- option Nothing (Just `liftM` typeAnnotation)
    reservedOp token_ strFunBodySep
-   e <- exp lp
+   e <- exp
    return (Fun (Rec f params tau e (Just (show f))))
 
-if_ :: Parser Exp -> Parser Exp
-if_ lp = do
-   e  <- keyword strIf   >> exp lp
-   e1 <- keyword strThen >> exp lp
-   e2 <- keyword strElse >> exp lp
+if_ :: Parser Exp
+if_ = do
+   e  <- keyword strIf   >> exp
+   e1 <- keyword strThen >> exp
+   e2 <- keyword strElse >> exp
    return (If e e1 e2)
 
-let_ :: Parser Exp -> Parser Exp
-let_ lp = do
+let_ :: Parser Exp
+let_ = do
+   isCompiler <- isCompilerMode
+   if isCompiler
+   then letC_
+   else letR_
+
+-- let binding used in a compiler mode
+letC_ :: Parser Exp
+letC_ = do
    x  <- keyword strLet >> var_
-   e1 <- equals         >> exp lp
-   e2 <- keyword strIn  >> exp lp
+   e1 <- equals         >> exp
+   e2 <- keyword strIn  >> exp
    return (Let x e1 e2)
 
--- let binding used in a REPL
-letR_ :: Parser Exp -> Parser Exp
-letR_ lp = do
+-- let binding used in a REPL mode
+letR_ :: Parser Exp
+letR_ = do
    x <- keyword strLet >> var_
-   e <- equals         >> exp lp
+   e <- equals         >> exp
    return (LetR x e)
 
 
-pair :: Parser Exp -> Parser Exp
-pair lp = parenthesise $ do
-   e1 <- exp lp
+pair :: Parser Exp
+pair = parenthesise $ do
+   e1 <- exp
    _  <- comma token_
-   e2 <- exp lp
+   e2 <- exp
    return (Pair e1 e2)
 
-fst_ :: Parser Exp -> Parser Exp
-fst_ lp = do
-   e <- keyword strFst >> exp lp
+fst_ :: Parser Exp
+fst_ = do
+   e <- keyword strFst >> exp
    return (Fst e)
 
-snd_ :: Parser Exp -> Parser Exp
-snd_ lp = do
-   e <- keyword strSnd >> exp lp
+snd_ :: Parser Exp
+snd_ = do
+   e <- keyword strSnd >> exp
    return (Snd e)
 
-case_ :: Parser Exp -> Parser Exp
-case_ lp = do
+case_ :: Parser Exp
+case_ = do
   keyword strCase
-  e <- exp lp
+  e <- exp
   keyword strOf
-  m <- matches lp
+  m <- matches
   return (Case e m)
 
-matches :: Parser Exp -> Parser Match
-matches lp = (Match . Map.fromList) `liftM` semiSep token_ match
+matches :: Parser Match
+matches = (Match . Map.fromList) `liftM` semiSep token_ match
     where match :: Parser (Con,([Var],Exp)) =
                    do c  <- constr
                       vs <- option [bot]  -- TODO: Empty list for nullary ctors
                             ((pure `liftM` var_) -- construct singleton list
                              <|> parenthesise (commaSep token_ var_))
                       reservedOp token_ strCaseClauseSep
-                      e <- exp lp
+                      e <- exp
                       return (c, (vs, e))
 
 typeDef :: Parser (TyVar, TyDecl)
@@ -363,7 +378,7 @@ typeDef = do
    (con1, ty1) <- constrDef
    (con2, ty2) <- symbol token_ "|" >> constrDef
    let decl = TyDecl alpha [(con1,[ty1]), (con2,[ty2])]
-   updateState (\tyctx -> addTyDecl tyctx decl)
+   updateState (\(tyctx, mode) -> (addTyDecl tyctx decl, mode))
    return (alpha, decl) -- TODO: generalize
    where
       constrDef :: Parser (Con, Type)
@@ -372,119 +387,120 @@ typeDef = do
          tau <- option UnitTy type_
          return (c, tau)
 
-trace_ :: Parser Exp -> Parser Exp
-trace_ lp = do
-   e <- keyword strTrace >> exp lp
+trace_ :: Parser Exp
+trace_ = do
+   e <- keyword strTrace >> exp
    return (Trace e)
 
-profile_ :: Parser Exp -> Parser Exp
-profile_ lp = do
-   e <- keyword strProfile >> exp lp
+profile_ :: Parser Exp
+profile_ = do
+   e <- keyword strProfile >> exp
    return (Op (O "profile") [e])
 
-treesize_ :: Parser Exp -> Parser Exp
-treesize_ lp = do
-   e <- keyword strTreesize >> exp lp
+treesize_ :: Parser Exp
+treesize_ = do
+   e <- keyword strTreesize >> exp
    return (Op (O "treesize") [e])
 
-where_ :: Parser Exp -> Parser Exp
-where_ lp = do
-   e <- keyword strWhere >> exp lp
+where_ :: Parser Exp
+where_ = do
+   e <- keyword strWhere >> exp
    return (Op (O "where") [e])
 
-dep_ :: Parser Exp -> Parser Exp
-dep_ lp = do
-   e <- keyword strDep >> exp lp
+dep_ :: Parser Exp
+dep_ = do
+   e <- keyword strDep >> exp
    return (Op (O "dep") [e])
 
-expr_ :: Parser Exp -> Parser Exp
-expr_ lp = do
-   e <- keyword strExpr >> exp lp
+expr_ :: Parser Exp
+expr_ = do
+   e <- keyword strExpr >> exp
    return (Op (O "expr") [e])
 
-profile2_ :: Parser Exp -> Parser Exp
-profile2_ lp = do
-   e <- keyword strProfile2 >> exp lp
+profile2_ :: Parser Exp
+profile2_ = do
+   e <- keyword strProfile2 >> exp
    return (Op (O "profile2") [e])
 
-visualize :: Parser Exp -> Parser Exp
-visualize lp = do
+visualize :: Parser Exp
+visualize = do
    keyword strVisualize
-   parenthesise $ do e1 <- exp lp
+   parenthesise $ do e1 <- exp
                      _  <- comma token_
-                     e2 <- exp lp
+                     e2 <- exp
                      return (Op (O "visualize") [e1, e2])
 
-visualize2 :: Parser Exp -> Parser Exp
-visualize2 lp = do
+visualize2 :: Parser Exp
+visualize2 = do
    keyword strVisualize2
-   parenthesise $ do e  <- exp lp
+   parenthesise $ do e  <- exp
                      _  <- comma token_
-                     e1 <- exp lp
+                     e1 <- exp
                      _  <- comma token_
-                     e2 <- exp lp
+                     e2 <- exp
                      return (Op (O "visualize2") [e, e1, e2])
 
-traceval_ :: Parser Exp -> Parser Exp
-traceval_ lp = do
-   e <- keyword strVal >> exp lp
+traceval_ :: Parser Exp
+traceval_ = do
+   e <- keyword strVal >> exp
    return (Op (O "val") [e])
 
-tracevar_ :: Parser Exp -> Parser Exp
-tracevar_ lp = do
+tracevar_ :: Parser Exp
+tracevar_ = do
   keyword strVar
   x <- var_
   keyword strIn
-  e <- exp lp
+  e <- exp
   return (TraceVar e x)
 
-traceupd_ :: Parser Exp -> Parser Exp
-traceupd_ lp = do
+traceupd_ :: Parser Exp
+traceupd_ = do
    keyword strUpdate
-   e1 <- exp lp
+   e1 <- exp
    keyword strWith
    x <- var_
    keyword strAs
-   e2 <- exp lp
+   e2 <- exp
    return (TraceUpd e1 x e2)
 
-replay_ :: Parser Exp -> Parser Exp
-replay_ lp = do
-   e <- keyword strReplay >> exp lp
+replay_ :: Parser Exp
+replay_ = do
+   e <- keyword strReplay >> exp
    return (Op (O "replay") [e])
 
-slice_ :: Parser Exp -> Parser Exp
-slice_ lp = do keyword strSlice
-               (e1,e2) <- parenthesise $ do
-                          e1 <- exp lp
+slice_ :: Parser Exp
+slice_ = do keyword strSlice
+            (e1,e2) <- parenthesise $ do
+                          e1 <- exp
                           _  <- comma token_
-                          e2 <- exp lp
+                          e2 <- exp
                           return (e1,e2)
-               return (Op (O "slice") [e1,e2])
+            return (Op (O "slice") [e1,e2])
 
 
-pslice_ :: Parser Exp -> Parser Exp
-pslice_ lp = do keyword strPSlice
-                (e1,e2) <-  parenthesise $ do
-                            e1 <- exp lp
+pslice_ :: Parser Exp
+pslice_ = do keyword strPSlice
+             (e1,e2) <-  parenthesise $ do
+                            e1 <- exp
                             _  <- comma token_
-                            e2 <- exp lp
+                            e2 <- exp
                             return (e1,e2)
-                return (Op (O "pslice") [e1,e2])
+             return (Op (O "pslice") [e1,e2])
 
-repl :: Parser (TyCtx, Maybe Exp)
+-- In REPL mode we either parse a data definition or an expression
+repl :: Parser (ParserState, Maybe Exp)
 repl =
   (typeDef >> getState >>= (\s -> return (s, Nothing))) <|>
-  (do e <- exp (fix letR_)
+  (do e <- exp
       s <- getState
       return (s, Just e))
 
 -- A type context, a variable context in that type context, and then an
 -- expression in that variable context.
-program :: Parser (TyCtx, Exp)
+program :: Parser (ParserState, Exp)
 program = do
    _      <- many typeDef -- discards type ctxt, we'll read it from parser state
-   e      <- exp (fix let_)
+   e      <- exp
    eof
    tyCtx' <- getState
    return (tyCtx', e)

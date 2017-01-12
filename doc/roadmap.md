@@ -8,10 +8,6 @@ TODOs
 
   * parseIn and parseRepl should handle errors in the same way
 
-  * I can introduce parser state that stores information whether we're running
-    in a repl or not.  When parsing let I can read that information and act
-    accordingly
-
   * Document REPL
 
   * Move all the modules into the Slicer namespace.  Incremental strategy
