@@ -1,2 +1,0 @@
-Running ../sort-bug.tml
-val it =  roll(inr((1,roll(inr((3,roll(inr((3,roll(inl(()))))))))))) : intlist

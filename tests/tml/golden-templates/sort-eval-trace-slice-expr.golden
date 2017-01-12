@@ -1,3 +1,0 @@
-Running ../sort-eval-trace-slice-expr.tml
-roll(inr((1 @ x_3999,[|_|])))
-val it =  500500 : int

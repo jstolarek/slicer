@@ -1,2 +1,0 @@
-Running ../curried-componentwise-sum.tml
-val it =  (8,10) : (int * int)

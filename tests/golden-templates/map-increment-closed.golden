@@ -1,0 +1,2 @@
+Running ../../examples/map-increment-closed.tml
+val it =  roll(inr((7,roll(inr((8,roll(inr((3,roll(inl(()))))))))))) : intlist

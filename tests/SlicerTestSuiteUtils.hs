@@ -1,24 +1,28 @@
 module SlicerTestSuiteUtils where
 
-import           System.FilePath   ( joinPath, pathSeparator             )
+import           System.FilePath   ( joinPath                            )
 import           System.IO         ( IOMode(..), openFile                )
 import           System.Process    ( CreateProcess(..), StdStream(..)
                                    , createProcess, proc, waitForProcess )
 import           Test.Tasty        ( TestTree                            )
 import           Test.Tasty.Golden ( goldenVsFileDiff                    )
 
+-- directory storing golden files.  This will be the working directory
+goldenPath :: [FilePath]
+goldenPath = [ "tests", "golden-templates" ]
+
 -- directory storing *.tml test files
-tmlFilesPath :: FilePath
-tmlFilesPath = joinPath [ "tests", "tml" ]
+tmlFilesPath :: [FilePath]
+tmlFilesPath = [ "examples" ]
 
--- directory storing golden files
-goldenPath :: FilePath
-goldenPath = joinPath [ "tests", "tml", "golden-templates" ]
-
--- path to slicer executable relative to goldenPath (hence going three
--- directories up)
+-- path to slicer executable relative to goldenPath
 slicerPath :: FilePath
-slicerPath = joinPath [ "..", "..", "..", "dist", "build", "slicer", "slicer" ]
+slicerPath = joinPath $ replicate (length goldenPath) ".." ++
+                                  [ "dist", "build", "slicer", "slicer" ]
+
+-- location of tests
+relativeTestPath :: [FilePath]
+relativeTestPath = replicate (length goldenPath) ".." ++ [ "examples" ]
 
 -- Executes a single test by running a TML file and comparing the actual output
 -- with the expected one.
@@ -31,17 +35,17 @@ runTMLTest testName =
       actualFilePath
       runTMLFile
     where
-      testFile       = ".."       ++ [pathSeparator] ++ testName ++ ".tml"
-      goldenFilePath = goldenPath ++ [pathSeparator] ++ testName ++ ".golden"
-      actualFilePath = goldenPath ++ [pathSeparator] ++ testName ++ ".actual"
+      testFile       = joinPath $ relativeTestPath ++ [ testName ++ ".tml"    ]
+      goldenFilePath = joinPath $ goldenPath       ++ [ testName ++ ".golden" ]
+      actualFilePath = joinPath $ goldenPath       ++ [ testName ++ ".actual" ]
 
       runTMLFile :: IO ()
       runTMLFile = do
         hActualFile <- openFile actualFilePath WriteMode
         (_, _, _, pid) <- createProcess (proc slicerPath [testFile])
-                                              { std_out = UseHandle hActualFile
-                                              , std_err = UseHandle hActualFile
-                                              , cwd     = Just goldenPath }
+                                        { std_out = UseHandle hActualFile
+                                        , std_err = UseHandle hActualFile
+                                        , cwd     = Just (joinPath goldenPath) }
         _ <- waitForProcess pid -- see Note [Ignore exit code]
         return ()
 

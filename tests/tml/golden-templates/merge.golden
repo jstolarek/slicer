@@ -1,2 +1,0 @@
-Running ../merge.tml
-val it =  roll(inr((3,roll(inr((6,roll(inr((12,roll(inr((13,roll(inr((16,roll(inr((20,roll(inl(())))))))))))))))))))) : intlist

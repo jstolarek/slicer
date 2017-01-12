@@ -23,8 +23,6 @@ TODOs
     evaluation of lets would be tail-recursive.  While I'm at it, change the
     syntax of let-statements to store a series of binds.
 
-  * Move tests to "examples" directory
-
   * Add benchmarks?
 
   * Make the code strict

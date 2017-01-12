@@ -1,3 +1,0 @@
-Running ../sum-eval-profile.tml
-Profile {unProfile = fromList [(sum,1001)]}
-val it =  500500 : int

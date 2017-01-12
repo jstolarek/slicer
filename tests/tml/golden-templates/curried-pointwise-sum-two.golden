@@ -1,2 +1,0 @@
-Running ../curried-pointwise-sum-two.tml
-val it =  roll(inr(([|_|],roll(inr((12,roll(inl(())))))))) : intlist

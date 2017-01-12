@@ -1,0 +1,2 @@
+Running ../../examples/meanSquare.tml
+val it =  (roll(inr((1,roll(inr((4,roll(inr((64,roll(inr((25,roll(inl(())))))))))))))),23) : (intlist * int)

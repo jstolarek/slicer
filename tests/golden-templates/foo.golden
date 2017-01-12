@@ -1,0 +1,2 @@
+Running ../../examples/foo.tml
+val it =  roll(inr((1,roll(inr((4,roll(inl(())))))))) : intlist

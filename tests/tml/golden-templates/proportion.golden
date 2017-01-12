@@ -1,2 +1,0 @@
-Running ../proportion.tml
-val it =  roll(inr((6,roll(inr((12,roll(inr((50,roll(inr((31,roll(inl(())))))))))))))) : intlist
