@@ -52,7 +52,7 @@ to_tree_fast (CaseR t _ _ t2)  acc =
 to_tree_fast (Fun _)           acc = acc
 to_tree_fast (Call t1 t2 k t)  acc =
     (TCall k (to_tree_fast t1 []) (to_tree_fast t2 [])
-             (to_tree_fast (body t) [])) : acc
+             (to_tree_fast (funBody t) [])) : acc
 to_tree_fast (Roll   _ t)      acc = to_tree_fast t acc
 to_tree_fast (Unroll _ t)      acc = to_tree_fast t acc
 to_tree_fast t                 _   = error ("to_tree_fast" ++ show t)

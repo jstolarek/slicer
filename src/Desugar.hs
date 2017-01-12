@@ -159,7 +159,7 @@ desugarFun decls gamma (A.Rec f args rty e lbl) =
         (e',rty') = desugar decls gamma'' e
         (x1:tl)   = map fst args
         lbl'      = mkL `fmap` lbl
-        -- JSTOLAREK: A potentiall bug here? Nothing instead of lbl' ?
+        -- JSTOLAREK: A potential bug here? Nothing instead of lbl' ?
         e'' = foldr (\x e0 -> Fun (Rec bot x e0 Nothing)) e' tl
         e''' = Fun (Rec f x1 e'' lbl')
     in if desugarTy rty == rty'

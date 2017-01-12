@@ -113,8 +113,6 @@ mkL s = L s (H.hash s)
 
 data Op = O String [Type] Type deriving (Show,Eq,Ord)
 
-
-
 opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opIntNeq, opLt, opGt, opLeq,
       opGeq, opAnd, opOr, opBoolEq, opBoolNeq :: Op
 -- TODO: Get rid of type args?
@@ -160,11 +158,11 @@ data Exp = Var Var
            deriving (Show, Eq, Ord)
 
 
-data Code = Rec { fn    :: Var
-                , arg   :: Var
-                , body  :: Exp
-                , label :: Maybe Lab }
-                deriving (Show, Eq, Ord)
+data Code = Rec { funName  :: Var
+                , funArg   :: Var
+                , funBody  :: Exp
+                , funLabel :: Maybe Lab}
+           deriving (Show, Eq, Ord)
 
 data Match = Match { inL :: (Var,Exp)
                    , inR :: (Var,Exp) }
@@ -427,8 +425,8 @@ instance FVs Match where
     fvs (Match (x, e1) (y, e2)) = (delete x (fvs e1)) `union` (delete y (fvs e2))
 
 instance FVs Code where
-    fvs k = let vs = fvs (body k)
-            in delete (fn k) (delete (arg k) vs)
+    fvs k = let vs = fvs (funBody k)
+            in delete (funName k) (delete (funArg k) vs)
 
 promote :: Value -> Value
 promote VStar            = VStar

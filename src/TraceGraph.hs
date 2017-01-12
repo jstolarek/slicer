@@ -129,7 +129,7 @@ trace2gvG node edge = buildGraph
                                            edge i j
                                            return i
           buildGraph (Call t1 t2 _ t) = do i <- node "app"
-                                           k <- buildGraph (body t)
+                                           k <- buildGraph (funBody t)
                                            edge i k
                                            j2 <- buildGraph t2
                                            edge i j2
@@ -250,7 +250,7 @@ traces2gvG (node, node1, node2) edge = buildGraph
                    return i
           buildGraph (Call t1 t2 _ t) (Call t1' t2' _ t')
               = do i <- node "app"
-                   k <- buildGraph (body t) (body t')
+                   k <- buildGraph (funBody t) (funBody t')
                    edge i k
                    j2 <- buildGraph t2 t2'
                    edge i j2

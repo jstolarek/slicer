@@ -350,7 +350,8 @@ prov env (Call t1 t2 _ t)
     = let v1 = prov env t1
           v2 = prov env t2
           AValue (RClosure k env0) a = v1
-          v = prov (bindEnv (bindEnv env0 (arg t) v2 ) (fn t) v1) (body t)
+          v = prov (bindEnv (bindEnv env0 (funArg t) v2 ) (funName t) v1)
+                   (funBody t)
       in app a v
 prov env (Roll _ t) = roll (prov env t)
 prov env (Unroll _ t) =

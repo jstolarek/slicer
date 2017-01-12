@@ -109,9 +109,9 @@ eval' env e                        =  let v = unlabel (eval env e)
 
 evalCall (v1) (v2) =
     let VClosure k env0 = v1
-        envf = bindEnv env0 (fn k) v1
-        envfx = bindEnv envf (arg k) v2
-    in eval envfx (body k)
+        envf  = bindEnv env0 (funName k) v1
+        envfx = bindEnv envf (funArg k) v2
+    in eval envfx (funBody k)
 
 evalMatch env (VInL v) m         =  let (x,e) = inL m
                                         env' = bindEnv env x v
@@ -185,10 +185,10 @@ trace env (Call t1 t2 k t)          =    let (v1, t1') = trace' env t1
                                              (v2, t2') = trace' env t2
                                              (VClosure k' env0) = v1
                                          in if False
-                                            then let envf = bindEnv env0 (fn t) v1
-                                                     envfx = bindEnv envf (arg t) v2
-                                                     (v,t') = trace' envfx (body t)
-                                                 in (v, Call t1' t2' k' (Rec (fn t) (arg t) t' Nothing))
+                                            then let envf  = bindEnv env0 (funName t) v1
+                                                     envfx = bindEnv envf (funArg  t) v2
+                                                     (v,t') = trace' envfx (funBody t)
+                                                 in (v, Call t1' t2' k' (Rec (funName t) (funArg t) t' Nothing))
                                             else traceCall (VClosure k' env0, t1') (v2,t2')
 trace env (Trace e)
     =  let (v,t) = trace' env e
@@ -214,10 +214,10 @@ trace' env e = let (v,t) = trace env e
 
 traceCall (v1,t1) (v2,t2) =
     let VClosure k env0 = v1
-        envf = bindEnv env0 (fn k) v1
-        envfx = bindEnv envf (arg k) v2
-        (v,t) = trace' envfx (body k)
-    in (v, Call t1 t2 k (Rec (fn k) (arg k) t Nothing))
+        envf = bindEnv env0 (funName k) v1
+        envfx = bindEnv envf (funArg k) v2
+        (v,t) = trace' envfx (funBody k)
+    in (v, Call t1 t2 k (Rec (funName k) (funArg k) t Nothing))
 
 traceMatch env (VInL v,t) m         =  let (x,e) = inL m
                                            env' = bindEnv env x v

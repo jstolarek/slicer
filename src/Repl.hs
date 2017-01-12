@@ -4,7 +4,7 @@ module Repl
     , ParseResult(..)
     ) where
 
-import           Absyn hiding   ( ty             )
+import           Absyn
 import           Desugar        ( desugar        )
 import           Env
 import           Eval           ( eval           )

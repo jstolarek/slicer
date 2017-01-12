@@ -44,11 +44,11 @@ newtype Con = C String deriving (Eq, Ord)
 instance Show Con where
     show (C s) = s
 
-data Code = Rec    { fn    :: Var
-                   , args  :: [(Var,Type)]
-                   , ty    :: Type
-                   , body  :: Exp
-                   , label :: Maybe String}
+data Code = Rec { funName  :: Var
+                , funArgs  :: [(Var,Type)]
+                , funRetTy :: Type
+                , funBody  :: Exp
+                , funLabel :: Maybe String}
            deriving (Show, Eq, Ord)
 
 data Match = Match (Map.Map Con ([Var], Exp))

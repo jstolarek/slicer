@@ -31,7 +31,7 @@ profile trace = profiles' (to_tree trace)
           profile' (TInL t t1)       = profiles' (t ++ t1)
           profile' (TInR t t2)       = profiles' (t ++ t2)
           profile' (TCall k t1 t2 t) =
-              let m = case label k of
+              let m = case funLabel k of
                         Nothing -> empty
                         Just lbl -> singleton lbl 1
               in profiles' (t ++ t1 ++ t2) `merge` m
@@ -45,7 +45,7 @@ profile2 trace = profiles' (mkL "_root") (to_tree trace)
           profile' parent (TInL t t1)       = profiles' parent (t ++ t1)
           profile' parent (TInR t t2)       = profiles' parent (t ++ t2)
           profile' parent (TCall k t1 t2 t) =
-              let (lbl,m) = case label k of
+              let (lbl,m) = case funLabel k of
                               Nothing -> (parent,empty)
                               Just lbl' -> (lbl',singleton (parent,lbl') 1)
               in profiles' parent (t1 ++ t2) `merge` profiles' lbl t `merge` m

@@ -23,7 +23,7 @@ import           Text.ParserCombinators.Parsec.Language
 import           Text.ParserCombinators.Parsec.Token
 import           Text.ParserCombinators.Parsec.Expr
 
-import           Absyn hiding   ( ty )
+import           Absyn
 import           Env
 import           UpperSemiLattice
 

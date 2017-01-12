@@ -75,9 +75,9 @@ bslice p2 (CaseR t m x t2)
           (t',rho) = bslice (VInR p) t
       in (CaseR t' m x t2', rho `lub` rho2')
 bslice p (Call t1 t2 k t)
-    = let (t',rho) = bslice p (body t)
-          f = fn t
-          x = arg t
+    = let (t',rho) = bslice p (funBody t)
+          f = funName t
+          x = funArg  t
           e' = uneval t'
           k0 = Rec f x e' Nothing
           p1 = lookupEnv' rho f
@@ -166,9 +166,9 @@ pslice p2 (CaseR t m x t2)
           (e,rho) = pslice (VInR p) t
       in (Case e (Match (bot,bot) (x,e2)), rho `lub` rho2')
 pslice p (Call t1 t2 k t)
-    = let (e,rho) = pslice p (body t)
-          f = fn t
-          x = arg t
+    = let (e,rho) = pslice p (funBody t)
+          f = funName t
+          x = funArg  t
           k0 = Rec f x e Nothing
           p1 = lookupEnv' rho f
           p2 = lookupEnv' rho x
