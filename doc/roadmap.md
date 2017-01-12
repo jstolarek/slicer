@@ -38,9 +38,6 @@ TODOs
 
   * Finish reading the paper
 
-  * figure out what to do with Examples.  Perhaps place it in tests directory as
-    a ByHand test?
-
   * Examples2 shold definitely be salvaged:
 
     * it should be built as part of normal compilation process or as part of
