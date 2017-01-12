@@ -1,12 +1,13 @@
 TODOs
 =====
 
-  * Refactor Code data type.  Constructor name should be Fun.  Field names clash
-    easily with variable names.
-
   * Delete trace var and trace update
 
   * eliminate string typing in Absyn/Desugar/Trace
+
+  * why seq is used so much in the code? Performance?
+
+  * evalTraceOp is a disaster
 
   * implement proper error handling so tha REPL doesn't blow in my face every
     time something goes wrong.  Idea: create Error module with ErrorM monad,
