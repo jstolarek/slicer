@@ -29,6 +29,24 @@ import           Env
 import           UpperSemiLattice
 
 
+-- | Which parsing mode are we in: Compiler or Repl? The two differ in the form
+-- of let statements
+data ParserMode = Compiler | Repl
+
+type Parser a = CharParser TyCtx a
+
+-- Parse a string in a type context and the empty variable context.
+parseIn :: String -> TyCtx -> (TyCtx, Exp)
+parseIn source tyctx =
+   case runParser program tyctx "" source of
+      Left err          -> error $ "Syntax error: " ++ show err
+      Right (tyctx', e) -> (tyctx', e)
+
+-- Parse a repl line in a type context and the empty variable context.
+parseRepl :: String -> TyCtx -> Either ParseError (TyCtx, Maybe Exp)
+parseRepl line tyctx = runParser repl tyctx "" line
+
+
 -- Some constants for keywords, etc.
 strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse, strEq,
       strFalse, strFst, strFun, strFunBodySep, strGeq, strGt, strHole, strIf,
@@ -110,19 +128,6 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
 operators :: [String]
 operators = [ strMod, strTimes, strDiv, strMinus, strPlus, strEq, strLt, strGt
             , strNeq, strLeq, strGeq, strAnd, strOr, strNot ]
-
--- Parse a string in a type context and the empty variable context.
-parseIn :: String -> TyCtx -> (TyCtx, Exp)
-parseIn source tyctx =
-   case runParser program tyctx "" source of
-      Left err          -> error $ "Syntax error: " ++ show err
-      Right (tyctx', e) -> (tyctx', e)
-
--- Parse a repl line in a type context and the empty variable context.
-parseRepl :: String -> TyCtx -> Either ParseError (TyCtx, Maybe Exp)
-parseRepl line tyctx = runParser repl tyctx "" line
-
-type Parser a = CharParser TyCtx a
 
 -- Some helpers.
 parenthesise :: CharParser st a -> CharParser st a

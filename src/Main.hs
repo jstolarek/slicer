@@ -80,6 +80,6 @@ replLoop = do
     Just line   -> do
            result <- lift $ parseAndEvalLine line
            case result of
-             OK            -> replLoop
-             OKWithMsg str -> outputStrLn str        >> replLoop
-             Error err     -> outputStrLn (show err) >> replLoop
+             OK        -> replLoop
+             It    str -> outputStrLn str        >> replLoop
+             Error err -> outputStrLn (show err) >> replLoop

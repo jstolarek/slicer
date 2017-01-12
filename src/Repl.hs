@@ -18,7 +18,7 @@ import           Text.ParserCombinators.Parsec ( ParseError )
 type ReplM = StateT ReplState IO
 
 data ParseResult = OK
-                 | OKWithMsg String
+                 | It String
                  | Error ParseError deriving (Eq)
 
 data ReplState = ReplState
@@ -74,11 +74,10 @@ parseAndEvalLine line = do
            let (dexp, ty) = desugar tyCtx gamma exp
            let val        = eval env dexp
            val `seq` addBinding var val ty
-           return OK
+           return (It $ "val it =  " ++ show (pp val) ++ " : " ++ show (pp ty))
     Right (_    , Just exp) ->
         do env   <- getEnv
            gamma <- getGamma
            let (dexp, ty) = desugar tyCtx gamma exp
            let val        = eval env dexp
-           return (OKWithMsg $
-                       "val it =  " ++ show (pp val) ++ " : " ++ show (pp ty))
+           return (It $ "val it =  " ++ show (pp val) ++ " : " ++ show (pp ty))
