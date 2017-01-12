@@ -1,6 +1,6 @@
 module Desugar
     ( -- * Desugaring TML expressions
-      desugar, desugarTy
+      desugar
     ) where
 
 import Env

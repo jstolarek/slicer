@@ -38,7 +38,10 @@ opBoolEq = O "="
 opNot = O "not"
 
 newtype Lab = L String deriving (Show, Eq, Ord)
-newtype Con = C String deriving (Show, Eq, Ord)
+newtype Con = C String deriving (Eq, Ord)
+
+instance Show Con where
+    show (C s) = s
 
 data Code = Rec    { fn    :: Var
                    , args  :: [(Var,Type)]

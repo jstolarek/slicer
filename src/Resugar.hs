@@ -13,13 +13,12 @@ import Env
 import qualified Absyn as A
 import Trace
 import UntypedParser -- for constants
---import LaTeX
 import PrettyPrinting
 
 -- Old stuff we're not using.
 
 forLaTeX :: Bool
-forLaTeX = True
+forLaTeX = False
 
 -- Not the best name, but will do for now.
 class (PP a, PP (A.TyCtx, a)) => Container a where
