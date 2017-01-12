@@ -268,7 +268,7 @@ pp_partial_binding tyCtx x v_opt =
 pp_partial_constr :: (PP (A.TyCtx, a), Container a) => A.TyCtx -> a -> A.Con -> a -> a -> Doc
 pp_partial_constr tyCtx parent c e e' =
    let arg =
-         if (fst $ A.constrmap tyCtx Map.! c) == [A.UnitTy]
+         if (fst $ A.constrmap tyCtx Map.! c) == A.UnitTy
          then empty
          else nest indent $ partial_parensOpt tyCtx parent e e' in
    sep [text $ show c, arg]

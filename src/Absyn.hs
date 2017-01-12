@@ -58,12 +58,12 @@ data Match = Match (Map.Map Con ([Var], Exp))
 -- constructors.
 data TyDecl = TyDecl
     { name    :: TyVar
-    , constrs :: [(Con,[Type])]
+    , constrs :: [(Con, Type)]
     } deriving (Show, Eq, Ord)
 
 data TyCtx = TyCtx
     { tydecls   :: Map.Map TyVar TyDecl
-    , constrmap :: Map.Map Con ([Type],TyVar)
+    , constrmap :: Map.Map Con (Type,TyVar)
     } deriving (Show, Eq, Ord)
 
 emptyTyCtx = TyCtx Map.empty Map.empty
@@ -78,7 +78,7 @@ addTyDecl (TyCtx tydecls constrmap) (decl@(TyDecl name constrs)) =
 
 -- get the declaration that defines the given constructor
 -- assumes we don't reuse ctor names
-getTyDeclByCon :: TyCtx -> Con -> Maybe (TyDecl,[Type])
+getTyDeclByCon :: TyCtx -> Con -> Maybe (TyDecl, Type)
 getTyDeclByCon decls k = do (tys,ty) <- Map.lookup k (constrmap decls)
                             decl <- getTyDeclByName decls ty
                             return (decl,tys)

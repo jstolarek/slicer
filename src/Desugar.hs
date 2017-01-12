@@ -50,7 +50,7 @@ lookupOp (A.O f) tys =
        _ -> error ("unknown op " ++f ++ " at types "++ show (map pp tys))
 
 --todo: handle general sums/datatypes
-inject :: [(A.Con,[A.Type])] -> A.Con -> Exp -> Exp
+inject :: [(A.Con, A.Type)] -> A.Con -> Exp -> Exp
 inject [(inl, _), (_  , _)] k e | k == inl = InL e
 inject [(_  , _), (inr, _)] k e | k == inr = InR e
 inject _ _ _ = error "non binary sums not yet implemented"
@@ -98,9 +98,9 @@ desugar decls gamma (A.Snd e)
 desugar decls gamma (A.Con k [e])  -- TODO: Handle general case
     = let (e',ty) = desugar decls gamma e
       in case  A.getTyDeclByCon decls k
-         of Just (A.TyDecl dataty cons,[ty']) ->
+         of Just (A.TyDecl dataty cons, ty') ->
               if ty ==  desugarTy ty'
-              then (Roll (Just dataty) (inject cons k e'), TyVar (dataty))
+              then (Roll (Just dataty) (inject cons k e'), TyVar dataty)
               else error ("ill-typed argument "++ show ty ++" to constructor " ++ show k ++ " which expects type " ++ show ty')
             Nothing -> error "undeclared constructor"
 desugar _     _     (A.Con k _) = error ("Invalid data constructor " ++ show k)
@@ -169,12 +169,13 @@ desugarFun decls gamma (A.Rec f args rty e lbl) =
 
 
 -- todo: generalize to handle arbitrary datatypes
-desugarMatch :: A.TyCtx -> Ctx -> [(A.Con,[A.Type])] -> Exp -> A.Match -> (Exp,Type)
-desugarMatch decls gamma [(inl, [ty1]), (inr, [ty2])] e (A.Match m) =
+desugarMatch :: A.TyCtx -> Ctx -> [(A.Con, A.Type)] -> Exp -> A.Match -> (Exp,Type)
+desugarMatch decls gamma [(inl, ty1), (inr, ty2)] e (A.Match m) =
     let Just ([x1],e1) = M.lookup inl m
         (e1',ty1') = desugar decls (bindEnv gamma x1 (desugarTy ty1)) e1
         Just ([x2],e2) = M.lookup inr m
         (e2',ty2') = desugar decls (bindEnv gamma x2 (desugarTy ty2)) e2
     in if ty1' == ty2'
        then (Case e (Match (x1,e1') (x2,e2')), ty1')
-       else error ("Type mismatch in case expression: "++ show ty1' ++ " doesn't match " ++ show ty2')
+        else error ("Type mismatch in case expression: "++ show ty1' ++ " doesn't match " ++ show ty2')
+desugarMatch _ _ _ _ _ = error "desugarMatch: data type is not binary"
