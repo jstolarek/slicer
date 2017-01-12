@@ -55,10 +55,8 @@ gHole = do
   addNode n
   return i
 
--- We are ignoring the string argument but in the future we might want to turn
--- it into a label
-gEdge :: Int -> Int -> String -> G ()
-gEdge m m' _ = addEdge (DotEdge m m' [FontSize 24.0])
+gEdge :: Int -> Int -> G ()
+gEdge m m' = addEdge (DotEdge m m' [FontSize 24.0])
 
 trace2gv :: [GlobalAttributes] -> (String -> G Int) -> Trace -> DotGraph Int
 trace2gv attribs node t = g
@@ -67,89 +65,88 @@ trace2gv attribs node t = g
           G f = trace2gvG node gEdge t
           (_,g,_) = f 0 g0
 
-trace2gvG :: (String -> G Int) -> (Int -> Int -> String -> G ()) -> Trace -> G Int
-trace2gvG node edge = traverse
-    where traverse (Var x) = node (show (pp x))
-          traverse (Let x e1 e2) = do i <- node ("let " ++ show x)
-                                      i2 <- traverse e2
-                                      edge i i2 "body"
-                                      i1 <- traverse e1
-                                      edge i i1 (show x)
-                                      return i
-          traverse (Fun _) = node "<fun>"
-          traverse Unit = node "()"
-          traverse (CBool b) = node (if b then "true" else "false")
-          traverse (CInt i) = node (show i)
-          traverse (Op f ts) = do i <- node (show (pp f))
-                                  idxs <- mapM traverse (reverse ts)
-                                  _ <- mapM (\j -> edge i j (show (j-i))) idxs
-                                  return i
-          traverse (Pair t1 t2) = do i <- node "pair"
-                                     i2 <- traverse t2
-                                     edge i i2 "snd"
-                                     i1 <- traverse t1
-                                     edge i i1 "fst"
-                                     return i
-          traverse (Fst t) = do i <- node "fst"
-                                j <- traverse t
-                                edge i j ""
-                                return i
-          traverse (Snd t) = do i <- node "snd"
-                                j <- traverse t
-                                edge i j ""
-                                return i
-          traverse (InL t) = do i <- node "inl"
-                                j <- traverse t
-                                edge i j ""
-                                return i
-          traverse (InR t) = do i <- node "inr"
-                                j <- traverse t
-                                edge i j ""
-                                return i
-          traverse (IfThen t _ _ t1) = do i <- node "if/t"
-                                          k <- traverse t1
-                                          edge i k "then"
-                                          j <- traverse t
-                                          edge i j "test"
-                                          return i
-          traverse (IfElse t _ _ t2) = do i <- node "if/f"
-                                          k <- traverse t2
-                                          edge i k "else"
-                                          j <- traverse t
-                                          edge i j "test"
-                                          return i
-          traverse (CaseL t _ x t1) = do i <- node "case/l"
-                                         k <- traverse t1
-                                         edge i k ("inl "++show x)
-                                         j <- traverse t
-                                         edge i j "test"
-                                         return i
-          traverse (CaseR t _ x t2) = do i <- node "case/r"
-                                         k <- traverse t2
-                                         edge i k ("inr "++show x)
-                                         j <- traverse t
-                                         edge i j "test"
-                                         return i
-          traverse (Call t1 t2 _ t) = do i <- node "app"
-                                         k <- traverse (body t)
-                                         edge i k "call"
-                                         j2 <- traverse t2
-                                         edge i j2 (show (arg t))
-                                         j1 <- traverse t1
-                                         edge i j1 (show (fn t))
-                                         return i
-          traverse (Roll _ t) = traverse t
-          traverse (Unroll _ t) = traverse t
-          -- I think there's a slight bug here.
-          traverse Hole = gHole -- node " "
-
-          traverse (App e1 e2) = do i <- node "app"
-                                    j2 <- traverse e2
-                                    edge i j2 "NO IDEA WHAT..."
-                                    j1 <- traverse e1
-                                    edge i j1 "THESE STRINGS ARE FOR"
+trace2gvG :: (String -> G Int) -> (Int -> Int -> G ()) -> Trace -> G Int
+trace2gvG node edge = buildGraph
+    where buildGraph (Var x) = node (show (pp x))
+          buildGraph (Let x e1 e2) = do i <- node ("let " ++ show x)
+                                        i2 <- buildGraph e2
+                                        edge i i2
+                                        i1 <- buildGraph e1
+                                        edge i i1
+                                        return i
+          buildGraph (Fun _) = node "<fun>"
+          buildGraph Unit = node "()"
+          buildGraph (CBool b) = node (if b then "true" else "false")
+          buildGraph (CInt  i) = node (show i)
+          buildGraph (Op f ts) = do i <- node (show (pp f))
+                                    idxs <- mapM buildGraph (reverse ts)
+                                    mapM_ (\j -> edge i j) idxs
                                     return i
-          traverse _ = error "Not safe to throw an exception here..."
+          buildGraph (Pair t1 t2) = do i <- node "pair"
+                                       i2 <- buildGraph t2
+                                       edge i i2
+                                       i1 <- buildGraph t1
+                                       edge i i1
+                                       return i
+          buildGraph (Fst t) = do i <- node "fst"
+                                  j <- buildGraph t
+                                  edge i j
+                                  return i
+          buildGraph (Snd t) = do i <- node "snd"
+                                  j <- buildGraph t
+                                  edge i j
+                                  return i
+          buildGraph (InL t) = do i <- node "inl"
+                                  j <- buildGraph t
+                                  edge i j
+                                  return i
+          buildGraph (InR t) = do i <- node "inr"
+                                  j <- buildGraph t
+                                  edge i j
+                                  return i
+          buildGraph (IfThen t _ _ t1) = do i <- node "if/t"
+                                            k <- buildGraph t1
+                                            edge i k
+                                            j <- buildGraph t
+                                            edge i j
+                                            return i
+          buildGraph (IfElse t _ _ t2) = do i <- node "if/f"
+                                            k <- buildGraph t2
+                                            edge i k
+                                            j <- buildGraph t
+                                            edge i j
+                                            return i
+          buildGraph (CaseL t _ _ t1) = do i <- node "case/l"
+                                           k <- buildGraph t1
+                                           edge i k
+                                           j <- buildGraph t
+                                           edge i j
+                                           return i
+          buildGraph (CaseR t _ _ t2) = do i <- node "case/r"
+                                           k <- buildGraph t2
+                                           edge i k
+                                           j <- buildGraph t
+                                           edge i j
+                                           return i
+          buildGraph (Call t1 t2 _ t) = do i <- node "app"
+                                           k <- buildGraph (body t)
+                                           edge i k
+                                           j2 <- buildGraph t2
+                                           edge i j2
+                                           j1 <- buildGraph t1
+                                           edge i j1
+                                           return i
+          buildGraph (Roll   _ t) = buildGraph t
+          buildGraph (Unroll _ t) = buildGraph t
+          -- I think there's a slight bug here.
+          buildGraph Hole = gHole
+          buildGraph (App e1 e2) = do i <- node "app"
+                                      j2 <- buildGraph e2
+                                      edge i j2
+                                      j1 <- buildGraph e1
+                                      edge i j1
+                                      return i
+          buildGraph _ = error "Not safe to throw an exception here..."
 
 
 
@@ -171,114 +168,112 @@ traces2gv attribs (node, node1, node2) t1 t2 = g
           (_,g,_) = f 0 g0
 
 traces2gvG :: (String -> G Int, String -> G Int, String -> G Int)
-           -> (Int -> Int -> String -> G ()) -> Exp -> Exp -> G Int
-traces2gvG (node, node1, node2) edge = traverse
-    where traverse (Var x) (Var _) = node (show (pp x))
-          traverse (Let x e1 e2) (Let _ e1' e2')
+           -> (Int -> Int -> G ()) -> Exp -> Exp -> G Int
+traces2gvG (node, node1, node2) edge = buildGraph
+    where buildGraph (Var x) (Var _) = node (show (pp x))
+          buildGraph (Let x e1 e2) (Let _ e1' e2')
               = do i <- node ("let " ++ show x)
-                   i2 <- traverse e2 e2'
-                   edge i i2 "body"
-                   i1 <- traverse e1 e1'
-                   edge i i1 (show x)
+                   i2 <- buildGraph e2 e2'
+                   edge i i2
+                   i1 <- buildGraph e1 e1'
+                   edge i i1
                    return i
-          traverse (Fun _) (Fun _) = node "<fun>"
-          traverse Unit Unit = node "()"
-          traverse (CBool b) (CBool b')
+          buildGraph (Fun _) (Fun _) = node "<fun>"
+          buildGraph Unit Unit = node "()"
+          buildGraph (CBool b) (CBool b')
               | b == b'
               = node (if b then "true" else "false")
-          traverse (CInt i) (CInt i')
+          buildGraph (CInt i) (CInt i')
               | i == i'
               = node (show i)
-          traverse (Op f ts) (Op f' ts')
+          buildGraph (Op f ts) (Op f' ts')
               | f == f' && length ts == length ts'
                   = do i <- node (show (pp f))
-                       idxs <- mapM (\(t1,t2) -> traverse t1 t2) (reverse (zip ts ts'))
-                       _ <- mapM (\j -> edge i j (show (j-i))) idxs
+                       idxs <- mapM (\(t1,t2) -> buildGraph t1 t2)
+                                    (reverse (zip ts ts'))
+                       mapM_ (\j -> edge i j) idxs
                        return i
-          traverse (Pair t1 t2) (Pair t1' t2')
+          buildGraph (Pair t1 t2) (Pair t1' t2')
               = do i <- node "pair"
-                   i2 <- traverse t2 t2'
-                   edge i i2 "snd"
-                   i1 <- traverse t1 t1'
-                   edge i i1 "fst"
+                   i2 <- buildGraph t2 t2'
+                   edge i i2
+                   i1 <- buildGraph t1 t1'
+                   edge i i1
                    return i
-          traverse (Fst t) (Fst t')
+          buildGraph (Fst t) (Fst t')
               = do i <- node "fst"
-                   j <- traverse t t'
-                   edge i j ""
+                   j <- buildGraph t t'
+                   edge i j
                    return i
-          traverse (Snd t) (Snd t')
+          buildGraph (Snd t) (Snd t')
               = do i <- node "snd"
-                   j <- traverse t t'
-                   edge i j ""
+                   j <- buildGraph t t'
+                   edge i j
                    return i
-          traverse (InL t) (InL t') =
+          buildGraph (InL t) (InL t') =
               do i <- node "inl"
-                 j <- traverse t t'
-                 edge i j ""
+                 j <- buildGraph t t'
+                 edge i j
                  return i
-          traverse (InR t) (InR t')
+          buildGraph (InR t) (InR t')
               = do i <- node "inr"
-                   j <- traverse t t';
-                   edge i j ""
+                   j <- buildGraph t t';
+                   edge i j
                    return i
-          traverse (IfThen t _ _ t1) (IfThen t' _ _ t1')
+          buildGraph (IfThen t _ _ t1) (IfThen t' _ _ t1')
               = do i <- node "if/t"
-                   k <- traverse t1 t1'
-                   edge i k "then"
-                   j <- traverse t t'
-                   edge i j "test"
+                   k <- buildGraph t1 t1'
+                   edge i k
+                   j <- buildGraph t t'
+                   edge i j
                    return i
-          traverse (IfElse t _ _ t2) (IfElse t' _ _ t2')
+          buildGraph (IfElse t _ _ t2) (IfElse t' _ _ t2')
               = do i <- node "if/f"
-                   k <- traverse t2 t2'
-                   edge i k "else"
-                   j <- traverse t t'
-                   edge i j "test"
+                   k <- buildGraph t2 t2'
+                   edge i k
+                   j <- buildGraph t t'
+                   edge i j
                    return i
-          traverse (CaseL t _ x t1) (CaseL t' _ _ t1')
+          buildGraph (CaseL t _ _ t1) (CaseL t' _ _ t1')
               = do i <- node "case/l"
-                   k <- traverse t1 t1'
-                   edge i k ("inl "++(show x))
-                   j <- traverse t t'
-                   edge i j "test"
+                   k <- buildGraph t1 t1'
+                   edge i k
+                   j <- buildGraph t t'
+                   edge i j
                    return i
-          traverse (CaseR t _ x t2) (CaseR t' _ _ t2')
+          buildGraph (CaseR t _ _ t2) (CaseR t' _ _ t2')
               = do i <- node "case/r"
-                   k <- traverse t2 t2'
-                   edge i k ("inr "++show x)
-                   j <- traverse t t'
-                   edge i j "test"
+                   k <- buildGraph t2 t2'
+                   edge i k
+                   j <- buildGraph t t'
+                   edge i j
                    return i
-          traverse (Call t1 t2 _ t) (Call t1' t2' _ t')
+          buildGraph (Call t1 t2 _ t) (Call t1' t2' _ t')
               = do i <- node "app"
-                   k <- traverse (body t) (body t')
-                   edge i k "call"
-                   j2 <- traverse t2 t2'
-                   edge i j2 (show (arg t))
-                   j1 <- traverse t1 t1'
-                   edge i j1 (show (fn t))
+                   k <- buildGraph (body t) (body t')
+                   edge i k
+                   j2 <- buildGraph t2 t2'
+                   edge i j2
+                   j1 <- buildGraph t1 t1'
+                   edge i j1
                    return i
-
-          traverse (App e1 e2) (App e1' e2')
+          buildGraph (App e1 e2) (App e1' e2')
               = do i <- node "app"
-                   j2 <- traverse e2 e2'
-                   edge i j2 "NO IDEA WHAT..."
-                   j1 <- traverse e1 e1'
-                   edge i j1 "THESE STRINGS ARE FOR"
+                   j2 <- buildGraph e2 e2'
+                   edge i j2
+                   j1 <- buildGraph e1 e1'
+                   edge i j1
                    return i
-
-          traverse (Roll tv t) (Roll tv' t')
+          buildGraph (Roll tv t) (Roll tv' t')
               | tv == tv'
-              = traverse t t'
-          traverse (Unroll tv t) (Unroll tv' t')
+              = buildGraph t t'
+          buildGraph (Unroll tv t) (Unroll tv' t')
               | tv == tv'
-              = traverse t t'
+              = buildGraph t t'
+          buildGraph t Hole = trace2gvG node1 edge t
+          buildGraph Hole t = trace2gvG node2 edge t
 
-          traverse t Hole = trace2gvG node1 edge t
-          traverse Hole t = trace2gvG node2 edge t
-
-          traverse _ _ = error "Not safe to throw an exception here..."
+          buildGraph _ _ = error "Not safe to throw an exception here..."
 
 
 
