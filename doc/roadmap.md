@@ -1,6 +1,8 @@
 TODOs
 =====
 
+  * Delete trace var and trace update
+
   * eliminate string typing in Absyn/Desugar/Trace
 
   * implement proper error handling so tha REPL doesn't blow in my face every

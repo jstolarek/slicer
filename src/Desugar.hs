@@ -158,8 +158,7 @@ desugarFun decls gamma (A.Rec f args rty e lbl) =
         gamma''   = foldl (\g (x,ty) -> bindEnv g x (desugarTy ty)) gamma' args
         (e',rty') = desugar decls gamma'' e
         (x1:tl)   = map fst args
-        lbl' = case lbl of Nothing -> Nothing
-                           Just s -> Just (mkL s)
+        lbl'      = mkL `fmap` lbl
         -- JSTOLAREK: A potentiall bug here? Nothing instead of lbl' ?
         e'' = foldr (\x e0 -> Fun (Rec bot x e0 Nothing)) e' tl
         e''' = Fun (Rec f x1 e'' lbl')

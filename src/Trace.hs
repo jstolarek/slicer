@@ -116,7 +116,7 @@ data Op = O String [Type] Type deriving (Show,Eq,Ord)
 
 
 opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opIntNeq, opLt, opGt, opLeq,
-      opGeq, opAnd, opOr, opBoolEq, opBoolNeq, opNot :: Op
+      opGeq, opAnd, opOr, opBoolEq, opBoolNeq :: Op
 -- TODO: Get rid of type args?
 opPlus    = O "+"   [IntTy , IntTy ] IntTy
 opMinus   = O "-"   [IntTy , IntTy ] IntTy
@@ -133,7 +133,6 @@ opAnd     = O "&&"  [BoolTy, BoolTy] BoolTy
 opOr      = O "||"  [BoolTy, BoolTy] BoolTy
 opBoolEq  = O "="   [BoolTy, BoolTy] BoolTy
 opBoolNeq = O "/="  [BoolTy, BoolTy] BoolTy
-opNot     = O "not" [BoolTy] BoolTy
 
 data Exp = Var Var
          | Let Var Exp Exp
@@ -232,19 +231,10 @@ val2exp (VInL v      ) = InL  (val2exp v)
 val2exp (VInR v      ) = InR  (val2exp v)
 val2exp (VRoll tv v  ) = Roll tv (val2exp v)
 val2exp (VLabel v l  ) = Lab  (val2exp v) l
-
--- convert expressions which happens to be first-order value-patterns to value-patterns.
-exp2val :: Exp -> Value
-exp2val Hole         = VHole
-exp2val Unit         = VUnit
-exp2val (CBool b   ) = VBool b
-exp2val (CInt i    ) = VInt i
-exp2val (CString i ) = VString i
-exp2val (Pair v1 v2) = VPair (exp2val v1) (exp2val v2)
-exp2val (InL v     ) = VInL  (exp2val v)
-exp2val (InR v     ) = VInR  (exp2val v)
-exp2val (Roll tv v ) = VRoll tv (exp2val v)
-exp2val (Lab v l   ) = VLabel (exp2val v) l
+-- We could potentially also convert VClosure to a value be turning an
+-- environment into a series of "let"s.  This raises the problem however of how
+-- to maintain the original order of declarations
+val2exp _              = error "Cannot convert value to expression"
 
 type Trace = Exp
 
