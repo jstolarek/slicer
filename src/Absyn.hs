@@ -13,8 +13,9 @@ module Absyn
     , TyCtx(..), emptyTyCtx
     ) where
 
-import Env
-import Data.Maybe
+import           Env
+
+import           Data.Maybe
 import qualified Data.Map as Map
 
 data Op = O String deriving (Show,Eq,Ord)
@@ -45,14 +46,9 @@ instance Show Con where
 
 data Code = Rec    { fn    :: Var
                    , args  :: [(Var,Type)]
-                   , ty    :: Maybe Type
+                   , ty    :: Type
                    , body  :: Exp
                    , label :: Maybe String}
-
-          | Lambda { args  :: [(Var,Type)]
-                   , body  :: Exp
-                   , label :: Maybe String}
-
            deriving (Show, Eq, Ord)
 
 data Match = Match (Map.Map Con ([Var], Exp))

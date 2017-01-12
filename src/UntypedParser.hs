@@ -16,7 +16,6 @@ module UntypedParser
 import           Prelude hiding ( exp     )
 import           Control.Monad  ( liftM   )
 import           Data.Char      ( isUpper )
-import           Data.Function  ( fix     )
 import qualified Data.Map as Map
 
 import           Text.ParserCombinators.Parsec hiding (Parser)
@@ -299,7 +298,7 @@ fun = do
    params :: [(Var,Type)] <- many1 $ parenthesise (do v  <- var_
                                                       ty <- typeAnnotation
                                                       return (v, ty))
-   tau <- option Nothing (Just `liftM` typeAnnotation)
+   tau <- typeAnnotation
    reservedOp token_ strFunBodySep
    e <- exp
    return (Fun (Rec f params tau e (Just (show f))))
