@@ -1,13 +1,17 @@
 TODOs
 =====
 
+  * Refactor Code data type.  Constructor name should be Fun.  Field names clash
+    easily with variable names.
+
   * Delete trace var and trace update
 
   * eliminate string typing in Absyn/Desugar/Trace
 
   * implement proper error handling so tha REPL doesn't blow in my face every
-    time something goes wrong.  While I'm at it I can also add support for
-    warnings
+    time something goes wrong.  Idea: create Error module with ErrorM monad,
+    then each pass is done in its own separate monad that is just a synonym for
+    ErrorM.
 
   * parseIn and parseRepl should handle errors in the same way
 
