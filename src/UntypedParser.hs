@@ -5,13 +5,16 @@ module UntypedParser
       parseIn, parseRepl
 
       -- * Language keywords.  Used for resugaring
-    , strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse
-    , strEq,  strFalse, strFst, strFun, strFunBodySep, strGeq, strGt, strHole
-    , strIf,  strIn, strInL, strInR, strInt, strLeq, strLet, strLt, strMinus
-    , strMod, strNeq, strNot, strOf, strOr, strPlus, strRoll, strSnd, strString
-    , strThen, strTimes, strTrue, strUnit, strUnitVal, strUnroll
-    , strWith
+    , strBool, strCase, strCaseClauseSep, strData, strElse, strFalse, strFst
+    , strFun, strFunBodySep, strHole, strIf,  strIn, strInL, strInR, strInt
+    , strLet, strOf, strRoll, strSnd, strString, strThen, strTrue, strUnit
+    , strUnitVal
     ) where
+
+import           Absyn
+import           Env
+import           Primitives
+import           UpperSemiLattice
 
 import           Prelude hiding ( exp     )
 import           Control.Monad  ( liftM   )
@@ -22,10 +25,6 @@ import           Text.ParserCombinators.Parsec hiding (Parser)
 import           Text.ParserCombinators.Parsec.Language
 import           Text.ParserCombinators.Parsec.Token
 import           Text.ParserCombinators.Parsec.Expr
-
-import           Absyn
-import           Env
-import           UpperSemiLattice
 
 
 -- | Which parsing mode are we in: Compiler or Repl? The two differ in the form
@@ -55,85 +54,50 @@ isCompilerMode = do
   (_, mode) <- getState
   return (mode == Compiler)
 
--- Some constants for keywords, etc.
-strAnd, strBool, strCase, strCaseClauseSep, strData, strDiv, strElse, strEq,
-      strFalse, strFst, strFun, strFunBodySep, strGeq, strGt, strHole, strIf,
-      strIn, strInL, strInR, strInt, strLeq, strLet, strLt, strMinus, strMod,
-      strNeq, strNot, strOf, strOr, strPlus, strRoll, strSnd, strString,
-      strThen, strTimes, strTrue, strUnit, strUnitVal, strUnroll,
-      strWith :: String
-strAnd           = "&&"
+-- Some constants for keywords, etc.  Note that strings tokens for operators and
+-- other builtin primitives are defined in the Show instance for the Primitive
+-- data type
+strBool, strCase, strCaseClauseSep, strData, strElse, strFalse, strFst, strFun,
+      strFunBodySep, strHole, strIf, strIn, strInL, strInR, strInt, strLet,
+      strOf, strRoll, strSnd, strString, strThen, strTrace, strTrue, strUnit,
+      strUnitVal, strUnroll :: String
 strBool          = "bool"
 strCase          = "case"
 strCaseClauseSep = "->" -- separate case clause from constructor pattern
 strData          = "data"
-strDiv           = "/"
 strElse          = "else"
-strEq            = "="
 strFalse         = "false"
 strFst           = "fst"
 strFun           = "fun"
 strFunBodySep    = "=>"
-strGeq           = ">="
-strGt            = ">"
 strHole          = "_"
 strIf            = "if"
 strIn            = "in"
 strInL           = "inl"
 strInR           = "inr"
 strInt           = "int"
-strLeq           = "<="
 strLet           = "let"
-strLt            = "<"
-strMinus         = "-"
-strMod           = "%"
-strNeq           = "/="
-strNot           = "not"
 strOf            = "of"
-strOr            = "||"
-strPlus          = "+"
 strRoll          = "roll"
 strSnd           = "snd"
 strString        = "string"
 strThen          = "then"
-strTimes         = "*"
+strTrace         = "trace"
 strTrue          = "true"
 strUnit          = "unit"
 strUnitVal       = "()"
 strUnroll        = "unroll"
-strWith          = "with"
-
-strAs, strDep, strExpr, strPSlice, strProfile, strProfile2, strReplay, strSlice,
-     strTrace, strTreesize, strVal, strVisualize, strVisualize2,
-     strWhere :: String
-strAs         = "as"
-strDep        = "dep"
-strExpr       = "expr"
-strPSlice     = "pslice"
-strProfile    = "profile"
-strProfile2   = "profile2"
-strReplay     = "replay"
-strSlice      = "slice"
-strTrace      = "trace"
-strTreesize   = "treesize"
-strVal        = "read"
-strVisualize  = "visualize"
-strVisualize2 = "visualize2"
-strWhere      = "where"
 
 -- We don't allow explicit rolls, unrolls, inls or inrs in the concrete syntax,
 -- but we still reserve them as keywords.
 keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
-           , strSnd, strThen, strTrue, strUnit, strUnroll, strWith, strTrace
-           , strVal, strReplay, strSlice, strPSlice, strAs
-           , strVisualize, strVisualize2, strProfile, strTreesize,strProfile2
-           , strWhere, strDep, strExpr]
-
-operators :: [String]
-operators = [ strMod, strTimes, strDiv, strMinus, strPlus, strEq, strLt, strGt
-            , strNeq, strLeq, strGeq, strAnd, strOr, strNot ]
+           , strSnd, strThen, strTrace, strTrue, strUnit, strUnroll ] ++
+  map show [ PrimVal, PrimReplay, PrimSlice, PrimPSlice, PrimAs, PrimVisualize
+           , PrimVisualize2, PrimProfile, PrimProfile2, PrimTreeSize, PrimWhere
+           , PrimDep, PrimExpr
+           ]
 
 -- Some helpers.
 parenthesise :: CharParser st a -> CharParser st a
@@ -157,15 +121,14 @@ tyVar :: CharParser st TyVar
 tyVar = TV `liftM` identifier token_
 
 equals :: CharParser st ()
-equals = reservedOp token_ strEq
+equals = reservedOp token_ (show OpEq)
 
 typeAnnotation :: Parser Type
 typeAnnotation = colon token_ >> type_
 
 -- Use Haskell tokeniser, but reserve our own keywords
 token_ :: TokenParser a
-token_ = makeTokenParser haskellDef { reservedNames   = keywords
-                                    , reservedOpNames = operators }
+token_ = makeTokenParser haskellDef { reservedNames = keywords }
 
 type_ :: Parser Type
 type_ = flip buildExpressionParser simpleType
@@ -223,21 +186,21 @@ exp =
    flip buildExpressionParser appChain
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
-      [ [ Infix  (binaryOp strMod   opMod   ) AssocLeft
-        , Infix  (binaryOp strTimes opTimes ) AssocLeft
-        , Infix  (binaryOp strDiv   opDiv   ) AssocLeft  ]
-      , [ Infix  (binaryOp strMinus opMinus ) AssocLeft
-        , Infix  (binaryOp strPlus  opPlus  ) AssocLeft  ]
-      , [ Infix  (binaryOp strEq    opIntEq ) AssocRight
-        , Infix  (binaryOp strLt    opLt    ) AssocRight
-        , Infix  (binaryOp strGt    opGt    ) AssocRight
-        , Infix  (binaryOp strNeq   opIntNeq) AssocRight
-        , Infix  (binaryOp strLeq   opLeq   ) AssocRight
-        , Infix  (binaryOp strGeq   opGeq   ) AssocRight
+      [ [ Infix  (binaryOp OpMod  ) AssocLeft
+        , Infix  (binaryOp OpTimes) AssocLeft
+        , Infix  (binaryOp OpDiv  ) AssocLeft  ]
+      , [ Infix  (binaryOp OpMinus) AssocLeft
+        , Infix  (binaryOp OpPlus ) AssocLeft  ]
+      , [ Infix  (binaryOp OpEq   ) AssocRight
+        , Infix  (binaryOp OpLt   ) AssocRight
+        , Infix  (binaryOp OpGt   ) AssocRight
+        , Infix  (binaryOp OpNeq  ) AssocRight
+        , Infix  (binaryOp OpLeq  ) AssocRight
+        , Infix  (binaryOp OpGeq  ) AssocRight
         ]
-      , [ Infix  (binaryOp strAnd   opAnd   ) AssocLeft  ]
-      , [ Infix  (binaryOp strOr    opOr    ) AssocLeft  ]
-      , [ Prefix (unaryOp  strNot   opNot   )            ]
+      , [ Infix  (binaryOp OpAnd  ) AssocLeft  ]
+      , [ Infix  (binaryOp OpOr   ) AssocLeft  ]
+      , [ Prefix (unaryOp  OpNot  )            ]
       ]
 
 appChain :: Parser Exp
@@ -253,14 +216,14 @@ simpleExp =
    traceval_ <|> visualize <|> visualize2 <|>
    profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
 
-unaryOp :: String -> Op -> Parser (Exp -> Exp)
-unaryOp str op =
-   reservedOp token_ str >>
+unaryOp :: Primitive -> Parser (Exp -> Exp)
+unaryOp op =
+   reservedOp token_ (show op) >>
    (return $ \e1 -> (Op op [e1]))
 
-binaryOp :: String -> Op -> Parser (Exp -> Exp -> Exp)
-binaryOp str op =
-   reservedOp token_ str >>
+binaryOp :: Primitive -> Parser (Exp -> Exp -> Exp)
+binaryOp op =
+   reservedOp token_ (show op) >>
    (return $ \e1 e2 -> (Op op [e1, e2]))
 
 hole :: Parser Exp
@@ -391,80 +354,80 @@ trace_ = do
 
 profile_ :: Parser Exp
 profile_ = do
-   e <- keyword strProfile >> exp
-   return (Op (O "profile") [e])
+   e <- keyword (show PrimProfile) >> exp
+   return (Op PrimProfile [e])
 
 treesize_ :: Parser Exp
 treesize_ = do
-   e <- keyword strTreesize >> exp
-   return (Op (O "treesize") [e])
+   e <- keyword (show PrimTreeSize) >> exp
+   return (Op PrimTreeSize [e])
 
 where_ :: Parser Exp
 where_ = do
-   e <- keyword strWhere >> exp
-   return (Op (O "where") [e])
+   e <- keyword (show PrimWhere) >> exp
+   return (Op PrimWhere [e])
 
 dep_ :: Parser Exp
 dep_ = do
-   e <- keyword strDep >> exp
-   return (Op (O "dep") [e])
+   e <- keyword (show PrimDep) >> exp
+   return (Op PrimDep [e])
 
 expr_ :: Parser Exp
 expr_ = do
-   e <- keyword strExpr >> exp
-   return (Op (O "expr") [e])
+   e <- keyword (show PrimExpr) >> exp
+   return (Op PrimExpr [e])
 
 profile2_ :: Parser Exp
 profile2_ = do
-   e <- keyword strProfile2 >> exp
-   return (Op (O "profile2") [e])
+   e <- keyword (show PrimProfile2) >> exp
+   return (Op PrimProfile2 [e])
 
 visualize :: Parser Exp
 visualize = do
-   keyword strVisualize
+   keyword (show PrimVisualize)
    parenthesise $ do e1 <- exp
                      _  <- comma token_
                      e2 <- exp
-                     return (Op (O "visualize") [e1, e2])
+                     return (Op PrimVisualize [e1, e2])
 
 visualize2 :: Parser Exp
 visualize2 = do
-   keyword strVisualize2
+   keyword (show PrimVisualize2)
    parenthesise $ do e  <- exp
                      _  <- comma token_
                      e1 <- exp
                      _  <- comma token_
                      e2 <- exp
-                     return (Op (O "visualize2") [e, e1, e2])
+                     return (Op PrimVisualize2 [e, e1, e2])
 
 traceval_ :: Parser Exp
 traceval_ = do
-   e <- keyword strVal >> exp
-   return (Op (O "val") [e])
+   e <- keyword (show PrimVal) >> exp
+   return (Op PrimVal [e])
 
 replay_ :: Parser Exp
 replay_ = do
-   e <- keyword strReplay >> exp
-   return (Op (O "replay") [e])
+   e <- keyword (show PrimReplay) >> exp
+   return (Op PrimReplay [e])
 
 slice_ :: Parser Exp
-slice_ = do keyword strSlice
+slice_ = do keyword (show PrimSlice)
             (e1,e2) <- parenthesise $ do
                           e1 <- exp
                           _  <- comma token_
                           e2 <- exp
                           return (e1,e2)
-            return (Op (O "slice") [e1,e2])
+            return (Op PrimSlice [e1,e2])
 
 
 pslice_ :: Parser Exp
-pslice_ = do keyword strPSlice
+pslice_ = do keyword (show PrimPSlice)
              (e1,e2) <-  parenthesise $ do
                             e1 <- exp
                             _  <- comma token_
                             e2 <- exp
                             return (e1,e2)
-             return (Op (O "pslice") [e1,e2])
+             return (Op PrimPSlice [e1,e2])
 
 -- In REPL mode we either parse a data definition or an expression
 repl :: Parser (ParserState, Maybe Exp)

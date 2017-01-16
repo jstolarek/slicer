@@ -4,10 +4,6 @@ module Absyn
     ( -- * Abstract syntax
       Code(..), Con(..), Exp(..), Lab(..), Match(..), Type(..), Ctx
 
-      -- * Operators
-    , Op(..), opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opLt, opGt
-    , opIntNeq, opLeq, opGeq, opAnd, opOr, opNot
-
       -- * Type declarations
     , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName, getConstrs
 
@@ -16,31 +12,10 @@ module Absyn
     ) where
 
 import           Env
+import           Primitives
 
 import           Data.Maybe
 import qualified Data.Map as Map
-
-data Op = O String deriving (Show,Eq,Ord)
-
-opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opLt, opGt, opIntNeq, opLeq,
-   opGeq :: Op
-opPlus = O "+"
-opMinus = O "-"
-opTimes = O "*"
-opDiv = O "/"
-opMod = O "mod"
-opIntEq = O "="
-opLt = O "<"
-opGt = O ">"
-opIntNeq = O "/="
-opLeq = O "<="
-opGeq = O ">="
-
-opAnd, opOr, opBoolEq, opNot :: Op
-opAnd = O "&&"
-opOr = O "||"
-opBoolEq = O "="
-opNot = O "not"
 
 newtype Lab = L String deriving (Show, Eq, Ord)
 newtype Con = C String deriving (Eq, Ord)
@@ -97,7 +72,7 @@ getConstrs tyCtx = map fst . constrs . fromJust . getTyDeclByName tyCtx
 data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Unit
          | CBool Bool | If Exp Exp Exp
-         | CInt Int | Op Op [Exp]
+         | CInt Int | Op Primitive [Exp]
          | CString String
          | Pair Exp Exp | Fst Exp | Snd Exp
          | Con Con [Exp] | Case Exp Match

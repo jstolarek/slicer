@@ -265,7 +265,7 @@ class Prov a where
     ifelse :: a -> AValue a -> AValue a
     cint :: Int -> AValue a
     cstring :: String -> AValue a
-    op :: Op -> [AValue a] -> AValue a
+    op :: Primitive -> [AValue a] -> AValue a
     pair :: AValue a -> AValue a -> AValue a
     first ::  a -> AValue a -> AValue a
     second ::  a -> AValue a -> AValue a

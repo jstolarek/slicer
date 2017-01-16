@@ -80,7 +80,7 @@ instance (Eq a, PP (A.TyCtx, a)) => PP (A.TyCtx, (Env Value, a)) where
    pp_partial (tyCtx, ((== emptyEnv) -> True, e)) (eq tyCtx -> True, ((== emptyEnv) -> True, e')) =
       pp_partial (tyCtx, e) (tyCtx, e')
    pp_partial (tyCtx, (rho, e)) (eq tyCtx -> True, (rho', e')) =
-      vcat [text strWith, nest indent $ pp_partial (tyCtx, rho) (tyCtx, rho') <+> text strIn] $$
+      vcat [{-text strWith, -}nest indent $ pp_partial (tyCtx, rho) (tyCtx, rho') <+> text strIn] $$
       pp_partial (tyCtx, e) (tyCtx, e')
    pp_partial _ _ = error "Pretty-printing error: (TyCtx, (Env Value, a))"
 

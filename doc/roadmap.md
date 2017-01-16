@@ -1,9 +1,15 @@
 TODOs
 =====
 
-  * eliminate string typing in Absyn/Desugar/Trace
+  * Fix eval' and trace' that I've broken
+
+  * rename UntypedParser to Parser
+
+  * delete "as" syntax
 
   * evalTraceOp is a disaster
+
+  * discuss with James lazy vs eager evaluation
 
   * implement proper error handling so tha REPL doesn't blow in my face every
     time something goes wrong.  Idea: create Error module with ErrorM monad,

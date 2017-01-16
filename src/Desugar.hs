@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Desugar
     ( -- * Desugaring TML expressions
       desugar
@@ -9,45 +11,39 @@ import           PrettyPrinting
 import           Trace
 import           UpperSemiLattice
 
-import           Data.List(elem)
 import qualified Data.Map as M
 
-intBinOp, intBinRel, boolBinOp, boolUnOp :: String -> Bool
-intBinOp s = s `elem` ["+","-","*","/","mod"]
-
-intBinRel s = s `elem` ["=","<",">","/=",">=", "<="]
-boolBinOp s = s `elem` ["&&","||","=","/="]
-boolUnOp s = s == "not"
-
 -- Assuming that op name + argument types determines the op result type.
-lookupOp :: A.Op -> [Type] -> (Op,Type)
-lookupOp (A.O f) tys =
-    case (f,tys)
-    of (_, [IntTy, IntTy]) | intBinOp f -> (O f, IntTy)
-       (_, [IntTy, IntTy]) | intBinRel f -> (O f, BoolTy)
-       (_, [BoolTy, BoolTy]) | boolBinOp f -> (O f, BoolTy)
-       (_, [BoolTy]) | boolUnOp f -> (O f, BoolTy)
-       ("val",[TraceTy _ ty]) -> (O "val", ty)
-       ("uneval",[ty]) -> (O "uneval", ty)
-       ("replay",[ty@(TraceTy _ _)]) -> (O "replay", ty)
-       ("where",[(TraceTy _ ty)]) -> (O "where", ty)
-       ("dep",[(TraceTy _ ty)]) -> (O "dep", ty)
-       ("expr",[(TraceTy _ ty)]) -> (O "expr", ty)
-       ("treesize",[TraceTy _ _]) -> (O "treesize", IntTy)
-       ("profile",[TraceTy _ _]) -> (O "profile", UnitTy)
-       ("profile2",[TraceTy _ _]) -> (O "profile2", UnitTy)
-       ("visualize",[StringTy,TraceTy _ _]) -> (O "visualize", UnitTy)
-       ("visualize2",[StringTy,TraceTy _ _,TraceTy _ _]) ->
-           (O "visualize2", UnitTy)
-       ("slice",[ty@(TraceTy _ ty1), ty2]) ->
-           if ty1 == ty2
-           then (O "slice", ty)
-           else error "slice type mismatch" -- TODO: Partialize
-       ("pslice",[ty@(TraceTy _ ty1), ty2]) ->
-           if ty1 == ty2
-           then (O "pslice", ty)
-           else error "slice type mismatch" -- TODO: Partialize
-       _ -> error ("unknown op " ++f ++ " at types "++ show (map pp tys))
+lookupOp :: Primitive -> [Type] -> Type
+-- built-in operators, closely corresponds to evalOp
+lookupOp op [IntTy   , IntTy   ] | isCommonOp @Int    op = BoolTy
+lookupOp op [BoolTy  , BoolTy  ] | isCommonOp @Bool   op = BoolTy
+lookupOp op [StringTy, StringTy] | isCommonOp @String op = BoolTy
+lookupOp op [IntTy   , IntTy   ] | isIntBinOp         op = IntTy
+lookupOp op [IntTy   , IntTy   ] | isIntRelOp         op = BoolTy
+lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp        op = BoolTy
+lookupOp op [BoolTy  ]           | isBoolUnOp         op = BoolTy
+-- built-in primitives
+lookupOp PrimVal        [    TraceTy _ ty] = ty
+lookupOp PrimReplay     [ty@(TraceTy _ _)] = ty
+lookupOp PrimWhere      [    TraceTy _ ty] = ty
+lookupOp PrimDep        [    TraceTy _ ty] = ty
+lookupOp PrimExpr       [    TraceTy _ ty] = ty
+lookupOp PrimTreeSize   [    TraceTy _ _ ] = IntTy
+lookupOp PrimProfile    [    TraceTy _ _ ] = UnitTy
+lookupOp PrimProfile2   [    TraceTy _ _ ] = UnitTy
+lookupOp PrimVisualize  [StringTy, TraceTy _ _]              = UnitTy
+lookupOp PrimVisualize2 [StringTy, TraceTy _ _, TraceTy _ _] = UnitTy
+lookupOp PrimSlice [ty@(TraceTy _ ty1), ty2] =
+    if ty1 == ty2
+    then ty
+    else error "slice type mismatch" -- TODO: Partialize
+lookupOp PrimPSlice [ty@(TraceTy _ ty1), ty2] =
+    if ty1 == ty2
+    then ty
+    else error "slice type mismatch" -- TODO: Partialize
+lookupOp op tys =
+    error ("Unknown op " ++ (show op) ++ " at types " ++ show (map pp tys))
 
 --todo: handle general sums/datatypes
 inject :: [(A.Con, A.Type)] -> A.Con -> Exp -> Exp
@@ -79,8 +75,8 @@ desugar decls gamma (A.If e e1 e2)
          else error "Types of branches do not match"
 desugar decls gamma (A.Op f es)
     = let (es',tys) = unzip (map (desugar decls gamma) es)
-          (op, ty) = lookupOp f tys
-      in (Op op es', ty)
+          ty        = lookupOp f tys
+      in (Op f es', ty)
 desugar decls gamma (A.Pair e1 e2)
     = let (e1',ty1) = desugar decls gamma e1
           (e2',ty2) = desugar decls gamma e2

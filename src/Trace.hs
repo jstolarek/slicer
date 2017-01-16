@@ -1,11 +1,14 @@
+{-# LANGUAGE AllowAmbiguousTypes, ScopedTypeVariables, TypeApplications #-}
+
 module Trace
     ( -- * Abstract syntax
       Code(..), Exp(..), Match(..), Value(..), Type(..), Ctx, Trace
 
     , Pattern(extract)
 
-      -- * Operators
-    , Op(..), evalOp
+      -- * Built-in operators
+    , Primitive(..), evalOp, isCommonOp, isIntBinOp, isIntRelOp
+    , isBoolRelOp, isBoolUnOp
 
       -- * Lables
     , Lab, mkL
@@ -19,9 +22,11 @@ module Trace
 
 import           Env
 import           PrettyPrinting
+import           Primitives
 import           UpperSemiLattice
 
-import           Data.Map as Map ( Map  , fromList, mapWithKey,keys, (!) )
+import           Data.Map as Map ( Map  , fromList, mapWithKey, keys, member
+                                 , (!) )
 import           Data.List       ( union, delete, elem )
 import qualified Data.Hashable as H ( hash )
 import           Text.PrettyPrint
@@ -111,32 +116,12 @@ instance Ord Lab where
 mkL :: String -> Lab
 mkL s = L s (H.hash s)
 
-data Op = O String deriving (Show,Eq,Ord)
-
-opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opIntNeq, opLt, opGt, opLeq,
-      opGeq, opAnd, opOr, opBoolEq, opBoolNeq :: Op
-opPlus    = O "+"
-opMinus   = O "-"
-opTimes   = O "*"
-opDiv     = O "/"
-opMod     = O "mod"
-opIntEq   = O "="
-opIntNeq  = O "/="
-opLt      = O "<"
-opGt      = O ">"
-opLeq     = O "<="
-opGeq     = O ">="
-opAnd     = O "&&"
-opOr      = O "||"
-opBoolEq  = O "="
-opBoolNeq = O "/="
-
 data Exp = Var Var
          | Let Var Exp Exp
          | Unit
          | CBool Bool | If Exp Exp Exp
          | CInt Int
-         | Op Op [Exp]
+         | Op Primitive [Exp]
          | CString String
          | Pair Exp Exp | Fst Exp | Snd Exp
          | InL Exp | InR Exp | Case Exp Match
@@ -215,12 +200,6 @@ instance PP Lab where
     pp_partial l l' | l == l' = pp l
     pp_partial l l' = error ("Error pretty-printing Lab: l is " ++ show l ++
                              " and l' is " ++ show l')
-
-instance PP Op where
-    pp (O f) = text f
-    pp_partial op op' | op == op' = pp op
-    pp_partial op op' = error ("Error pretty-printing Op: op is " ++ show op ++
-                               " and op' is " ++ show op')
 
 instance PP Exp where
     pp e = pp_partial e e
@@ -575,33 +554,66 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
     extract (Env penv') env
         = Env (Map.mapWithKey (\x p -> extract p (lookupEnv' env x)) penv')
 
-intOps :: Map Op ((Int, Int) -> Value)
-intOps = fromList
-   [ (opPlus   , to_val . uncurry (+) )
-   , (opMinus  , to_val . uncurry (-) )
-   , (opTimes  , to_val . uncurry (*) )
-   , (opDiv    , to_val . uncurry div )
-   , (opMod    , to_val . uncurry mod )
-   , (opIntEq  , to_val . uncurry (==))
-   , (opLt     , to_val . uncurry (<) )
-   , (opGt     , to_val . uncurry (>) )
-   , (opIntNeq , to_val . uncurry (/=))
-   , (opLeq    , to_val . uncurry (<=))
-   , (opGeq    , to_val . uncurry (>=))
-   ]
 
-boolOps :: Map Op ((Bool, Bool) -> Value)
-boolOps = fromList
-   [ (opAnd    , to_val . uncurry (&&))
-   , (opOr     , to_val . uncurry (||))
-   , (opBoolEq , to_val . uncurry (==))
-   , (opBoolNeq, to_val . uncurry (/=))
-   ]
-
-evalOp :: Op -> [Value] -> Value
-evalOp f [VInt  i, VInt  j]    = intOps!f $ (i, j)
-evalOp f [VBool i, VBool j]    = boolOps!f $ (i, j)
-evalOp (O "not") [VBool b] = VBool (not b)
-evalOp _ vs | VHole `elem` vs  = VHole
-evalOp _ vs | VStar `elem` vs  = VStar
+-- These functions don't really belong here but putting them in this module
+-- seems to be the only way to avoid cycles.  evalOp should go into Eval module
+-- but this would cause cycle with Annot module. Oh well.
+evalOp :: Primitive -> [Value] -> Value
+evalOp f [VInt    i, VInt    j] | isCommonOp @Int    f = (commonOps  ! f) (i, j)
+evalOp f [VBool   i, VBool   j] | isCommonOp @Bool   f = (commonOps  ! f) (i, j)
+evalOp f [VString i, VString j] | isCommonOp @String f = (commonOps  ! f) (i, j)
+evalOp f [VInt    i, VInt    j] | isIntBinOp         f = (intBinOps  ! f) (i, j)
+evalOp f [VInt    i, VInt    j] | isIntRelOp         f = (intRelOps  ! f) (i, j)
+evalOp f [VBool   i, VBool   j] | isBoolRelOp        f = (boolRelOps ! f) (i, j)
+evalOp f [VBool   b]            | isBoolUnOp         f = (boolUnOps  ! f) b
+evalOp _ vs                     | VHole `elem` vs      = VHole
+evalOp _ vs                     | VStar `elem` vs      = VStar
 evalOp f vs = error ("Op " ++ show f ++ " not defined for " ++ show vs)
+
+commonOps :: Eq a => Map Primitive ((a, a) -> Value)
+commonOps = fromList
+   [ (OpEq , to_val . uncurry (==))
+   , (OpNeq, to_val . uncurry (/=))
+   ]
+
+intBinOps :: Map Primitive ((Int, Int) -> Value)
+intBinOps = fromList
+   [ (OpPlus , to_val . uncurry (+) )
+   , (OpMinus, to_val . uncurry (-) )
+   , (OpTimes, to_val . uncurry (*) )
+   , (OpDiv  , to_val . uncurry div )
+   , (OpMod  , to_val . uncurry mod )
+   ]
+
+intRelOps :: Map Primitive ((Int, Int) -> Value)
+intRelOps = fromList
+   [ (OpLt   , to_val . uncurry (<) )
+   , (OpGt   , to_val . uncurry (>) )
+   , (OpLeq  , to_val . uncurry (<=))
+   , (OpGeq  , to_val . uncurry (>=))
+   ]
+
+boolRelOps :: Map Primitive ((Bool, Bool) -> Value)
+boolRelOps = fromList
+   [ (OpAnd, to_val . uncurry (&&))
+   , (OpOr , to_val . uncurry (||))
+   ]
+
+boolUnOps :: Map Primitive (Bool -> Value)
+boolUnOps = fromList
+   [ (OpNot, to_val . not) ]
+
+isCommonOp :: forall a. Eq a => Primitive -> Bool
+isCommonOp op = op `member` (commonOps :: Map Primitive ((a, a) -> Value))
+
+isIntBinOp :: Primitive -> Bool
+isIntBinOp op = op `member` intBinOps
+
+isIntRelOp :: Primitive -> Bool
+isIntRelOp op = op `member` intRelOps
+
+isBoolRelOp :: Primitive -> Bool
+isBoolRelOp op = op `member` boolRelOps
+
+isBoolUnOp :: Primitive -> Bool
+isBoolUnOp op = op `member` boolUnOps
