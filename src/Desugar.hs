@@ -23,29 +23,29 @@ boolUnOp s = s == "not"
 lookupOp :: A.Op -> [Type] -> (Op,Type)
 lookupOp (A.O f) tys =
     case (f,tys)
-    of (_, [IntTy, IntTy]) | intBinOp f -> (O f tys IntTy, IntTy)
-       (_, [IntTy, IntTy]) | intBinRel f -> (O f tys BoolTy, BoolTy)
-       (_, [BoolTy, BoolTy]) | boolBinOp f -> (O f tys BoolTy, BoolTy)
-       (_, [BoolTy]) | boolUnOp f -> (O f tys BoolTy, BoolTy)
-       ("val",[TraceTy _ ty]) -> (O "val" tys ty, ty)
-       ("uneval",[ty]) -> (O "uneval" tys ty, ty)
-       ("replay",[ty@(TraceTy _ _)]) -> (O "replay" tys ty, ty)
-       ("where",[(TraceTy _ ty)]) -> (O "where" tys ty, ty)
-       ("dep",[(TraceTy _ ty)]) -> (O "dep" tys ty, ty)
-       ("expr",[(TraceTy _ ty)]) -> (O "expr" tys ty, ty)
-       ("treesize",[TraceTy _ _]) -> (O "treesize" tys IntTy, IntTy)
-       ("profile",[TraceTy _ _]) -> (O "profile" tys UnitTy, UnitTy)
-       ("profile2",[TraceTy _ _]) -> (O "profile2" tys UnitTy, UnitTy)
-       ("visualize",[StringTy,TraceTy _ _]) -> (O "visualize" tys UnitTy, UnitTy)
+    of (_, [IntTy, IntTy]) | intBinOp f -> (O f, IntTy)
+       (_, [IntTy, IntTy]) | intBinRel f -> (O f, BoolTy)
+       (_, [BoolTy, BoolTy]) | boolBinOp f -> (O f, BoolTy)
+       (_, [BoolTy]) | boolUnOp f -> (O f, BoolTy)
+       ("val",[TraceTy _ ty]) -> (O "val", ty)
+       ("uneval",[ty]) -> (O "uneval", ty)
+       ("replay",[ty@(TraceTy _ _)]) -> (O "replay", ty)
+       ("where",[(TraceTy _ ty)]) -> (O "where", ty)
+       ("dep",[(TraceTy _ ty)]) -> (O "dep", ty)
+       ("expr",[(TraceTy _ ty)]) -> (O "expr", ty)
+       ("treesize",[TraceTy _ _]) -> (O "treesize", IntTy)
+       ("profile",[TraceTy _ _]) -> (O "profile", UnitTy)
+       ("profile2",[TraceTy _ _]) -> (O "profile2", UnitTy)
+       ("visualize",[StringTy,TraceTy _ _]) -> (O "visualize", UnitTy)
        ("visualize2",[StringTy,TraceTy _ _,TraceTy _ _]) ->
-           (O "visualize2" tys UnitTy, UnitTy)
+           (O "visualize2", UnitTy)
        ("slice",[ty@(TraceTy _ ty1), ty2]) ->
            if ty1 == ty2
-           then (O "slice" tys ty, ty)
+           then (O "slice", ty)
            else error "slice type mismatch" -- TODO: Partialize
        ("pslice",[ty@(TraceTy _ ty1), ty2]) ->
            if ty1 == ty2
-           then (O "pslice" tys ty, ty)
+           then (O "pslice", ty)
            else error "slice type mismatch" -- TODO: Partialize
        _ -> error ("unknown op " ++f ++ " at types "++ show (map pp tys))
 

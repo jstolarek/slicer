@@ -18,57 +18,57 @@ import           System.IO.Unsafe(unsafePerformIO)
 import           System.FilePath.Posix
 
 evalTraceOp :: Op -> [Value] -> Value
-evalTraceOp (O "val" _ _) [VTrace v _ _] = v
-evalTraceOp (O "replay" _ _) [VTrace _ t env]
+evalTraceOp (O "val") [VTrace v _ _] = v
+evalTraceOp (O "replay") [VTrace _ t env]
     =  let (v',t') = trace env t
        in VTrace v' t' env
-evalTraceOp (O "slice" _ _) [VTrace v t env, p]
+evalTraceOp (O "slice") [VTrace v t env, p]
     | p `leq` v
     = let (t',penv) = bslice p t
           v' = extract p v
           env' = extract penv env
       in v' `seq` t' `seq` env' `seq` VTrace v' t' env'
     | otherwise = error ("slice: criterion "++ show p ++ " is not a prefix of output " ++ show v)
-evalTraceOp (O "pslice" _ _) [VTrace v t _, p]
+evalTraceOp (O "pslice") [VTrace v t _, p]
     | p `leq` v
     = let (t',env') = pslice p t
       in VTrace p t' env'
     | otherwise = error ("pslice: criterion "++ show p ++ " is not a prefix of output " ++ show v)
-evalTraceOp (O "where" _ _) [VTrace _ t env] =
+evalTraceOp (O "where") [VTrace _ t env] =
     let env' = fmap (make_where ) env
         v' = whr env' t
     in System.IO.Unsafe.unsafePerformIO (putStrLn (show ( pp v')))
            `seq`  erase_to_v v'
-evalTraceOp (O "expr" _ _) [VTrace _ t env] =
+evalTraceOp (O "expr") [VTrace _ t env] =
     let env' = fmap (make_expr ) env
         v' = expr env' t
     in System.IO.Unsafe.unsafePerformIO (putStrLn (show ( pp v')))
            `seq` erase_to_v v'
-evalTraceOp (O "dep" _ _) [VTrace _ t env] =
+evalTraceOp (O "dep") [VTrace _ t env] =
     let env' = fmap (make_dep ) env
         v' = dep env' t
     in System.IO.Unsafe.unsafePerformIO (putStrLn (show ( pp v')))
            `seq` erase_to_v v'
-evalTraceOp (O "visualize" _ _) [VString s, VTrace _ t _] =
+evalTraceOp (O "visualize") [VString s, VTrace _ t _] =
     (case takeExtension s
      of ".pdf" -> System.IO.Unsafe.unsafePerformIO (visualizePDF s t)
         ".svg" -> System.IO.Unsafe.unsafePerformIO (visualizeSVG s t)
         ext    -> error $ "Unknown file extension : " ++ ext)
     `seq` VUnit
-evalTraceOp (O "visualize2" _ _) [VString s, VTrace _ t1 _, VTrace _ t2 _] =
+evalTraceOp (O "visualize2") [VString s, VTrace _ t1 _, VTrace _ t2 _] =
     (case takeExtension s
      of ".pdf" -> System.IO.Unsafe.unsafePerformIO (visualize2PDF s t1 t2)
         ".svg" -> System.IO.Unsafe.unsafePerformIO (visualize2SVG s t1 t2)
         ext    -> error $ "Unknown file extension : " ++ ext)
     `seq` VUnit
 
-evalTraceOp (O "treesize" _ _) [VTrace _ t _] =
+evalTraceOp (O "treesize") [VTrace _ t _] =
     VInt (forestsize (to_tree t))
 
-evalTraceOp (O "profile" _ _) [VTrace _ t _] =
+evalTraceOp (O "profile") [VTrace _ t _] =
     System.IO.Unsafe.unsafePerformIO (putStrLn (show (profile t)))
     `seq` VUnit
-evalTraceOp (O "profile2" _ _) [VTrace _ t _] =
+evalTraceOp (O "profile2") [VTrace _ t _] =
     System.IO.Unsafe.unsafePerformIO (putStrLn (show (profile2 t)))
     `seq` VUnit
 evalTraceOp op vs = evalOp op vs

@@ -111,26 +111,25 @@ instance Ord Lab where
 mkL :: String -> Lab
 mkL s = L s (H.hash s)
 
-data Op = O String [Type] Type deriving (Show,Eq,Ord)
+data Op = O String deriving (Show,Eq,Ord)
 
 opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opIntNeq, opLt, opGt, opLeq,
       opGeq, opAnd, opOr, opBoolEq, opBoolNeq :: Op
--- TODO: Get rid of type args?
-opPlus    = O "+"   [IntTy , IntTy ] IntTy
-opMinus   = O "-"   [IntTy , IntTy ] IntTy
-opTimes   = O "*"   [IntTy , IntTy ] IntTy
-opDiv     = O "/"   [IntTy , IntTy ] IntTy
-opMod     = O "mod" [IntTy , IntTy ] IntTy
-opIntEq   = O "="   [IntTy , IntTy ] BoolTy
-opIntNeq  = O "/="  [IntTy , IntTy ] BoolTy
-opLt      = O "<"   [IntTy , IntTy ] BoolTy
-opGt      = O ">"   [IntTy , IntTy ] BoolTy
-opLeq     = O "<="  [IntTy , IntTy ] BoolTy
-opGeq     = O ">="  [IntTy , IntTy ] BoolTy
-opAnd     = O "&&"  [BoolTy, BoolTy] BoolTy
-opOr      = O "||"  [BoolTy, BoolTy] BoolTy
-opBoolEq  = O "="   [BoolTy, BoolTy] BoolTy
-opBoolNeq = O "/="  [BoolTy, BoolTy] BoolTy
+opPlus    = O "+"
+opMinus   = O "-"
+opTimes   = O "*"
+opDiv     = O "/"
+opMod     = O "mod"
+opIntEq   = O "="
+opIntNeq  = O "/="
+opLt      = O "<"
+opGt      = O ">"
+opLeq     = O "<="
+opGeq     = O ">="
+opAnd     = O "&&"
+opOr      = O "||"
+opBoolEq  = O "="
+opBoolNeq = O "/="
 
 data Exp = Var Var
          | Let Var Exp Exp
@@ -218,7 +217,7 @@ instance PP Lab where
                              " and l' is " ++ show l')
 
 instance PP Op where
-    pp (O f _ _) = text f
+    pp (O f) = text f
     pp_partial op op' | op == op' = pp op
     pp_partial op op' = error ("Error pretty-printing Op: op is " ++ show op ++
                                " and op' is " ++ show op')
@@ -602,7 +601,7 @@ boolOps = fromList
 evalOp :: Op -> [Value] -> Value
 evalOp f [VInt  i, VInt  j]    = intOps!f $ (i, j)
 evalOp f [VBool i, VBool j]    = boolOps!f $ (i, j)
-evalOp (O "not" _ _) [VBool b] = VBool (not b)
+evalOp (O "not") [VBool b] = VBool (not b)
 evalOp _ vs | VHole `elem` vs  = VHole
 evalOp _ vs | VStar `elem` vs  = VStar
 evalOp f vs = error ("Op " ++ show f ++ " not defined for " ++ show vs)
