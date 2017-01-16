@@ -159,13 +159,11 @@ desugarFun decls gamma (A.Rec f args rty e lbl) =
         (e',rty') = desugar decls gamma'' e
         (x1:tl)   = map fst args
         lbl'      = mkL `fmap` lbl
-        -- JSTOLAREK: A potential bug here? Nothing instead of lbl' ?
         e'' = foldr (\x e0 -> Fun (Rec bot x e0 Nothing)) e' tl
         e''' = Fun (Rec f x1 e'' lbl')
     in if desugarTy rty == rty'
        then (e''', fun_ty)
        else error "declared function return type is wrong"
-
 
 -- todo: generalize to handle arbitrary datatypes
 desugarMatch :: A.TyCtx -> Ctx -> [(A.Con, A.Type)] -> Exp -> A.Match -> (Exp,Type)

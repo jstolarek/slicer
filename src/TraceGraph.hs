@@ -148,10 +148,6 @@ trace2gvG node edge = buildGraph
                                       return i
           buildGraph _ = error "Not safe to throw an exception here..."
 
-
-
-
-
 -- Takes traces t1,t2
 -- Visualize differences between traces:
 -- Blue for shared part

@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Absyn
     ( -- * Abstract syntax
       Code(..), Con(..), Exp(..), Lab(..), Match(..), Type(..), Ctx
@@ -20,7 +22,8 @@ import qualified Data.Map as Map
 
 data Op = O String deriving (Show,Eq,Ord)
 
-
+opPlus, opMinus, opTimes, opDiv, opMod, opIntEq, opLt, opGt, opIntNeq, opLeq,
+   opGeq :: Op
 opPlus = O "+"
 opMinus = O "-"
 opTimes = O "*"
@@ -33,6 +36,7 @@ opIntNeq = O "/="
 opLeq = O "<="
 opGeq = O ">="
 
+opAnd, opOr, opBoolEq, opNot :: Op
 opAnd = O "&&"
 opOr = O "||"
 opBoolEq = O "="
@@ -66,6 +70,7 @@ data TyCtx = TyCtx
     , constrmap :: Map.Map Con (Type,TyVar)
     } deriving (Show, Eq, Ord)
 
+emptyTyCtx :: TyCtx
 emptyTyCtx = TyCtx Map.empty Map.empty
 
 addTyDecl :: TyCtx -> TyDecl -> TyCtx
