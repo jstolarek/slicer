@@ -104,8 +104,8 @@ strUnroll        = "unroll"
 strWith          = "with"
 
 strAs, strDep, strExpr, strPSlice, strProfile, strProfile2, strReplay, strSlice,
-     strTrace, strTreesize, strUpdate, strVal, strVar, strVisualize,
-     strVisualize2, strWhere :: String
+     strTrace, strTreesize, strVal, strVisualize, strVisualize2,
+     strWhere :: String
 strAs         = "as"
 strDep        = "dep"
 strExpr       = "expr"
@@ -116,9 +116,7 @@ strReplay     = "replay"
 strSlice      = "slice"
 strTrace      = "trace"
 strTreesize   = "treesize"
-strUpdate     = "update"
 strVal        = "read"
-strVar        = "var"
 strVisualize  = "visualize"
 strVisualize2 = "visualize2"
 strWhere      = "where"
@@ -129,7 +127,7 @@ keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
            , strSnd, strThen, strTrue, strUnit, strUnroll, strWith, strTrace
-           , strVal, strReplay, strSlice, strPSlice, strAs, strVar, strUpdate
+           , strVal, strReplay, strSlice, strPSlice, strAs
            , strVisualize, strVisualize2, strProfile, strTreesize,strProfile2
            , strWhere, strDep, strExpr]
 
@@ -252,7 +250,7 @@ simpleExp =
    unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
    try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
    snd_ <|> case_ <|> hole <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|>
-   traceval_ <|> tracevar_ <|> traceupd_ <|> visualize <|> visualize2 <|>
+   traceval_ <|> visualize <|> visualize2 <|>
    profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
 
 unaryOp :: String -> Op -> Parser (Exp -> Exp)
@@ -443,24 +441,6 @@ traceval_ :: Parser Exp
 traceval_ = do
    e <- keyword strVal >> exp
    return (Op (O "val") [e])
-
-tracevar_ :: Parser Exp
-tracevar_ = do
-  keyword strVar
-  x <- var_
-  keyword strIn
-  e <- exp
-  return (TraceVar e x)
-
-traceupd_ :: Parser Exp
-traceupd_ = do
-   keyword strUpdate
-   e1 <- exp
-   keyword strWith
-   x <- var_
-   keyword strAs
-   e2 <- exp
-   return (TraceUpd e1 x e2)
 
 replay_ :: Parser Exp
 replay_ = do

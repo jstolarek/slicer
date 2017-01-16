@@ -104,8 +104,6 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Fun Code | App Exp Exp
            -- run-time tracing
          | Trace Exp
-         | TraceVar Exp Var
-         | TraceUpd Exp Var Exp
          -- labels, holes
          | Lab Exp Lab
          | EraseLab Exp Lab

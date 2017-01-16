@@ -1,8 +1,6 @@
 TODOs
 =====
 
-  * Delete trace var and trace update
-
   * eliminate string typing in Absyn/Desugar/Trace
 
   * why seq is used so much in the code? Performance?

@@ -150,8 +150,6 @@ data Exp = Var Var
          | Hole
            -- run-time tracing
          | Trace Exp
-         | TraceVar Exp Var
-         | TraceUpd Exp Var Exp
          -- labels
          | Lab Exp Lab
          | EraseLab Exp Lab
@@ -295,11 +293,6 @@ instance PP Exp where
         = (pp_partial e e') <+> text "@" <+> brackets( pp_partial l l')
     pp_partial (EraseLab e l) (EraseLab e' l')
         = (pp_partial e e') <+> text "//" <+> brackets( pp_partial l l')
-    pp_partial (TraceVar e x) (TraceVar e' x')
-        = (pp_partial e e') <> brackets( pp_partial x x')
-    pp_partial (TraceUpd e1 x e2) (TraceUpd e1' x' e2')
-        = (pp_partial e1 e1') <> brackets ( pp_partial x x' <+> text ":=" <+>
-                                            pp_partial e2 e2')
     pp_partial (IfThen t _ _ t1) (IfThen t' _ _ t1')
         = text "IF" <+> pp_partial t t'
           $$ text "THEN" <+> nest 2 (brackets (pp_partial t1 t1'))
@@ -415,8 +408,6 @@ instance FVs Exp where
     fvs (CaseR t m v t2)    = fvs t `union` fvs m `union` (delete v (fvs t2))
     fvs (Call t1 t2 k t)    = fvs t1 `union` fvs t2 `union` fvs k `union` fvs t
     fvs (Trace e)           = fvs e
-    fvs (TraceVar e x)      = fvs e `union` [x]
-    fvs (TraceUpd e x e')   = fvs e `union` [x] `union` fvs e'
     fvs (Lab e _)           = fvs e
     fvs (EraseLab e _)      = fvs e
     fvs  Hole               = []
@@ -514,10 +505,6 @@ instance UpperSemiLattice Exp where
         = t1 `leq` t1' && t2 `leq` t2' && k `leq` k' && t `leq` t'
     leq (Trace e) (Trace e')
         = e `leq` e'
-    leq (TraceVar e x) (TraceVar e' x')
-        = e `leq` e' && x `leq` x'
-    leq (TraceUpd e1 x e2) (TraceUpd e1' x' e2')
-        = e1 `leq` e1' && x `leq` x' && e2 `leq` e2'
     leq (Lab e l) (Lab e' l')
         | l == l' = e `leq` e'
     leq (EraseLab e l) (EraseLab e' l')
@@ -559,10 +546,6 @@ instance UpperSemiLattice Exp where
         = Call (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
     lub (Trace e) (Trace e')
         = Trace(e `lub` e')
-    lub (TraceVar e x) (TraceVar e' x')
-        = TraceVar(e `lub` e') (x `lub` x')
-    lub (TraceUpd e1 x e2) (TraceUpd e1' x' e2')
-        = TraceUpd(e1 `lub` e1') (x `lub` x') (e2 `lub` e2')
     lub (Lab e l) (Lab e' l')
         | l == l' = Lab (e `lub` e') l
     lub (EraseLab e l) (EraseLab e' l')

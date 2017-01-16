@@ -119,17 +119,6 @@ desugar decls gamma (A.App e1 e2) =
 desugar decls gamma (A.Trace e) =
     let (e',ty) = desugar decls gamma e
     in (Trace e', TraceTy gamma ty)
-desugar decls gamma (A.TraceVar e x) =
-    let (e', TraceTy gamma' _) = desugar decls gamma e
--- JSTOLAREK: possible bug here? gamma instead of gamma' ?
-    in (TraceVar e' x, lookupEnv' gamma x)
-desugar decls gamma (A.TraceUpd e1 x e2) =
-    let (e1',ty@(TraceTy gamma' _)) = desugar decls gamma e1
--- JSTOLAREK: possible bug here? gamma instead of gamma' ?
-        (e2', ty') = desugar decls gamma e2
-    in if ty' == lookupEnv' gamma x
-       then (TraceUpd e1' x e2', ty)
-       else error "variable type mismatch in trace update"
 desugar decls gamma (A.Lab e (A.L lbl))
     = let (e',ty) = desugar decls gamma e
       in (Lab e' (mkL lbl),ty)

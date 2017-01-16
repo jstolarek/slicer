@@ -99,11 +99,6 @@ eval env (Unroll tv e)     = let (VRoll tv' v) = eval' env e
                              in assert (tv == tv') v
 eval env (Trace e)         = let (v,t) = trace env e
                              in VTrace v t env
-eval env (TraceVar e x)    = let VTrace _ _ env0 = eval' env e
-                             in lookupEnv' env0 x
-eval env (TraceUpd e x e') = let VTrace v t env0 = eval' env e
-                                 v' = eval' env e'
-                             in VTrace v t (updateEnv env0 x v')
 eval env (Lab e l)         = VLabel (eval' env e) l
 eval env (EraseLab e l)    = erase_lab (eval' env e) l
 eval _   e                 = error $ "Cannot eval: " ++ show e
@@ -196,13 +191,6 @@ trace env (Call t1 t2 _ _)
 trace env (Trace e)
     = let (v, t) = trace' env e
       in (VTrace v t env, Trace t)
-trace env (TraceVar e x)
-    = let (VTrace _ _ env0,t) = trace' env e
-      in (lookupEnv' env0 x, TraceVar t x)
-trace env (TraceUpd e x e')
-    = let (VTrace v0 t0 env0,t)  = trace' env e
-          (v', t') = trace env e'
-      in (VTrace v0 t0 (updateEnv env0 x v'), TraceUpd t x t')
 trace env (Lab e l)
     = let (v, t) = trace' env e
       in (VLabel v l, Lab t l)
