@@ -119,12 +119,6 @@ desugar decls gamma (A.App e1 e2) =
 desugar decls gamma (A.Trace e) =
     let (e',ty) = desugar decls gamma e
     in (Trace e', TraceTy gamma ty)
-desugar decls gamma (A.Lab e (A.L lbl))
-    = let (e',ty) = desugar decls gamma e
-      in (Lab e' (mkL lbl),ty)
-desugar decls gamma (A.EraseLab e (A.L lbl))
-    = let (e',ty) = desugar decls gamma e
-      in (EraseLab e' (mkL lbl),ty)
 desugar _ _  (A.Hole ty) = (Hole,desugarTy ty)
 
 

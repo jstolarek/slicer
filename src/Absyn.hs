@@ -105,8 +105,6 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
            -- run-time tracing
          | Trace Exp
          -- labels, holes
-         | Lab Exp Lab
-         | EraseLab Exp Lab
          | Hole Type
            deriving (Eq,Show,Ord)
 

@@ -8,7 +8,7 @@ module Trace
     , Op(..), evalOp
 
       -- * Lables
-    , Lab, mkL, unlabel, erase_lab
+    , Lab, mkL
 
       -- * Free variables
     , FVs(..)
@@ -150,9 +150,6 @@ data Exp = Var Var
          | Hole
            -- run-time tracing
          | Trace Exp
-         -- labels
-         | Lab Exp Lab
-         | EraseLab Exp Lab
            deriving (Show, Eq, Ord)
 
 
@@ -171,7 +168,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VInL Value | VInR Value
            | VRoll (Maybe TyVar) Value
            | VClosure Code (Env Value)
-           | VHole | VStar | VLabel Value Lab
+           | VHole | VStar
              -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord)
@@ -196,25 +193,6 @@ instance PP Value where
     pp_partial v v' = error ("Error pretty-printing Value: v is " ++ show v ++
                              " and v' is " ++ show v')
 
-unlabel :: Value -> Value
-unlabel (VLabel v _) = unlabel v
-unlabel v            = v
-
-erase_lab :: Value -> Lab -> Value
-erase_lab VUnit            _ = VUnit
-erase_lab (VBool b       ) _ = VBool b
-erase_lab (VInt i        ) _ = VInt i
-erase_lab (VString s     ) _ = VString s
-erase_lab (VPair v1 v2   ) l = VPair (erase_lab v1 l) (erase_lab v2 l)
-erase_lab (VInL v        ) l = VInL  (erase_lab v  l)
-erase_lab (VInR v        ) l = VInR  (erase_lab v  l)
-erase_lab (VRoll tv v    ) l = VRoll tv (erase_lab v l)
-erase_lab (VHole         ) _ = VHole
-erase_lab (VStar         ) _ = VStar
-erase_lab (VLabel v l'   ) l = if l == l' then VHole else (VLabel (erase_lab v l) l')
-erase_lab (VClosure k env) l = VClosure k (fmap (\x -> erase_lab x l) env)
-erase_lab (VTrace v t env) l = VTrace (erase_lab v l) t (fmap (\x -> erase_lab x l) env)
-
 -- convert first-order value-patterns to expressions
 val2exp :: Value -> Exp
 val2exp VHole          = Hole
@@ -226,7 +204,6 @@ val2exp (VPair v1 v2 ) = Pair (val2exp v1) (val2exp v2)
 val2exp (VInL v      ) = InL  (val2exp v)
 val2exp (VInR v      ) = InR  (val2exp v)
 val2exp (VRoll tv v  ) = Roll tv (val2exp v)
-val2exp (VLabel v l  ) = Lab  (val2exp v) l
 -- We could potentially also convert VClosure to a value be turning an
 -- environment into a series of "let"s.  This raises the problem however of how
 -- to maintain the original order of declarations
@@ -289,10 +266,6 @@ instance PP Exp where
         = text "unroll" <> parens (pp_partial e e')
     pp_partial (Trace e) (Trace e')
         = text "trace" <> parens (pp_partial e e')
-    pp_partial (Lab e l) (Lab e' l')
-        = (pp_partial e e') <+> text "@" <+> brackets( pp_partial l l')
-    pp_partial (EraseLab e l) (EraseLab e' l')
-        = (pp_partial e e') <+> text "//" <+> brackets( pp_partial l l')
     pp_partial (IfThen t _ _ t1) (IfThen t' _ _ t1')
         = text "IF" <+> pp_partial t t'
           $$ text "THEN" <+> nest 2 (brackets (pp_partial t1 t1'))
@@ -408,8 +381,6 @@ instance FVs Exp where
     fvs (CaseR t m v t2)    = fvs t `union` fvs m `union` (delete v (fvs t2))
     fvs (Call t1 t2 k t)    = fvs t1 `union` fvs t2 `union` fvs k `union` fvs t
     fvs (Trace e)           = fvs e
-    fvs (Lab e _)           = fvs e
-    fvs (EraseLab e _)      = fvs e
     fvs  Hole               = []
 
 instance FVs Match where
@@ -431,7 +402,6 @@ promote (VInL v)         = VInL (promote v)
 promote (VInR v)         = VInR (promote v)
 promote (VRoll tv v)     = VRoll tv (promote v)
 promote (VClosure k env) = VClosure k (fmap promote env)
-promote (VLabel v l)     = VLabel (promote v) l
 promote (VTrace v t env) = VTrace (promote v) t (fmap promote env)
 
 instance UpperSemiLattice Value where
@@ -505,10 +475,6 @@ instance UpperSemiLattice Exp where
         = t1 `leq` t1' && t2 `leq` t2' && k `leq` k' && t `leq` t'
     leq (Trace e) (Trace e')
         = e `leq` e'
-    leq (Lab e l) (Lab e' l')
-        | l == l' = e `leq` e'
-    leq (EraseLab e l) (EraseLab e' l')
-        | l == l' = e `leq` e'
     leq a b = error $ "UpperSemiLattice Exp: error taking leq of " ++
                       show a ++ " and " ++ show b
 
@@ -546,10 +512,6 @@ instance UpperSemiLattice Exp where
         = Call (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
     lub (Trace e) (Trace e')
         = Trace(e `lub` e')
-    lub (Lab e l) (Lab e' l')
-        | l == l' = Lab (e `lub` e') l
-    lub (EraseLab e l) (EraseLab e' l')
-        | l == l' = EraseLab (e `lub` e') l
     lub a b = error $ "UpperSemiLattice Exp: error taking lub of " ++
                       show a ++ " and " ++ show b
 
@@ -590,9 +552,6 @@ instance Pattern Value where
     match (VRoll tv p)  (VRoll tv' v) (VRoll tv'' v')
         | tv == tv' && tv' == tv''
         = match p v v'
-    match (VLabel p l)  (VLabel v' l') (VLabel v'' l'')
-        | l == l' && l == l''
-        = match p v' v''
     match _ _ _ = False
 
     extract  VStar          v              = v
@@ -607,7 +566,6 @@ instance Pattern Value where
     extract (VInR p)       (VInR v)        = VInR (extract p v)
     extract (VRoll tv p)   (VRoll tv' v)   | tv == tv' = VRoll tv (extract p v)
     extract (VClosure _ p) (VClosure k' v) = VClosure k' (extract p v)
-    extract (VLabel p l)   (VLabel v l')   | l == l' = VLabel (extract p v) l
     extract p v = error ("extract only defined if p <= v, but p is " ++
                          show p ++ " and v is " ++ show v)
 

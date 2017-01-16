@@ -213,7 +213,6 @@ uniq val = do i <- gensym
           uniq' (VClosure k (Env env)) = do env' <- T.mapM uniq env
                                             return (RClosure k (Env env'))
 
-          uniq' (VLabel v _) = uniq' v
           uniq' v  = error ("uniq': "++ show v)
 
 runGensym :: Gensym a -> a
