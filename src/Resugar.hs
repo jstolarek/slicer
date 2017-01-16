@@ -1,19 +1,25 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, TupleSections, ViewPatterns #-}
 
+-- We temporarily silence orphan instances warnings.  There seems to be no good
+-- place for these instances.  In fact this modle needs a complete rewrite to
+-- separate resugaring from pretty-printing.  This refactoring will most likely
+-- solve the problem with orphan instances because we will no longer need a
+-- context to perform pretty printing
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Resugar where
 
-import Control.Arrow hiding ((<+>))
-import Control.Exception
-import Data.Maybe
-import qualified Data.Map as Map
-import Text.PrettyPrint
-
-import UpperSemiLattice
-import Env
+import           UpperSemiLattice
+import           Env
 import qualified Absyn as A
-import Trace
-import UntypedParser -- for constants
-import PrettyPrinting
+import           Trace
+import           UntypedParser -- for constants
+import           PrettyPrinting
+
+import           Control.Arrow hiding ((<+>))
+import           Control.Exception
+import qualified Data.Map as Map
+import           Text.PrettyPrint
 
 -- Old stuff we're not using.
 
@@ -67,6 +73,7 @@ instance PP (A.TyCtx, Value) where
       pp_partial (tyCtx, (env, Fun k)) (tyCtx, (env', Fun k'))
    pp_partial (tyCtx, v) (eq tyCtx -> True, v') =
       pp_partial (tyCtx, val2exp v) (tyCtx, val2exp v')
+   pp_partial _ _ = error "Pretty-printing error: (TyCtx, Value)"
 
 instance (Eq a, PP (A.TyCtx, a)) => PP (A.TyCtx, (Env Value, a)) where
    pp (tyCtx, (rho, e)) = pp_partial (tyCtx, (rho, e)) (tyCtx, (rho, e))
@@ -75,6 +82,7 @@ instance (Eq a, PP (A.TyCtx, a)) => PP (A.TyCtx, (Env Value, a)) where
    pp_partial (tyCtx, (rho, e)) (eq tyCtx -> True, (rho', e')) =
       vcat [text strWith, nest indent $ pp_partial (tyCtx, rho) (tyCtx, rho') <+> text strIn] $$
       pp_partial (tyCtx, e) (tyCtx, e')
+   pp_partial _ _ = error "Pretty-printing error: (TyCtx, (Env Value, a))"
 
 instance PP (A.TyCtx, Env Value) where
    pp (tyCtx, env) = pp_partial (tyCtx, env) (tyCtx, env)
@@ -84,42 +92,43 @@ instance PP (A.TyCtx, Env Value) where
       vcat $ punctuate comma $
              map (uncurry $ pp_partial_binding tyCtx) $
                  zipWith (\(x, v) (_, v') -> (x, Just (v, v'))) (Map.assocs rho) (Map.assocs rho')
+   pp_partial _ _ = error "Pretty-printing error: (TyCtx, Env Value)"
 
 instance Container Exp where
    -- Ignore trace operations for now.
-   container (Let _ _ _) = True
-   container (If _ _ _) = True
+   container (Let _ _ _)      = True
+   container (If _ _ _)       = True
    container (IfThen _ _ _ _) = True
    container (IfElse _ _ _ _) = True
-   container (Op _ _) = False
-   container (Pair _ _) = True
-   container (Fst _) = False
-   container (Snd _) = False
-   container (InL _) = False
-   container (InR _) = False
-   container (Case _ _) = True
-   container (CaseL _ _ _ _) = True
-   container (CaseR _ _ _ _) = True
-   container (Fun _) = True
-   container (App _ _) = False
-   container (Call _ _ _ _) = True
-   container (Roll _ _) = False
-   container (Unroll _ _) = False
+   container (Op _ _)         = False
+   container (Pair _ _)       = True
+   container (Fst _)          = False
+   container (Snd _)          = False
+   container (InL _)          = False
+   container (InR _)          = False
+   container (Case _ _)       = True
+   container (CaseL _ _ _ _)  = True
+   container (CaseR _ _ _ _)  = True
+   container (Fun _)          = True
+   container (App _ _)        = False
+   container (Call _ _ _ _)   = True
+   container (Roll _ _)       = False
+   container (Unroll _ _)     = False
+   container _                = error "Unsupported Exp container"
 
-   parenth Hole = False
-   parenth (CBool _) = False
-   parenth (CInt _) = False
-   parenth Unit = False
+   parenth Hole       = False
+   parenth (CBool _)  = False
+   parenth (CInt _)   = False
+   parenth Unit       = False
    parenth (Pair _ _) = False
-   parenth (Var _) = False
-   parenth _ = True
-
+   parenth (Var _)    = False
+   parenth _          = True
 
 instance PP (A.TyCtx, Exp) where
    pp (tyCtx, e) = pp_partial (tyCtx, e) (tyCtx, e)
-   pp_partial (tyCtx, e) (eq tyCtx -> True, e') =
-      let pp_partial' = partial_parensOpt tyCtx e in -- doesn't matter if we use e or e' as the parent
-      case (e, e') of
+   pp_partial (tyCtx, expr) (eq tyCtx -> True, expr') =
+      let pp_partial' = partial_parensOpt tyCtx expr in -- doesn't matter if we use expr or expr' as the parent
+      case (expr, expr') of
          (Var x, Var (eq x -> True)) -> text $ show x
          (Let x e1 e2, Let (eq x -> True) e1' e2') ->
             sep [text strLet <+> pp_partial_binding tyCtx x Nothing,
@@ -142,8 +151,9 @@ instance PP (A.TyCtx, Exp) where
          (CInt n, CInt (eq n -> True)) -> text (show n)
          -- Only support binary ops for now. Deal with other cases as they arise.
          (Op f l1, Op (eq f -> True) l2) ->
-            (case (l1, l2)
-             of ([e1,e2], [e1',e2']) -> pp_partial' e1 e1' <+> pp f <+> pp_partial' e2 e2')
+             case (l1, l2) of
+               ([e1,e2], [e1',e2']) -> pp_partial' e1 e1' <+> pp f <+> pp_partial' e2 e2'
+               _ -> error "Resugaring of unary operators not supported"
          (Pair e1 e2, Pair e1' e2') ->
             parens $ sep [pp_partial' e1 e1' <> text ",", pp_partial' e2 e2']
          (Fst e, Fst e') -> text strFst <+> pp_partial' e e'
@@ -166,13 +176,13 @@ instance PP (A.TyCtx, Exp) where
             let [_, c2] = A.getConstrs tyCtx tv in
             text strCase <+> pp_partial' t t' <+> text strOf <+> pp_partial_ctrPattern c2 x2 $$
             (nest indent $ pp_partial' t2 t2')
-         (Fun _, Fun _) -> pp_partial_multiFun e e'
-         (App _ _, App _ _) -> pp_partial_multiApp e e'
+         (Fun _, Fun _) -> pp_partial_multiFun expr expr'
+         (App _ _, App _ _) -> pp_partial_multiApp expr expr'
          -- Explicit rolls (unassociated with desugared constructors) are not supported.
          -- Use the inL/inR as the 'parent' for influencing parenthesisation (compatible with
          -- how a constructor should behave).
          (Call _ _ _ _, Call _ _ _ _) ->
-            pp_partial_multiCall e e'
+            pp_partial_multiCall expr expr'
          (Roll (Just tv) (InL e), Roll (eq (Just tv) -> True) (InL e')) ->
             pp_partial_constr tyCtx (InL e) (A.getConstrs tyCtx tv !! 0) e e'
          (Roll (Just tv) (InR e), Roll (eq (Just tv) -> True) (InR e')) ->
@@ -187,27 +197,32 @@ instance PP (A.TyCtx, Exp) where
          -- being mentioned whose syntax isn't visible.) Really we should only treat "anonymous"
          -- functions in this way, but this will do for now.
          pp_partial_multiFun :: Exp -> Exp -> Doc
-         pp_partial_multiFun e@(Fun (Rec f _ _ _))
-                             e'@(Fun (Rec (eq f -> True) _ _ _)) =
+         pp_partial_multiFun fun@(Fun (Rec f _ _ _))
+                             fun'@(Fun (Rec (eq f -> True) _ _ _)) =
             let
-               (xs, (e1, e1')) = multiFun e e' in
+               (xs, (e1, e1')) = multiFun fun fun' in
                sep [
                   text strFun <+> pp_partial_binding tyCtx f Nothing
                               <+> (hsep $ map (parens . flip (pp_partial_binding tyCtx) Nothing) xs)
                               <+> text strFunBodySep,
-                  nest indent $ partial_parensOpt tyCtx e e1 e1' -- doesn't matter whether we use e or e'
+                  nest indent $ partial_parensOpt tyCtx fun e1 e1' -- doesn't matter whether we use fun or fun'
                ]
             where
                multiFun :: Exp -> Exp -> ([Var], (Exp, Exp))
-               multiFun (Fun (Rec _ x e _)) (Fun (Rec _ (eq x -> True) e' _)) =
-                  case (e, e') of
-                     (Fun _, Fun _) -> first (x :) $ multiFun e e'
-                     _ -> ([x], (e, e'))
+               multiFun (Fun (Rec _ x body _)) (Fun (Rec _ (eq x -> True) body' _)) =
+                  case (body, body') of
+                     (Fun _, Fun _) -> first (x :) $ multiFun body body'
+                     _ -> ([x], (body, body'))
+               multiFun _ _ =
+                   error "Pretty-printing error: incorrect multiFun arguments"
+         pp_partial_multiFun _ _ =
+                   error "Pretty-printing error: incorrect pp_partial_multiFun arguments"
 
          pp_partial_multiApp :: Exp -> Exp -> Doc
-         pp_partial_multiApp e e' =
-            let ((e1, e1'), es) = multiApp e e' in
-               sep $ partial_parensOpt tyCtx e e1 e1' : (map (nest indent . (uncurry $ partial_parensOpt tyCtx e)) es)
+         pp_partial_multiApp exp_e exp_e' =
+            let ((e1, e1'), es) = multiApp exp_e exp_e' in
+               sep $ partial_parensOpt tyCtx exp_e e1 e1' :
+                       (map (nest indent . (uncurry $ partial_parensOpt tyCtx exp_e)) es)
             where
                -- Returns the "leaf" function and a list of arguments.
                multiApp :: Exp -> Exp -> ((Exp, Exp), [(Exp, Exp)])
@@ -215,6 +230,8 @@ instance PP (A.TyCtx, Exp) where
                   case (e1, e1') of
                      (App _ _, App _ _) -> second (flip (++) [(e2, e2')]) $ multiApp e1 e1'
                      _ -> ((e1, e1'), [(e2, e2')])
+               multiApp _ _ =
+                   error "Pretty-printing error: incorrect multiApp arguments"
 
          -- TODO: factor out commonality with pp_partial_caseClause.
          pp_partial_ctrPattern :: A.Con -> Var -> Doc
@@ -223,16 +240,16 @@ instance PP (A.TyCtx, Exp) where
                colorise "Mulberry" (text $ show c) <+> varOpt <+> text strCaseClauseSep
 
          pp_partial_caseClause :: A.Con -> Var -> Exp -> Exp -> Doc
-         pp_partial_caseClause c x e e' =
+         pp_partial_caseClause c x exp_e exp_e' =
             let varOpt = if x == bot then empty else pp_partial_binding tyCtx x Nothing in
                nest indent (sep [
                   (text $ show c) <+> varOpt <+> text strCaseClauseSep,
-                  nest indent $ pp_partial (tyCtx, e) (tyCtx, e')
+                  nest indent $ pp_partial (tyCtx, exp_e) (tyCtx, exp_e')
                ])
 
          pp_partial_multiCall :: Exp -> Exp -> Doc
          pp_partial_multiCall t@(Call t1 t2 _ (Rec _ x t3 _))
-                              t'@(Call t1' t2' _ (Rec _ (eq x -> True) t3' _)) =
+                              (Call t1' t2' _ (Rec _ (eq x -> True) t3' _)) =
             let ((t1_, t1_'), ts) = multiCall t1 t1' in
                sep [
 
@@ -241,15 +258,21 @@ instance PP (A.TyCtx, Exp) where
                ]
             where
                pp_partial_call :: ((Var, (Exp, Exp)), (Exp, Exp)) -> Doc
-               pp_partial_call ((x, (t2, t2')), (t3, t3')) =
-                  sep $ [
-                     sep [pp_partial_binding tyCtx x Nothing, nest indent $ text "=" <+> partial_parensOpt tyCtx t t2 t2']
-                  ] ++ body
+               pp_partial_call ((exp_x, (exp_t2, exp_t2')), (exp_t3, exp_t3')) =
+                  sep $
+                     [ sep [ pp_partial_binding tyCtx exp_x Nothing
+                         , nest indent $ text "=" <+>
+                           partial_parensOpt tyCtx t exp_t2 exp_t2'
+                         ]
+                     ] ++ body
                   where
-                     body = case (t3, t3') of
+                     body = case (exp_t3, exp_t3') of
                         (Fun _, Fun _) -> []
                         -- Gratuitous indentation hack :-/
-                        _ -> [nest (-indent) $ text strFunBodySep <+> partial_parensOpt tyCtx t t3 t3']
+                        _ -> [nest (-indent) $ text strFunBodySep <+>
+                                               partial_parensOpt tyCtx t t3 t3']
+         pp_partial_multiCall _ _ =
+             error "Pretty-printing error: incorrect multiCall arguments"
 
          multiCall :: Exp -> Exp -> ((Exp, Exp), [((Var, (Exp, Exp)), (Exp, Exp))])
          multiCall t t' =
@@ -257,6 +280,7 @@ instance PP (A.TyCtx, Exp) where
                (Call t1 t2 _ (Rec _ x t3 _), Call t1' t2' _ (Rec _ (eq x -> True) t3' _)) ->
                   second (flip (++) [((x, (t2, t2')), (t3, t3'))]) $ multiCall t1 t1'
                _ -> ((t, t'), [])
+   pp_partial _ _ = error "Pretty-printing error: (TyCtx, Exp)"
 
 pp_partial_binding :: A.TyCtx -> Var -> Maybe (Value, Value) -> Doc
 pp_partial_binding tyCtx x v_opt =
@@ -265,7 +289,7 @@ pp_partial_binding tyCtx x v_opt =
       Just (v, v') -> var <> (text "." <> pp_partial (tyCtx, v) (tyCtx, v'))
       Nothing -> var
 
-pp_partial_constr :: (PP (A.TyCtx, a), Container a) => A.TyCtx -> a -> A.Con -> a -> a -> Doc
+pp_partial_constr :: Container a => A.TyCtx -> a -> A.Con -> a -> a -> Doc
 pp_partial_constr tyCtx parent c e e' =
    let arg =
          if (fst $ A.constrmap tyCtx Map.! c) == A.UnitTy
