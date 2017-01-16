@@ -74,38 +74,38 @@ evalTraceOp (O "profile2" _ _) [VTrace _ t _] =
 evalTraceOp op vs = evalOp op vs
 
 eval :: Env Value -> Exp -> Value
-eval _   Hole              =  VHole
-eval env (Var x)           =  lookupEnv' env x
-eval env (Let x e1 e2)     =  let v = (eval' env e1) in
-                              v `seq` eval' (bindEnv env x v) e2
-eval _   (Unit)            =  VUnit
-eval _   (CBool b)         =  VBool b
-eval env (If e e1 e2)      =  evalIf env (eval' env e) e1 e2
-eval _   (CInt i)          =  VInt i
-eval _   (CString s)       =  VString s
-eval env (Op f exps)       =  evalTraceOp f (map (eval' env) exps)
-eval env (Pair e1 e2)      =  VPair (eval' env e1) (eval' env e2)
-eval env (Fst e)           =  let (VPair v1 _) = eval' env e
-                              in v1
-eval env (Snd e)           =  let (VPair _ v2) = eval' env e
-                              in v2
-eval env (InL e)           =  VInL (eval' env e)
-eval env (InR e)           =  VInR (eval' env e)
-eval env (Case e m)        =  evalMatch env (eval' env e) m
-eval env (Fun k)           =  VClosure k env
-eval env (App e1 e2)       =  evalCall (eval' env e1) (eval' env e2)
-eval env (Roll tv e)       =  VRoll tv (eval' env e)
-eval env (Unroll tv e)     =  let (VRoll tv' v) = eval' env e
-                              in assert (tv == tv') v
-eval env (Trace e)         =  let (v,t) = trace env e
-                              in VTrace v t env
-eval env (TraceVar e x)    =  let VTrace _ _ env0 = eval' env e
-                              in lookupEnv' env0 x
-eval env (TraceUpd e x e') =  let VTrace v t env0 = eval' env e
-                                  v' = eval' env e'
-                              in VTrace v t (updateEnv env0 x v')
-eval env (Lab e l)         =  VLabel (eval' env e) l
-eval env (EraseLab e l)    =  erase_lab (eval' env e) l
+eval _   Hole              = VHole
+eval env (Var x)           = lookupEnv' env x
+eval env (Let x e1 e2)     = let v = (eval' env e1) in
+                             v `seq` eval' (bindEnv env x v) e2
+eval _   (Unit)            = VUnit
+eval _   (CBool b)         = VBool b
+eval env (If e e1 e2)      = evalIf env (eval' env e) e1 e2
+eval _   (CInt i)          = VInt i
+eval _   (CString s)       = VString s
+eval env (Op f exps)       = evalTraceOp f (map (eval' env) exps)
+eval env (Pair e1 e2)      = VPair (eval' env e1) (eval' env e2)
+eval env (Fst e)           = let (VPair v1 _) = eval' env e
+                             in v1
+eval env (Snd e)           = let (VPair _ v2) = eval' env e
+                             in v2
+eval env (InL e)           = VInL (eval' env e)
+eval env (InR e)           = VInR (eval' env e)
+eval env (Case e m)        = evalMatch env (eval' env e) m
+eval env (Fun k)           = VClosure k env
+eval env (App e1 e2)       = evalCall (eval' env e1) (eval' env e2)
+eval env (Roll tv e)       = VRoll tv (eval' env e)
+eval env (Unroll tv e)     = let (VRoll tv' v) = eval' env e
+                             in assert (tv == tv') v
+eval env (Trace e)         = let (v,t) = trace env e
+                             in VTrace v t env
+eval env (TraceVar e x)    = let VTrace _ _ env0 = eval' env e
+                             in lookupEnv' env0 x
+eval env (TraceUpd e x e') = let VTrace v t env0 = eval' env e
+                                 v' = eval' env e'
+                             in VTrace v t (updateEnv env0 x v')
+eval env (Lab e l)         = VLabel (eval' env e) l
+eval env (EraseLab e l)    = erase_lab (eval' env e) l
 eval _   e                 = error $ "Cannot eval: " ++ show e
 
 eval' :: Env Value -> Exp -> Value
@@ -135,11 +135,9 @@ evalIf env (VBool True ) e1 _ = eval' env e1
 evalIf env (VBool False) _  e2 = eval' env e2
 evalIf _ _ _ _ = error "evalIf: condition is not a VBool value"
 
-traceOp :: Op -> [(Value,Trace)] -> (Value, Trace)
-traceOp f vts = let (vs,ts) = unzip vts
-                in (evalTraceOp f vs, Op f ts)
 
-trace :: Env Value -> Exp -> (Value,Trace)
+-- Tracing as described in Section 4.2 of ICFP'12 paper
+trace :: Env Value -> Exp -> (Value, Trace)
 trace env (Var x)       = (lookupEnv' env x,Var x)
 trace env (Let x e1 e2) = let (v1,t1) = trace' env e1
                               (v2,t2) = trace' (bindEnv env x v1) e2
@@ -217,6 +215,10 @@ trace env t =
 trace' :: Env Value -> Exp -> (Value, Trace)
 trace' env e = let (v, t) = trace env e
                in v `seq` (unlabel v, t)
+
+traceOp :: Op -> [(Value,Trace)] -> (Value, Trace)
+traceOp f vts = let (vs,ts) = unzip vts
+                in (evalTraceOp f vs, Op f ts)
 
 traceCall :: (Value, Trace) -> (Value, Trace) -> (Value, Exp)
 traceCall (v1@(VClosure k env0), t1) (v2, t2)
