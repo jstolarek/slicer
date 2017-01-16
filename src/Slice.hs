@@ -190,7 +190,6 @@ pslice v t = error $ "Cannot unevaluate value " ++ show v ++
                      " from trace " ++ show t
 
 -- unevaluation.  Squash trace back down into expression.
-
 uneval :: Trace -> Exp
 uneval (Var x)           = Var x
 uneval Unit              = Unit
