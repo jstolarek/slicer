@@ -21,6 +21,7 @@ module Trace
 
 
 import           Env
+import           Monad
 import           PrettyPrinting
 import           Primitives
 import           UpperSemiLattice
@@ -558,17 +559,17 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
 -- These functions don't really belong here but putting them in this module
 -- seems to be the only way to avoid cycles.  evalOp should go into Eval module
 -- but this would cause cycle with Annot module. Oh well.
-evalOp :: Primitive -> [Value] -> Value
-evalOp f [VInt    i, VInt    j] | isCommonOp  f = (commonOps  ! f) (i, j)
-evalOp f [VBool   i, VBool   j] | isCommonOp  f = (commonOps  ! f) (i, j)
-evalOp f [VString i, VString j] | isCommonOp  f = (commonOps  ! f) (i, j)
-evalOp f [VInt    i, VInt    j] | isIntBinOp  f = (intBinOps  ! f) (i, j)
-evalOp f [VInt    i, VInt    j] | isIntRelOp  f = (intRelOps  ! f) (i, j)
-evalOp f [VBool   i, VBool   j] | isBoolRelOp f = (boolRelOps ! f) (i, j)
-evalOp f [VBool   b]            | isBoolUnOp  f = (boolUnOps  ! f) b
-evalOp _ vs                     | VHole `elem` vs      = VHole
-evalOp _ vs                     | VStar `elem` vs      = VStar
-evalOp f vs = error ("Op " ++ show f ++ " not defined for " ++ show vs)
+evalOp :: Primitive -> [Value] -> SlM Value
+evalOp f [VInt    i, VInt    j] | isCommonOp  f = return ((commonOps ! f) (i,j))
+evalOp f [VBool   i, VBool   j] | isCommonOp  f = return ((commonOps ! f) (i,j))
+evalOp f [VString i, VString j] | isCommonOp  f = return ((commonOps ! f) (i,j))
+evalOp f [VInt    i, VInt    j] | isIntBinOp  f = return ((intBinOps ! f) (i,j))
+evalOp f [VInt    i, VInt    j] | isIntRelOp  f = return ((intRelOps ! f) (i,j))
+evalOp f [VBool   i, VBool   j] | isBoolRelOp f = return ((boolRelOps! f) (i,j))
+evalOp f [VBool   b]            | isBoolUnOp  f = return ((boolUnOps ! f) b)
+evalOp _ vs                     | VHole `elem` vs = return VHole
+evalOp _ vs                     | VStar `elem` vs = return VStar
+evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
 
 commonOps :: Eq a => Map Primitive ((a, a) -> Value)
 commonOps = fromList

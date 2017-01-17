@@ -7,6 +7,7 @@ import           Absyn          ( emptyTyCtx  )
 import           Desugar
 import           Env
 import           Eval
+import           Monad
 import           PrettyPrinting ( pp          )
 import           Repl
 import           Resugar        () -- dummy import to force module compilation
@@ -34,12 +35,12 @@ isReplEnabled :: [Flag] -> Bool
 isReplEnabled f = Repl `elem` f
 
 -- | Parse a program and evaluate it.  Return value and its type
-parse_desugar_eval :: String -> (Value, Type)
-parse_desugar_eval s =
-    let (tyctx, e) = parseIn s emptyTyCtx
-        (e', ty)   = desugar tyctx emptyEnv e
-        v          = eval emptyEnv e'
-    in (v, ty)
+parse_desugar_eval :: String -> SlM (Value, Type)
+parse_desugar_eval s = do
+    (tyctx, e) <- parseIn s emptyTyCtx
+    (e', ty)   <- desugar tyctx emptyEnv e
+    v          <- eval emptyEnv e'
+    return (v, ty)
 
 -- | Catch C^ interrupts when running the REPL
 noesc :: MonadException m => InputT m a -> InputT m a
@@ -59,9 +60,12 @@ haskelineSettings = do
 run :: FilePath -> IO ()
 run arg = do
   putStrLn $ "Running " ++ arg
-  code <- readFile arg
-  let (v,ty) = parse_desugar_eval code
-  putStrLn $ "val it =  " ++ show (pp v) ++ " : " ++ show (pp ty)
+  code   <- readFile arg
+  result <- runSlM $ parse_desugar_eval code
+  case result of
+    Right (v, ty) -> putStrLn $ "val it =  " ++ show (pp v) ++
+                                " : " ++ show (pp ty)
+    Left err -> hPutStrLn stderr (show err)
 
 -- | Start an interactive loop
 replLoop :: InputT ReplM ()

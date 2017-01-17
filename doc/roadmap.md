@@ -3,14 +3,7 @@ TODOs
 
   * evalTraceOp is a disaster
 
-  * discuss with James lazy vs eager evaluation
-
-  * implement proper error handling so tha REPL doesn't blow in my face every
-    time something goes wrong.  Idea: create Error module with ErrorM monad,
-    then each pass is done in its own separate monad that is just a synonym for
-    ErrorM.
-
-  * parseIn and parseRepl should handle errors in the same way
+  * discuss with James lazy vs eager evaluation.  What is Prov in Annot module?
 
   * Represent program as a series of expressions rather than as a single
     expression.  This should allow to have better performance as desuagring and

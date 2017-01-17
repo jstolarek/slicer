@@ -1,10 +1,12 @@
+{-# LANGUAGE DeriveTraversable #-}
 module Env
     ( -- * Variables and type variables
       Var(..), TyVar(..)
 
       -- * Environment operations
-    , Env(..), emptyEnv, singletonEnv, constEnv, lookupEnv, lookupEnv', bindEnv
-    , unbindEnv, updateEnv
+    , Env(..), emptyEnv, singletonEnv, constEnv
+    , lookupEnv, lookupEnv', lookupEnvMaybe
+    , bindEnv, unbindEnv, updateEnv
     ) where
 
 import           UpperSemiLattice
@@ -52,7 +54,7 @@ instance PP TyVar where
                              " and v' is " ++ show v')
 
 newtype Env a = Env (Map.Map Var a)
-    deriving (Eq,Show,Ord)
+    deriving (Eq,Show,Ord,Foldable,Traversable)
 
 instance (PP a) => PP (Env a) where
     pp_partial (Env env) (Env env') =
@@ -78,6 +80,9 @@ constEnv vs a = Env (foldl (\m x -> Map.insert x a m) Map.empty vs)
 
 lookupEnv :: Env a -> Var -> a -> a
 lookupEnv (Env env) x a = Map.findWithDefault a x env
+
+lookupEnvMaybe :: Env a -> Var -> Maybe a
+lookupEnvMaybe (Env env) x = Map.lookup x env
 
 lookupEnv' :: UpperSemiLattice a => Env a -> Var  -> a
 lookupEnv' env x = lookupEnv env x bot

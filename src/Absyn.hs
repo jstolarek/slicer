@@ -8,7 +8,7 @@ module Absyn
     , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName, getConstrs
 
       -- * Type context
-    , TyCtx(..), emptyTyCtx
+    , TyCtx(..), emptyTyCtx, nullTyCtx, unionTyCtx
     ) where
 
 import           Env
@@ -30,7 +30,7 @@ data Code = Rec { funName  :: Var
                 , funLabel :: Maybe String}
            deriving (Show, Eq, Ord)
 
-data Match = Match (Map.Map Con ([Var], Exp))
+data Match = Match (Map.Map Con (Var, Exp))
            deriving (Show, Eq, Ord)
 
 -- Synonym for a recursive type of the form rec alpha.tau1 + tau2 and its
@@ -47,6 +47,13 @@ data TyCtx = TyCtx
 
 emptyTyCtx :: TyCtx
 emptyTyCtx = TyCtx Map.empty Map.empty
+
+unionTyCtx :: TyCtx -> TyCtx -> TyCtx
+unionTyCtx (TyCtx tydecls1 constrmap1) (TyCtx tydecls2 constrmap2) =
+   TyCtx (Map.union tydecls1 tydecls2) (Map.union constrmap1 constrmap2)
+
+nullTyCtx :: TyCtx -> Bool
+nullTyCtx (TyCtx tydecls constrmap) = Map.null tydecls && Map.null constrmap
 
 addTyDecl :: TyCtx -> TyDecl -> TyCtx
 addTyDecl (TyCtx tydecls constrmap) (decl@(TyDecl name constrs)) =

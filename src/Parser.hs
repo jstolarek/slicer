@@ -13,6 +13,7 @@ module Parser
 
 import           Absyn
 import           Env
+import           Monad
 import           Primitives
 import           UpperSemiLattice
 
@@ -36,18 +37,18 @@ type ParserState = (TyCtx, ParserMode)
 type Parser a = CharParser ParserState a
 
 -- Parse a string in a type context and the empty variable context.
-parseIn :: String -> TyCtx -> (TyCtx, Exp)
+parseIn :: String -> TyCtx -> SlM (TyCtx, Exp)
 parseIn source tyctx =
    case runParser program (tyctx, Compiler) "" source of
-      Right ((tyctx', _), e) -> (tyctx', e)
-      Left err               -> error $ "Syntax error: " ++ show err
+      Right ((tyctx', _), e) -> return (tyctx', e)
+      Left err               -> parseError err
 
 -- Parse a repl line in a type context and the empty variable context.
-parseRepl :: String -> TyCtx -> Either ParseError (TyCtx, Maybe Exp)
+parseRepl :: String -> TyCtx -> SlM (TyCtx, Maybe Exp)
 parseRepl line tyctx =
     case runParser repl (tyctx, Repl) "" line of
-      Right ((tyctx', _), e) -> Right (tyctx', e)
-      Left err               -> Left err
+      Right ((tyctx', _), e) -> return (tyctx', e)
+      Left err               -> parseError err
 
 isCompilerMode :: Parser Bool
 isCompilerMode = do
@@ -321,11 +322,9 @@ case_ = do
 
 matches :: Parser Match
 matches = (Match . Map.fromList) `liftM` semiSep token_ match
-    where match :: Parser (Con,([Var],Exp)) =
+    where match :: Parser (Con,(Var,Exp)) =
                    do c  <- constr
-                      vs <- option [bot]  -- TODO: Empty list for nullary ctors
-                            ((pure `liftM` var_) -- construct singleton list
-                             <|> parenthesise (commaSep token_ var_))
+                      vs <- option bot var_
                       reservedOp token_ strCaseClauseSep
                       e <- exp
                       return (c, (vs, e))
