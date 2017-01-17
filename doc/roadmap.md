@@ -1,8 +1,6 @@
 TODOs
 =====
 
-  * Fix eval' and trace' that I've broken
-
   * evalTraceOp is a disaster
 
   * discuss with James lazy vs eager evaluation
