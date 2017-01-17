@@ -14,8 +14,6 @@ TODOs
 
   * parseIn and parseRepl should handle errors in the same way
 
-  * Document REPL
-
   * Represent program as a series of expressions rather than as a single
     expression.  This should allow to have better performance as desuagring and
     evaluation of lets would be tail-recursive.  While I'm at it, change the
