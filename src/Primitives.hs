@@ -20,8 +20,8 @@ data Primitive
     | PrimDep | PrimExpr | PrimProfile | PrimProfile2 | PrimPSlice
     | PrimSlice | PrimTreeSize | PrimVal | PrimVisualize | PrimVisualize2
     | PrimWhere
-    -- Probably unused?
-    | PrimAs | PrimReplay
+    -- Only partially implemented, but worth restoring fully?
+    | PrimReplay
     deriving (Eq, Ord)
 
 instance Show Primitive where
@@ -55,8 +55,6 @@ instance Show Primitive where
     show PrimVisualize  = "visualize"
     show PrimVisualize2 = "visualize2"
     show PrimWhere      = "where"
-    -- Probably unused?
-    show PrimAs         = "as"
     show PrimReplay     = "replay"
 
 instance PP Primitive where

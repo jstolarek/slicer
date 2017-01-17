@@ -94,7 +94,7 @@ keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
            , strSnd, strThen, strTrace, strTrue, strUnit, strUnroll ] ++
-  map show [ PrimVal, PrimReplay, PrimSlice, PrimPSlice, PrimAs, PrimVisualize
+  map show [ PrimVal, PrimReplay, PrimSlice, PrimPSlice, PrimVisualize
            , PrimVisualize2, PrimProfile, PrimProfile2, PrimTreeSize, PrimWhere
            , PrimDep, PrimExpr
            ]
