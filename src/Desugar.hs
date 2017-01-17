@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Desugar
     ( -- * Desugaring TML expressions
       desugar
@@ -16,13 +14,13 @@ import qualified Data.Map as M
 -- Assuming that op name + argument types determines the op result type.
 lookupOp :: Primitive -> [Type] -> Type
 -- built-in operators, closely corresponds to evalOp
-lookupOp op [IntTy   , IntTy   ] | isCommonOp @Int    op = BoolTy
-lookupOp op [BoolTy  , BoolTy  ] | isCommonOp @Bool   op = BoolTy
-lookupOp op [StringTy, StringTy] | isCommonOp @String op = BoolTy
-lookupOp op [IntTy   , IntTy   ] | isIntBinOp         op = IntTy
-lookupOp op [IntTy   , IntTy   ] | isIntRelOp         op = BoolTy
-lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp        op = BoolTy
-lookupOp op [BoolTy  ]           | isBoolUnOp         op = BoolTy
+lookupOp op [IntTy   , IntTy   ] | isCommonOp  op = BoolTy
+lookupOp op [BoolTy  , BoolTy  ] | isCommonOp  op = BoolTy
+lookupOp op [StringTy, StringTy] | isCommonOp  op = BoolTy
+lookupOp op [IntTy   , IntTy   ] | isIntBinOp  op = IntTy
+lookupOp op [IntTy   , IntTy   ] | isIntRelOp  op = BoolTy
+lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp op = BoolTy
+lookupOp op [BoolTy  ]           | isBoolUnOp  op = BoolTy
 -- built-in primitives
 lookupOp PrimVal        [    TraceTy _ ty] = ty
 lookupOp PrimReplay     [ty@(TraceTy _ _)] = ty

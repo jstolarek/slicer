@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ScopedTypeVariables, TypeApplications #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Trace
     ( -- * Abstract syntax
@@ -559,13 +559,13 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
 -- seems to be the only way to avoid cycles.  evalOp should go into Eval module
 -- but this would cause cycle with Annot module. Oh well.
 evalOp :: Primitive -> [Value] -> Value
-evalOp f [VInt    i, VInt    j] | isCommonOp @Int    f = (commonOps  ! f) (i, j)
-evalOp f [VBool   i, VBool   j] | isCommonOp @Bool   f = (commonOps  ! f) (i, j)
-evalOp f [VString i, VString j] | isCommonOp @String f = (commonOps  ! f) (i, j)
-evalOp f [VInt    i, VInt    j] | isIntBinOp         f = (intBinOps  ! f) (i, j)
-evalOp f [VInt    i, VInt    j] | isIntRelOp         f = (intRelOps  ! f) (i, j)
-evalOp f [VBool   i, VBool   j] | isBoolRelOp        f = (boolRelOps ! f) (i, j)
-evalOp f [VBool   b]            | isBoolUnOp         f = (boolUnOps  ! f) b
+evalOp f [VInt    i, VInt    j] | isCommonOp  f = (commonOps  ! f) (i, j)
+evalOp f [VBool   i, VBool   j] | isCommonOp  f = (commonOps  ! f) (i, j)
+evalOp f [VString i, VString j] | isCommonOp  f = (commonOps  ! f) (i, j)
+evalOp f [VInt    i, VInt    j] | isIntBinOp  f = (intBinOps  ! f) (i, j)
+evalOp f [VInt    i, VInt    j] | isIntRelOp  f = (intRelOps  ! f) (i, j)
+evalOp f [VBool   i, VBool   j] | isBoolRelOp f = (boolRelOps ! f) (i, j)
+evalOp f [VBool   b]            | isBoolUnOp  f = (boolUnOps  ! f) b
 evalOp _ vs                     | VHole `elem` vs      = VHole
 evalOp _ vs                     | VStar `elem` vs      = VStar
 evalOp f vs = error ("Op " ++ show f ++ " not defined for " ++ show vs)
@@ -578,11 +578,11 @@ commonOps = fromList
 
 intBinOps :: Map Primitive ((Int, Int) -> Value)
 intBinOps = fromList
-   [ (OpPlus , to_val . uncurry (+) )
-   , (OpMinus, to_val . uncurry (-) )
-   , (OpTimes, to_val . uncurry (*) )
-   , (OpDiv  , to_val . uncurry div )
-   , (OpMod  , to_val . uncurry mod )
+   [ (OpPlus , to_val . uncurry (+))
+   , (OpMinus, to_val . uncurry (-))
+   , (OpTimes, to_val . uncurry (*))
+   , (OpDiv  , to_val . uncurry div)
+   , (OpMod  , to_val . uncurry mod)
    ]
 
 intRelOps :: Map Primitive ((Int, Int) -> Value)
@@ -603,8 +603,9 @@ boolUnOps :: Map Primitive (Bool -> Value)
 boolUnOps = fromList
    [ (OpNot, to_val . not) ]
 
-isCommonOp :: forall a. Eq a => Primitive -> Bool
-isCommonOp op = op `member` (commonOps :: Map Primitive ((a, a) -> Value))
+isCommonOp :: Primitive -> Bool
+-- instantiate type variable in commonOps to () to avoid type ambiguity
+isCommonOp op = op `member` (commonOps @())
 
 isIntBinOp :: Primitive -> Bool
 isIntBinOp op = op `member` intBinOps
