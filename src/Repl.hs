@@ -11,7 +11,7 @@ import           Eval           ( eval           )
 import           PrettyPrinting
 import           Resugar        () -- PP instances only
 import qualified Trace as T     ( Value, Type    )
-import           UntypedParser  ( parseRepl      )
+import           Parser         ( parseRepl      )
 
 import           Control.Monad.State.Strict
 import           Text.ParserCombinators.Parsec ( ParseError )

@@ -11,7 +11,7 @@ import           PrettyPrinting ( pp          )
 import           Repl
 import           Resugar        () -- dummy import to force module compilation
 import           Trace          ( Value, Type )
-import           UntypedParser  ( parseIn     )
+import           Parser         ( parseIn     )
 
 import           Control.Monad.Trans      ( lift              )
 import           System.Console.GetOpt

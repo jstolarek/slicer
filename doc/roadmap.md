@@ -3,8 +3,6 @@ TODOs
 
   * Fix eval' and trace' that I've broken
 
-  * rename UntypedParser to Parser
-
   * evalTraceOp is a disaster
 
   * discuss with James lazy vs eager evaluation

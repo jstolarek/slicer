@@ -13,7 +13,7 @@ import           UpperSemiLattice
 import           Env
 import qualified Absyn as A
 import           Trace
-import           UntypedParser -- for constants
+import           Parser -- for constants
 import           PrettyPrinting
 
 import           Control.Arrow hiding ((<+>))

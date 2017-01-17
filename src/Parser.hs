@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns, ScopedTypeVariables #-}
 
-module UntypedParser
+module Parser
     ( -- * Parsing programs represented as strings
       parseIn, parseRepl
 
