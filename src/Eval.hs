@@ -16,7 +16,7 @@ import           TraceTree
 import           UpperSemiLattice
 
 import           Control.Exception
-import           System.IO.Unsafe(unsafePerformIO)
+import           Control.Monad.Except ( liftIO )
 import           System.FilePath.Posix
 
 evalTraceOp :: Primitive -> [Value] -> SlM Value
@@ -38,40 +38,36 @@ evalTraceOp PrimPSlice [VTrace v t _, p]
 evalTraceOp PrimWhere [VTrace _ t env]
     = do let env' = fmap make_where env
          v' <- whr env' t
-         System.IO.Unsafe.unsafePerformIO (putStrLn (show ( pp v')))
-           `seq` erase_to_v v'
+         liftIO $ putStrLn (show ( pp v'))
+         erase_to_v v'
 evalTraceOp PrimExpr [VTrace _ t env]
     = do let env' = fmap make_expr env
          v' <- expr env' t
-         System.IO.Unsafe.unsafePerformIO (putStrLn (show ( pp v')))
-           `seq` erase_to_v v'
+         liftIO $ putStrLn (show ( pp v'))
+         erase_to_v v'
 evalTraceOp PrimDep [VTrace _ t env]
     = do let env' = fmap make_dep env
          v' <- dep env' t
-         System.IO.Unsafe.unsafePerformIO (putStrLn (show ( pp v')))
-           `seq` erase_to_v v'
-evalTraceOp PrimVisualize [VString s, VTrace _ t _] =
-    (case takeExtension s
-     of ".pdf" -> System.IO.Unsafe.unsafePerformIO (visualizePDF s t)
-        ".svg" -> System.IO.Unsafe.unsafePerformIO (visualizeSVG s t)
-        ext    -> error $ "Unknown file extension : " ++ ext)
-    `seq` return VUnit
-evalTraceOp PrimVisualize2 [VString s, VTrace _ t1 _, VTrace _ t2 _] =
-    (case takeExtension s
-     of ".pdf" -> System.IO.Unsafe.unsafePerformIO (visualize2PDF s t1 t2)
-        ".svg" -> System.IO.Unsafe.unsafePerformIO (visualize2SVG s t1 t2)
-        ext    -> error $ "Unknown file extension : " ++ ext)
-    `seq` return VUnit
-
+         liftIO $ putStrLn (show ( pp v'))
+         erase_to_v v'
+evalTraceOp PrimVisualize [VString s, VTrace _ t _]
+    = do case takeExtension s of
+           ".pdf" -> liftIO (visualizePDF s t) >> return VUnit
+           ".svg" -> liftIO (visualizeSVG s t) >> return VUnit
+           ext    -> evalError $ "visualize: unknown file extension : " ++ ext
+evalTraceOp PrimVisualize2 [VString s, VTrace _ t1 _, VTrace _ t2 _]
+    = do case takeExtension s of
+           ".pdf" -> liftIO (visualize2PDF s t1 t2) >> return VUnit
+           ".svg" -> liftIO (visualize2SVG s t1 t2) >> return VUnit
+           ext    -> evalError $ "visualize2: unknown file extension : " ++ ext
 evalTraceOp PrimTreeSize [VTrace _ t _] =
     return (VInt (forestsize (to_tree t)))
-
-evalTraceOp PrimProfile [VTrace _ t _] =
-    System.IO.Unsafe.unsafePerformIO (putStrLn (show (profile t)))
-    `seq` return VUnit
-evalTraceOp PrimProfile2 [VTrace _ t _] =
-    System.IO.Unsafe.unsafePerformIO (putStrLn (show (profile2 t)))
-    `seq` return VUnit
+evalTraceOp PrimProfile [VTrace _ t _]
+    = do liftIO $ putStrLn (show (profile t))
+         return VUnit
+evalTraceOp PrimProfile2 [VTrace _ t _]
+    = do liftIO $ putStrLn (show (profile2 t))
+         return VUnit
 evalTraceOp op vs = evalOp op vs
 
 eval :: Env Value -> Exp -> SlM Value

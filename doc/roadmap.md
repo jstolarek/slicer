@@ -1,8 +1,6 @@
 TODOs
 =====
 
-  * evalTraceOp is a disaster
-
   * discuss with James lazy vs eager evaluation.  What is Prov in Annot module?
 
   * Represent program as a series of expressions rather than as a single
