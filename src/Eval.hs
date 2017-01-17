@@ -20,9 +20,6 @@ import           System.FilePath.Posix
 
 evalTraceOp :: Primitive -> [Value] -> Value
 evalTraceOp PrimVal [VTrace v _ _] = v
-evalTraceOp PrimReplay [VTrace _ t env]
-    =  let (v',t') = trace env t
-       in VTrace v' t' env
 evalTraceOp PrimSlice [VTrace v t env, p]
     | p `leq` v
     = let (t',penv) = bslice p t

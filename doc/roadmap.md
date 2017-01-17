@@ -5,8 +5,6 @@ TODOs
 
   * rename UntypedParser to Parser
 
-  * delete "as" syntax
-
   * evalTraceOp is a disaster
 
   * discuss with James lazy vs eager evaluation

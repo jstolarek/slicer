@@ -94,9 +94,9 @@ keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
            , strSnd, strThen, strTrace, strTrue, strUnit, strUnroll ] ++
-  map show [ PrimVal, PrimReplay, PrimSlice, PrimPSlice, PrimVisualize
-           , PrimVisualize2, PrimProfile, PrimProfile2, PrimTreeSize, PrimWhere
-           , PrimDep, PrimExpr
+  map show [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualize2
+           , PrimProfile, PrimProfile2, PrimTreeSize, PrimWhere, PrimDep
+           , PrimExpr
            ]
 
 -- Some helpers.
@@ -212,7 +212,7 @@ simpleExp :: Parser Exp
 simpleExp =
    unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
    try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
-   snd_ <|> case_ <|> hole <|> trace_ <|> replay_ <|> slice_ <|> pslice_ <|>
+   snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|> pslice_ <|>
    traceval_ <|> visualize <|> visualize2 <|>
    profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
 
@@ -404,11 +404,6 @@ traceval_ :: Parser Exp
 traceval_ = do
    e <- keyword (show PrimVal) >> exp
    return (Op PrimVal [e])
-
-replay_ :: Parser Exp
-replay_ = do
-   e <- keyword (show PrimReplay) >> exp
-   return (Op PrimReplay [e])
 
 slice_ :: Parser Exp
 slice_ = do keyword (show PrimSlice)
