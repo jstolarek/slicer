@@ -2,7 +2,7 @@ module Slice
     ( bslice, pslice
     ) where
 
-import           Trace
+import           Core
 import           Env
 import           UpperSemiLattice
 

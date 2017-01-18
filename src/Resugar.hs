@@ -9,12 +9,12 @@
 
 module Resugar where
 
-import           UpperSemiLattice
-import           Env
 import qualified Absyn as A
-import           Trace
+import           Core
+import           Env
 import           Parser -- for constants
 import           PrettyPrinting
+import           UpperSemiLattice
 
 import           Control.Arrow hiding ((<+>))
 import           Control.Exception

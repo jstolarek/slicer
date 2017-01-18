@@ -4,10 +4,10 @@ module Desugar
     ) where
 
 import qualified Absyn as A
+import           Core
 import           Env
 import           Monad
 import           PrettyPrinting
-import           Trace
 import           UpperSemiLattice
 
 import           Control.Monad ( mapAndUnzipM, when )
@@ -100,7 +100,7 @@ desugar decls gamma (A.Con k e)
     = do (e', ty) <- desugar decls gamma e
          case A.getTyDeclByCon decls k of
            Just (A.TyDecl dataty cons, ty') ->
-              if ty ==  desugarTy ty'
+              if ty == desugarTy ty'
               then do aval <- inject cons k e'
                       return (Roll (Just dataty) aval, TyVar dataty)
               else typeError ("Ill-typed argument "  ++ show ty ++
@@ -171,7 +171,7 @@ desugarMatch decls gamma [(inl, ty1), (inr, ty2)] e (A.Match m) =
        (e1', ty1') <- desugar decls (bindEnv gamma x1 (desugarTy ty1)) e1
        (e2', ty2') <- desugar decls (bindEnv gamma x2 (desugarTy ty2)) e2
        if ty1' == ty2'
-       then return (Case e (Match (x1,e1') (x2,e2')), ty1')
+       then return (Case e (Match (x1, e1') (x2, e2')), ty1')
        else typeError ("Type mismatch in case expression: " ++ show ty1' ++
                        " does not match " ++ show ty2' )
 desugarMatch _ _ _ _ _ = desugarError "desugarMatch: data type is not binary"

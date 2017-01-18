@@ -5,9 +5,9 @@ module Annot
     ) where
 
 import           Env
+import           Core
 import           Monad
 import           PrettyPrinting
-import           Trace
 import           UpperSemiLattice
 
 import qualified Data.Set as Set

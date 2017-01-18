@@ -2,7 +2,7 @@ module TraceGraph
     ( visualizePDF, visualize2PDF, visualizeSVG, visualize2SVG
     ) where
 
-import           Trace ( Trace, Exp(..), Code(..) )
+import           Core ( Trace, Exp(..), Code(..) )
 import           PrettyPrinting
 
 import           Data.GraphViz

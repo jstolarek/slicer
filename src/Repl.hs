@@ -7,13 +7,13 @@ module Repl
     ) where
 
 import           Absyn
+import qualified Core as C      ( Value, Type    )
 import           Desugar        ( desugar        )
 import           Env
 import           Eval           ( eval           )
 import           Monad
 import           PrettyPrinting
 import           Resugar        () -- PP instances only
-import qualified Trace as T     ( Value, Type    )
 import           Parser         ( parseRepl      )
 
 import           Control.Exception ( assert )
@@ -31,8 +31,8 @@ data ParseResult = OK               -- ^ Success without reply
 -- | REPL state
 data ReplState = ReplState
     { tyCtxSt :: TyCtx       -- ^ Data type declarations
-    , gammaSt :: Env T.Type  -- ^ Context Γ, stores variable types
-    , envSt   :: Env T.Value -- ^ Environment ρ, stores variable values
+    , gammaSt :: Env C.Type  -- ^ Context Γ, stores variable types
+    , envSt   :: Env C.Value -- ^ Environment ρ, stores variable values
     }
 
 -- | Empty REPL state.  Used when starting the REPL
@@ -48,13 +48,13 @@ getTyCtx = do
   return tyCtxSt
 
 -- | Get context
-getGamma :: ReplM (Env T.Type)
+getGamma :: ReplM (Env C.Type)
 getGamma = do
   ReplState { gammaSt } <- get
   return gammaSt
 
 -- | Get environment
-getEnv :: ReplM (Env T.Value)
+getEnv :: ReplM (Env C.Value)
 getEnv = do
   ReplState { envSt } <- get
   return envSt
@@ -66,7 +66,7 @@ addDataDefn newCtx = do
   put $ st { tyCtxSt = unionTyCtx tyCtxSt newCtx }
 
 -- | Add new binding (name + value + type)
-addBinding :: Var -> T.Value -> T.Type -> ReplM ()
+addBinding :: Var -> C.Value -> C.Type -> ReplM ()
 addBinding var val ty = do
   replState <- get
   let newEnv   = updateEnv (envSt   replState) var val

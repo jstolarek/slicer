@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Trace
+module Core
     ( -- * Abstract syntax
       Code(..), Exp(..), Match(..), Value(..), Type(..), Ctx, Trace
 

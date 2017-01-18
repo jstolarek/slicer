@@ -4,6 +4,7 @@ module Main
     ) where
 
 import           Absyn          ( emptyTyCtx  )
+import           Core           ( Value, Type )
 import           Desugar
 import           Env
 import           Eval
@@ -11,7 +12,6 @@ import           Monad
 import           PrettyPrinting ( pp          )
 import           Repl
 import           Resugar        () -- dummy import to force module compilation
-import           Trace          ( Value, Type )
 import           Parser         ( parseIn     )
 
 import           Control.Monad.Trans      ( lift              )

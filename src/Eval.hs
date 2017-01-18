@@ -4,13 +4,12 @@ module Eval
     ) where
 
 import           Annot
+import           Core
 import           Env
 import           Monad
 import           PrettyPrinting
-import           Primitives
 import           Profile
 import           Slice
-import           Trace
 import           TraceGraph
 import           TraceTree
 import           UpperSemiLattice
@@ -226,13 +225,13 @@ traceCall _ _ = evalError "traceCall: cannot call non-VClosure values"
 
 traceMatch :: Env Value -> (Value, Trace) -> Match -> SlM (Value, Exp)
 traceMatch env (VInL v, t) m
-    = do let (x,e) = inL m
-             env'  = bindEnv env x v
+    = do let (x, e) = inL m
+             env'   = bindEnv env x v
          (v1,t1) <- trace' env' e
          return (v1, CaseL t m x t1)
 traceMatch env (VInR v, t) m
-    = do let (x,e) = inR m
-             env'  = bindEnv env x v
+    = do let (x, e) = inR m
+             env'   = bindEnv env x v
          (v2,t2) <- trace' env' e
          return (v2, CaseR t m x t2)
 traceMatch _ _ _ =

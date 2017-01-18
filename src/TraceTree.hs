@@ -2,7 +2,7 @@ module TraceTree
     ( TraceTree(..), to_tree, forestsize
     ) where
 
-import           Trace
+import           Core
 
 data TraceTree = THole
                | TTrue TraceForest TraceForest

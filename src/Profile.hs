@@ -2,7 +2,7 @@ module Profile
     ( profile, profile2
     ) where
 
-import           Trace
+import           Core
 import           TraceTree
 
 import qualified Data.Map as Map
