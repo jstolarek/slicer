@@ -238,8 +238,8 @@ var = Var `liftM` var_
 
 ctr :: Parser Exp
 ctr = do c <- constr
-         e <- option Unit (exp)
-         return (Con c [e])
+         e <- option Unit exp
+         return (Con c e)
 
 int :: Parser Exp
 int = (CInt . fromIntegral) `liftM` natural token_ <|>

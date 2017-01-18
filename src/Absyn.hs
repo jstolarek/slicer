@@ -82,7 +82,7 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | CInt Int | Op Primitive [Exp]
          | CString String
          | Pair Exp Exp | Fst Exp | Snd Exp
-         | Con Con [Exp] | Case Exp Match
+         | Con Con Exp | Case Exp Match
          | Fun Code | App Exp Exp
            -- run-time tracing
          | Trace Exp

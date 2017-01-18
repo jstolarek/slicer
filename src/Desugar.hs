@@ -56,7 +56,7 @@ inject _ _ _ = desugarError "Non binary sums not yet implemented"
 
 
 -- simple version that just fails if term is not well-typed
-desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp,Type)
+desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp, Type)
 desugar _     gamma (A.Var x)
     = case lookupEnv' gamma x of
         HoleTy -> desugarError ("Unbound variable " ++ show x)
@@ -96,7 +96,7 @@ desugar decls gamma (A.Snd e)
          case ty of
            PairTy _ ty2 -> return  (Snd e1', ty2)
            _ -> typeError ("Expected pair type but got " ++  show ty)
-desugar decls gamma (A.Con k [e])  -- TODO: Handle general case
+desugar decls gamma (A.Con k e)
     = do (e', ty) <- desugar decls gamma e
          case A.getTyDeclByCon decls k of
            Just (A.TyDecl dataty cons, ty') ->
@@ -107,8 +107,6 @@ desugar decls gamma (A.Con k [e])  -- TODO: Handle general case
                               " to constructor "     ++ show k  ++
                               " which expects type " ++ show ty')
            Nothing -> desugarError ("Undeclared constructor: " ++ show k)
-desugar _     _     (A.Con k _)
-    = desugarError ("Invalid data constructor " ++ show k)
 desugar decls gamma (A.Case e m)
     = do (e', TyVar dataty) <- desugar decls gamma e
          case (A.getTyDeclByName decls dataty) of
