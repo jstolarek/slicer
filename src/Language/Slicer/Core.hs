@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Language.Slicer.Core
     ( -- * Abstract syntax
       Code(..), Exp(..), Match(..), Value(..), Type(..), Ctx, Trace
@@ -26,9 +24,9 @@ import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
-import           Data.Map as Map ( Map  , fromList, mapWithKey, keys, member
+import           Data.Map as Map ( Map, fromList, mapWithKey, keys, member
                                  , (!) )
-import           Data.List       ( union, delete, elem )
+import           Data.List       ( union, delete )
 import qualified Data.Hashable as H ( hash )
 import           Text.PrettyPrint
 
@@ -606,7 +604,7 @@ boolUnOps = fromList
 
 isCommonOp :: Primitive -> Bool
 -- instantiate type variable in commonOps to () to avoid type ambiguity
-isCommonOp op = op `member` (commonOps @())
+isCommonOp op = op `member` (commonOps :: Map Primitive (((), ()) -> Value))
 
 isIntBinOp :: Primitive -> Bool
 isIntBinOp op = op `member` intBinOps
