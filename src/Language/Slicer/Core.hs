@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Core
+module Language.Slicer.Core
     ( -- * Abstract syntax
       Code(..), Exp(..), Match(..), Value(..), Type(..), Ctx, Trace
 
@@ -20,11 +20,11 @@ module Core
     ) where
 
 
-import           Env
-import           Monad
-import           PrettyPrinting
-import           Primitives
-import           UpperSemiLattice
+import           Language.Slicer.Env
+import           Language.Slicer.Monad
+import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.Primitives
+import           Language.Slicer.UpperSemiLattice
 
 import           Data.Map as Map ( Map  , fromList, mapWithKey, keys, member
                                  , (!) )

@@ -18,7 +18,7 @@ source-repository this
   location: https://github.com/jstolarek/slicer.git
 
 executable slicer
-  main-is:          Main.hs
+  main-is:          Language/Slicer/Main.hs
   build-depends:    base       >= 4.9 && < 4.10,
                     containers >= 0.5 && < 0.6,
                     deepseq    >= 1.4 && < 1.5,

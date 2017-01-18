@@ -1,4 +1,4 @@
-module UpperSemiLattice (
+module Language.Slicer.UpperSemiLattice (
     UpperSemiLattice(..)
   ) where
 

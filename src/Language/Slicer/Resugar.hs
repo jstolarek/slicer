@@ -7,14 +7,14 @@
 -- context to perform pretty printing
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Resugar where
+module Language.Slicer.Resugar where
 
-import qualified Absyn as A
-import           Core
-import           Env
-import           Parser -- for constants
-import           PrettyPrinting
-import           UpperSemiLattice
+import qualified Language.Slicer.Absyn as A
+import           Language.Slicer.Core
+import           Language.Slicer.Env
+import           Language.Slicer.Parser -- for constants
+import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.UpperSemiLattice
 
 import           Control.Arrow hiding ((<+>))
 import           Control.Exception

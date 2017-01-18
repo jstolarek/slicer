@@ -1,18 +1,18 @@
-module Eval
+module Language.Slicer.Eval
     ( -- * Evaluating TML expressions
       eval
     ) where
 
-import           Annot
-import           Core
-import           Env
-import           Monad
-import           PrettyPrinting
-import           Profile
-import           Slice
-import           TraceGraph
-import           TraceTree
-import           UpperSemiLattice
+import           Language.Slicer.Annot
+import           Language.Slicer.Core
+import           Language.Slicer.Env
+import           Language.Slicer.Monad
+import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.Profile
+import           Language.Slicer.Slice
+import           Language.Slicer.TraceGraph
+import           Language.Slicer.TraceTree
+import           Language.Slicer.UpperSemiLattice
 
 import           Control.Exception
 import           Control.Monad.Except ( liftIO )

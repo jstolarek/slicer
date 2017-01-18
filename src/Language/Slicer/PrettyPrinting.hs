@@ -1,4 +1,4 @@
-module PrettyPrinting
+module Language.Slicer.PrettyPrinting
     ( -- * Pretty-printing
       PP(..), sb
     ) where

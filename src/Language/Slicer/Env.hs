@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveTraversable #-}
-module Env
+module Language.Slicer.Env
     ( -- * Variables and type variables
       Var(..), TyVar(..)
 
@@ -9,8 +9,8 @@ module Env
     , bindEnv, unbindEnv, updateEnv
     ) where
 
-import           UpperSemiLattice
-import           PrettyPrinting
+import           Language.Slicer.UpperSemiLattice
+import           Language.Slicer.PrettyPrinting
 
 import qualified Data.Map as Map
 import           Text.PrettyPrint

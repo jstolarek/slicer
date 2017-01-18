@@ -1,10 +1,10 @@
-module Slice
+module Language.Slicer.Slice
     ( bslice, pslice
     ) where
 
-import           Core
-import           Env
-import           UpperSemiLattice
+import           Language.Slicer.Core
+import           Language.Slicer.Env
+import           Language.Slicer.UpperSemiLattice
 
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.

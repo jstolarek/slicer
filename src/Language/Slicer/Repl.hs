@@ -1,20 +1,20 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Repl
+module Language.Slicer.Repl
     ( ReplM, runRepl, parseAndEvalLine
 
     , ParseResult(..)
     ) where
 
-import           Absyn
-import qualified Core as C      ( Value, Type    )
-import           Desugar        ( desugar        )
-import           Env
-import           Eval           ( eval           )
-import           Monad
-import           PrettyPrinting
-import           Resugar        () -- PP instances only
-import           Parser         ( parseRepl      )
+import           Language.Slicer.Absyn
+import qualified Language.Slicer.Core as C      ( Value, Type    )
+import           Language.Slicer.Desugar        ( desugar        )
+import           Language.Slicer.Env
+import           Language.Slicer.Eval           ( eval           )
+import           Language.Slicer.Monad
+import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.Resugar        () -- PP instances only
+import           Language.Slicer.Parser         ( parseRepl      )
 
 import           Control.Exception ( assert )
 import           Control.Monad.State.Strict

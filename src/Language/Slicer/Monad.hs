@@ -1,4 +1,4 @@
-module Monad
+module Language.Slicer.Monad
     ( -- * Slicer monad
       SlM, runSlM, SlicerError
 

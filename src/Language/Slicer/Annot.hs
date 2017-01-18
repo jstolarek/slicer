@@ -1,14 +1,14 @@
-module Annot
+module Language.Slicer.Annot
     ( expr, make_expr, dep, make_dep, whr, make_where
 
     , ErasableToValue(erase_to_v)
     ) where
 
-import           Env
-import           Core
-import           Monad
-import           PrettyPrinting
-import           UpperSemiLattice
+import           Language.Slicer.Env
+import           Language.Slicer.Core
+import           Language.Slicer.Monad
+import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.UpperSemiLattice
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map

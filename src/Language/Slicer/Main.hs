@@ -3,16 +3,16 @@ module Main
       main
     ) where
 
-import           Absyn          ( emptyTyCtx  )
-import           Core           ( Value, Type )
-import           Desugar
-import           Env
-import           Eval
-import           Monad
-import           PrettyPrinting ( pp          )
-import           Repl
-import           Resugar        () -- dummy import to force module compilation
-import           Parser         ( parseIn     )
+import           Language.Slicer.Absyn          ( emptyTyCtx  )
+import           Language.Slicer.Core           ( Value, Type )
+import           Language.Slicer.Desugar
+import           Language.Slicer.Env
+import           Language.Slicer.Eval
+import           Language.Slicer.Monad
+import           Language.Slicer.PrettyPrinting ( pp          )
+import           Language.Slicer.Repl
+import           Language.Slicer.Resugar () -- dummy import to force compilation
+import           Language.Slicer.Parser         ( parseIn     )
 
 import           Control.Monad.Trans      ( lift              )
 import           System.Console.GetOpt

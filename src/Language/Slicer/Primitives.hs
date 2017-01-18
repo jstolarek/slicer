@@ -1,9 +1,9 @@
-module Primitives
+module Language.Slicer.Primitives
     ( -- * Built-in primitive operators and functions
       Primitive(..)
     ) where
 
-import           PrettyPrinting
+import           Language.Slicer.PrettyPrinting
 
 import           Text.PrettyPrint
 

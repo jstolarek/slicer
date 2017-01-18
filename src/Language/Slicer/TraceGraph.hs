@@ -1,9 +1,9 @@
-module TraceGraph
+module Language.Slicer.TraceGraph
     ( visualizePDF, visualize2PDF, visualizeSVG, visualize2SVG
     ) where
 
-import           Core ( Trace, Exp(..), Code(..) )
-import           PrettyPrinting
+import           Language.Slicer.Core ( Trace, Exp(..), Code(..) )
+import           Language.Slicer.PrettyPrinting
 
 import           Data.GraphViz
 import           Data.GraphViz.Attributes.Colors

@@ -1,8 +1,8 @@
-module TraceTree
+module Language.Slicer.TraceTree
     ( TraceTree(..), to_tree, forestsize
     ) where
 
-import           Core
+import           Language.Slicer.Core
 
 data TraceTree = THole
                | TTrue TraceForest TraceForest

@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Absyn
+module Language.Slicer.Absyn
     ( -- * Abstract syntax
       Code(..), Con(..), Exp(..), Lab(..), Match(..), Type(..), Ctx
 
@@ -11,8 +11,8 @@ module Absyn
     , TyCtx(..), emptyTyCtx, nullTyCtx, unionTyCtx
     ) where
 
-import           Env
-import           Primitives
+import           Language.Slicer.Env
+import           Language.Slicer.Primitives
 
 import           Data.Maybe
 import qualified Data.Map as Map

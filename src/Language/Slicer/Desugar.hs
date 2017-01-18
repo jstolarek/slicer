@@ -1,14 +1,14 @@
-module Desugar
+module Language.Slicer.Desugar
     ( -- * Desugaring TML expressions
       desugar
     ) where
 
-import qualified Absyn as A
-import           Core
-import           Env
-import           Monad
-import           PrettyPrinting
-import           UpperSemiLattice
+import qualified Language.Slicer.Absyn as A
+import           Language.Slicer.Core
+import           Language.Slicer.Env
+import           Language.Slicer.Monad
+import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.UpperSemiLattice
 
 import           Control.Monad ( mapAndUnzipM, when )
 import qualified Data.Map as M

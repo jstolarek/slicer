@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns, ScopedTypeVariables #-}
 
-module Parser
+module Language.Slicer.Parser
     ( -- * Parsing programs represented as strings
       parseIn, parseRepl
 
@@ -11,11 +11,11 @@ module Parser
     , strUnitVal
     ) where
 
-import           Absyn
-import           Env
-import           Monad
-import           Primitives
-import           UpperSemiLattice
+import           Language.Slicer.Absyn
+import           Language.Slicer.Env
+import           Language.Slicer.Monad
+import           Language.Slicer.Primitives
+import           Language.Slicer.UpperSemiLattice
 
 import           Prelude hiding ( exp     )
 import           Control.Monad  ( liftM   )

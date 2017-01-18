@@ -1,9 +1,9 @@
-module Profile
+module Language.Slicer.Profile
     ( profile, profile2
     ) where
 
-import           Core
-import           TraceTree
+import           Language.Slicer.Core
+import           Language.Slicer.TraceTree
 
 import qualified Data.Map as Map
 
