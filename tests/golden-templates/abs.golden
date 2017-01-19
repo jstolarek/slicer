@@ -1,0 +1,2 @@
+Running ../../examples/abs.tml
+val it = Cons (_, Cons (2, Nil)) : intlist

@@ -10,7 +10,8 @@ main = defaultMain tests
 tests :: TestTree
 tests =
     testGroup "Run TML files"
-      [ runTMLTest "copy-list"
+      [ runTMLTest "abs"
+      , runTMLTest "copy-list"
       , runTMLTest "curried-componentwise-sum"
       , runTMLTest "curried-pointwise-sum"
       , runTMLTest "curried-pointwise-sum-two"
