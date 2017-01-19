@@ -54,6 +54,6 @@ in
 let l = mklist 1000 in
 let t = trace(sum(l)) in
 let s = slice(t,read(t)) in
-let p = profile2(s) in
+let p = profileDiff(s) in
 let v = read(t) in
 v

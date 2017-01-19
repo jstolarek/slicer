@@ -25,15 +25,15 @@ lookupOp op [IntTy   , IntTy   ] | isIntRelOp  op = return BoolTy
 lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp op = return BoolTy
 lookupOp op [BoolTy  ]           | isBoolUnOp  op = return BoolTy
 -- built-in primitives
-lookupOp PrimVal        [TraceTy _ ty] = return ty
-lookupOp PrimWhere      [TraceTy _ ty] = return ty
-lookupOp PrimDep        [TraceTy _ ty] = return ty
-lookupOp PrimExpr       [TraceTy _ ty] = return ty
-lookupOp PrimTreeSize   [TraceTy _ _ ] = return IntTy
-lookupOp PrimProfile    [TraceTy _ _ ] = return UnitTy
-lookupOp PrimProfile2   [TraceTy _ _ ] = return UnitTy
-lookupOp PrimVisualize  [StringTy, TraceTy _ _]              = return UnitTy
-lookupOp PrimVisualize2 [StringTy, TraceTy _ _, TraceTy _ _] = return UnitTy
+lookupOp PrimVal         [TraceTy _ ty] = return ty
+lookupOp PrimWhere       [TraceTy _ ty] = return ty
+lookupOp PrimDep         [TraceTy _ ty] = return ty
+lookupOp PrimExpr        [TraceTy _ ty] = return ty
+lookupOp PrimTreeSize    [TraceTy _ _ ] = return IntTy
+lookupOp PrimProfile     [TraceTy _ _ ] = return UnitTy
+lookupOp PrimProfileDiff [TraceTy _ _ ] = return UnitTy
+lookupOp PrimVisualize   [StringTy, TraceTy _ _]              = return UnitTy
+lookupOp PrimVisualize2  [StringTy, TraceTy _ _, TraceTy _ _] = return UnitTy
 lookupOp PrimSlice [ty@(TraceTy _ ty1), ty2] =
     if ty1 == ty2
     then return ty

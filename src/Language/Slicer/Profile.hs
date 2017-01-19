@@ -1,5 +1,5 @@
 module Language.Slicer.Profile
-    ( profile, profile2
+    ( profile, profileDiff
     ) where
 
 import           Language.Slicer.Core
@@ -36,8 +36,8 @@ profile trace = profiles' (to_tree trace)
                         Just lbl -> singleton lbl 1
               in profiles' (t ++ t1 ++ t2) `merge` m
 
-profile2 :: Trace -> Profile (Lab, Lab)
-profile2 trace = profiles' (mkL "_root") (to_tree trace)
+profileDiff :: Trace -> Profile (Lab, Lab)
+profileDiff trace = profiles' (mkL "_root") (to_tree trace)
     where profiles' parent ts               = merges (map (profile' parent) ts)
           profile' _ THole                  = empty
           profile' parent (TTrue t t1)      = profiles' parent (t ++ t1)

@@ -37,5 +37,5 @@ let listeq = fun listeq (xs:intlist) (ys:intlist) : bool =>
 in
 let xs = mklist 10000 in
 let t = trace(fastreverse xs) in
-let p = profile2(t) in
+let p = profileDiff(t) in
 read(t)

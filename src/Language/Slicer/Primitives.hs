@@ -17,7 +17,7 @@ data Primitive
     -- Logical operators
     | OpAnd | OpOr | OpNot
     -- Builtin functions
-    | PrimDep | PrimExpr | PrimProfile | PrimProfile2 | PrimPSlice
+    | PrimDep | PrimExpr | PrimProfile | PrimProfileDiff | PrimPSlice
     | PrimSlice | PrimTreeSize | PrimVal | PrimVisualize | PrimVisualize2
     | PrimWhere
     deriving (Eq, Ord)
@@ -45,7 +45,7 @@ instance Show Primitive where
     show PrimDep        = "dep"
     show PrimExpr       = "expr"
     show PrimProfile    = "profile"
-    show PrimProfile2   = "profile2"
+    show PrimProfileDiff = "profileDiff"
     show PrimPSlice     = "pslice"
     show PrimSlice      = "slice"
     show PrimTreeSize   = "treesize"

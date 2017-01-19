@@ -96,7 +96,7 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
            , strSnd, strThen, strTrace, strTrue, strUnit, strUnroll ] ++
   map show [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualize2
-           , PrimProfile, PrimProfile2, PrimTreeSize, PrimWhere, PrimDep
+           , PrimProfile, PrimProfileDiff, PrimTreeSize, PrimWhere, PrimDep
            , PrimExpr
            ]
 
@@ -215,7 +215,7 @@ simpleExp =
    try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
    snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|> pslice_ <|>
    traceval_ <|> visualize <|> visualize2 <|>
-   profile_ <|> profile2_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
+   profile_ <|> profileDiff_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
 
 unaryOp :: Primitive -> Parser (Exp -> Exp)
 unaryOp op =
@@ -376,10 +376,10 @@ expr_ = do
    e <- keyword (show PrimExpr) >> exp
    return (Op PrimExpr [e])
 
-profile2_ :: Parser Exp
-profile2_ = do
-   e <- keyword (show PrimProfile2) >> exp
-   return (Op PrimProfile2 [e])
+profileDiff_ :: Parser Exp
+profileDiff_ = do
+   e <- keyword (show PrimProfileDiff) >> exp
+   return (Op PrimProfileDiff [e])
 
 visualize :: Parser Exp
 visualize = do

@@ -64,8 +64,8 @@ evalTraceOp PrimTreeSize [VTrace _ t _] =
 evalTraceOp PrimProfile [VTrace _ t _]
     = do liftIO $ putStrLn (show (profile t))
          return VUnit
-evalTraceOp PrimProfile2 [VTrace _ t _]
-    = do liftIO $ putStrLn (show (profile2 t))
+evalTraceOp PrimProfileDiff [VTrace _ t _]
+    = do liftIO $ putStrLn (show (profileDiff t))
          return VUnit
 evalTraceOp op vs = evalOp op vs
 
