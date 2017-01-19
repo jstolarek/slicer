@@ -38,17 +38,17 @@ evalTraceOp PrimWhere [VTrace _ t env]
     = do let env' = fmap make_where env
          v' <- whr env' t
          liftIO $ putStrLn (show ( pp v'))
-         erase_to_v v'
+         return $ erase_to_v v'
 evalTraceOp PrimExpr [VTrace _ t env]
     = do let env' = fmap make_expr env
          v' <- expr env' t
          liftIO $ putStrLn (show ( pp v'))
-         erase_to_v v'
+         return $ erase_to_v v'
 evalTraceOp PrimDep [VTrace _ t env]
     = do let env' = fmap make_dep env
          v' <- dep env' t
          liftIO $ putStrLn (show ( pp v'))
-         erase_to_v v'
+         return $ erase_to_v v'
 evalTraceOp PrimVisualize [VString s, VTrace _ t _]
     = do case takeExtension s of
            ".pdf" -> liftIO (visualizePDF s t) >> return VUnit

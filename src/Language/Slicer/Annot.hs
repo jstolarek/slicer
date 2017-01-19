@@ -67,29 +67,25 @@ instance (UpperSemiLattice a,PP a) => PP (AValue a) where
     pp v = pp_partial v v
 
 class ErasableToValue a where
-    erase_to_v :: a -> SlM Value
+    erase_to_v :: a -> Value
 
 instance UpperSemiLattice a => ErasableToValue (AValue a) where
-    erase_to_v AVHole       = return VHole
-    erase_to_v (AVStar)     = return VStar
+    erase_to_v AVHole       = VHole
+    erase_to_v (AVStar)     = VStar
     erase_to_v (AValue v _) = erase_to_v v
 
 instance UpperSemiLattice a => ErasableToValue (RValue a) where
-    erase_to_v (RBool b)        = return (VBool b)
-    erase_to_v RUnit            = return VUnit
-    erase_to_v RStar            = return VStar
-    erase_to_v RHole            = return VHole
-    erase_to_v (RInt i)         = return (VInt i)
-    erase_to_v (RString i)      = return (VString i)
-    erase_to_v (RPair v1 v2)    = do v1' <- erase_to_v v1
-                                     v2' <- erase_to_v v2
-                                     return (VPair v1' v2')
-    erase_to_v (RInL v)         = erase_to_v v >>= return . VInL
-    erase_to_v (RInR v)         = erase_to_v v >>= return . VInR
-    erase_to_v (RRoll v)        = do v' <- erase_to_v v
-                                     return (VRoll Nothing v')
-    erase_to_v (RClosure k env) = do env' <- traverse erase_to_v env
-                                     return (VClosure k env')
+    erase_to_v (RBool b)        = VBool b
+    erase_to_v RUnit            = VUnit
+    erase_to_v RStar            = VStar
+    erase_to_v RHole            = VHole
+    erase_to_v (RInt i)         = VInt i
+    erase_to_v (RString i)      = VString i
+    erase_to_v (RPair v1 v2)    = VPair (erase_to_v v1) (erase_to_v v2)
+    erase_to_v (RInL v)         = VInL (erase_to_v v)
+    erase_to_v (RInR v)         = VInR (erase_to_v v)
+    erase_to_v (RRoll v)        = VRoll Nothing (erase_to_v v)
+    erase_to_v (RClosure k env) = VClosure k (fmap erase_to_v env)
 
 instance Functor RValue where
     fmap _ (RBool b)        = RBool b
@@ -368,8 +364,7 @@ instance (Eq a) => Prov (Where a) where
     cstring s  = AValue (RString s) bot
     op f avs   =
         do let (vs, _) = unzip (map (\(AValue v a) -> (erase_to_v v,a)) avs)
-           vs' <- sequence vs
-           v'  <- evalOp f vs'
+           v'  <- evalOp f vs
            return (inject v')
     pair v1 v2 = AValue (RPair v1 v2) bot
     first _ v  = v
@@ -396,8 +391,7 @@ instance Prov Exp where
     cstring i  = AValue (RString i) (CString i)
     op f avs   =
         do let (vs,as) = unzip (map (\(AValue v a) -> (erase_to_v v,a)) avs)
-           vs' <- sequence vs
-           v   <- evalOp f vs'
+           v   <- evalOp f vs
            return (AValue (rinject v) (Op f as))
     pair v1 v2 = AValue (RPair v1 v2) bot
     first _ v  = v
@@ -451,8 +445,7 @@ instance (Ord a) => Prov (Dep a) where
     cstring i  = AValue (RString i) bot
     op f avs   =
         do let (vs,as) = unzip (map (\v -> (erase_to_v v, annots v)) avs)
-           vs' <- sequence vs
-           v'  <- evalOp f vs'
+           v'  <- evalOp f vs
            return (AValue (rinject v') (Set.fold lub bot (Set.unions as)))
     pair v1 v2 = AValue (RPair v1 v2) bot
     first a v  = addAnnot v a
