@@ -7,3 +7,4 @@ dist
 *.svg
 *.actual
 *.pdf
+*.tix
