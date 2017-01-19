@@ -1,8 +1,10 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Language.Slicer.TraceGraph
     ( visualizePDF, visualizeDiffPDF, visualizeSVG, visualizeDiffSVG
     ) where
 
-import           Language.Slicer.Core ( Trace, Exp(..), Code(..) )
+import           Language.Slicer.Core ( Trace, Exp(..), Code(..), Match(..) )
 import           Language.Slicer.PrettyPrinting
 
 import           Data.GraphViz
@@ -74,10 +76,11 @@ trace2gvG node edge = buildGraph
                                         i1 <- buildGraph e1
                                         edge i i1
                                         return i
-          buildGraph (Fun _) = node "<fun>"
+          buildGraph (Fun (Rec { funBody })) = buildGraph funBody
           buildGraph Unit = node "()"
           buildGraph (CBool b) = node (if b then "true" else "false")
           buildGraph (CInt  i) = node (show i)
+          buildGraph (CString s) = node s
           buildGraph (Op f ts) = do i <- node (show (pp f))
                                     idxs <- mapM buildGraph (reverse ts)
                                     mapM_ (\j -> edge i j) idxs
@@ -104,6 +107,14 @@ trace2gvG node edge = buildGraph
                                   j <- buildGraph t
                                   edge i j
                                   return i
+          buildGraph (If c e1 e2) = do
+            -- Not constructing graph for condition, just printing
+            i <- node ("if: " ++ show (pp c))
+            k <- buildGraph e1
+            edge i k
+            j <- buildGraph e2
+            edge i j
+            return i
           buildGraph (IfThen t _ _ t1) = do i <- node "if/t"
                                             k <- buildGraph t1
                                             edge i k
@@ -116,6 +127,14 @@ trace2gvG node edge = buildGraph
                                             j <- buildGraph t
                                             edge i j
                                             return i
+          buildGraph (Case e m) = do
+            -- Not constructing graph for scrutinee, just printing
+            i <- node ("case:" ++ show (pp e))
+            k <- buildGraph (snd (inL m))
+            edge i k
+            j <- buildGraph (snd (inR m))
+            edge i j
+            return i
           buildGraph (CaseL t _ _ t1) = do i <- node "case/l"
                                            k <- buildGraph t1
                                            edge i k
@@ -138,7 +157,6 @@ trace2gvG node edge = buildGraph
                                            return i
           buildGraph (Roll   _ t) = buildGraph t
           buildGraph (Unroll _ t) = buildGraph t
-          -- I think there's a slight bug here.
           buildGraph Hole = gHole
           buildGraph (App e1 e2) = do i <- node "app"
                                       j2 <- buildGraph e2
@@ -146,7 +164,10 @@ trace2gvG node edge = buildGraph
                                       j1 <- buildGraph e1
                                       edge i j1
                                       return i
-          buildGraph _ = error "Not safe to throw an exception here..."
+          buildGraph (Trace t) = do i <- node "trace"
+                                    j <- buildGraph t
+                                    edge i j
+                                    return i
 
 -- Takes traces t1,t2
 -- Visualize differences between traces:
