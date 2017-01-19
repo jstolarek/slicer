@@ -6,7 +6,7 @@ let mklist = fun mklist (n : int) : intlist =>
                  else Nil
 in
 let
-   xs = mklist 1000
+   xs = mklist 100
 in
 
 

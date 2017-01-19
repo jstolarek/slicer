@@ -35,7 +35,7 @@ let listeq = fun listeq (xs:intlist) (ys:intlist) : bool =>
                Nil -> false;
                Cons y -> ((fst x) = (fst y)) && listeq (snd x) (snd y))
 in
-let xs = mklist 10000 in
+let xs = mklist 100 in
 let t = trace(fastreverse xs) in
 let s = slice(t,Cons(1,_:intlist)) in
 (treesize(s),treesize(t))
