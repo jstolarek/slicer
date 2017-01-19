@@ -140,17 +140,9 @@ type_ = flip buildExpressionParser simpleType
       , [ Infix (typeOp "->" (FunTy )) AssocRight ]
       ]
 
-context :: Parser Ctx
-context = do xas <- commaSep token_ $ do
-                      x   <- var_
-                      tau <- typeAnnotation
-                      return (x, tau)
-             return $ Env (Map.fromList xas)
-
 -- We don't allow direct use of recursive types in the concrete grammar.
 simpleType :: Parser Type
-simpleType = boolTy <|> intTy <|> stringTy <|> unitTy <|> typeVar <|> traceType
-         <|> parensType
+simpleType = boolTy <|> intTy <|> stringTy <|> unitTy <|> typeVar <|> parensType
    where
       intTy :: CharParser st Type
       intTy = keyword strInt >> return IntTy
@@ -166,11 +158,6 @@ simpleType = boolTy <|> intTy <|> stringTy <|> unitTy <|> typeVar <|> traceType
 
       typeVar :: CharParser st Type
       typeVar = tyVar >>= return . TyVar
-
-      traceType = do keyword strTrace
-                     ctx <- parenthesise context
-                     ty  <- simpleType
-                     return (TraceTy ctx ty)
 
       parensType :: Parser Type
       parensType = parenthesise type_

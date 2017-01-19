@@ -35,7 +35,7 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | RecTy TyVar Type | TyVar TyVar
           | HoleTy
             -- Trace types
-          | TraceTy Ctx Type
+          | TraceTy Type
             deriving (Eq,Ord,Show)
 
 instance UpperSemiLattice Type where
@@ -51,7 +51,7 @@ instance UpperSemiLattice Type where
     leq (FunTy  ty1 ty2) (FunTy  ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
     leq (RecTy  a ty   ) (RecTy  a' ty'   ) = a == a' && ty `leq` ty'
     leq (TyVar  a      ) (TyVar  b        ) = a == b
-    leq (TraceTy ctx ty) (TraceTy ctx' ty') = ctx `leq` ctx' && ty `leq` ty'
+    leq (TraceTy ty    ) (TraceTy ty'     ) = ty `leq` ty'
     leq _                _                  = error "UpperSemiLattice Type: leq"
 
     lub HoleTy   ty       = ty
@@ -68,8 +68,8 @@ instance UpperSemiLattice Type where
         = SumTy (ty1 `lub` ty1') (ty2 `lub` ty2')
     lub (FunTy ty1 ty2) (FunTy ty1' ty2')
         = FunTy (ty1 `lub` ty1') (ty2 `lub` ty2')
-    lub (TraceTy ctx ty) (TraceTy ctx' ty')
-        = TraceTy (ctx `lub` ctx') (ty `lub` ty')
+    lub (TraceTy ty) (TraceTy ty')
+        = TraceTy (ty `lub` ty')
     lub a b = error $ "UpperSemiLattice Type: error taking lub of " ++
                       show a ++ " and " ++ show b
 
@@ -91,8 +91,8 @@ instance PP Type where
     pp_partial (TyVar v) (TyVar v') = pp_partial v v'
     pp_partial (RecTy a ty) (RecTy a' ty')
         | a == a' = text "rec" <+> pp a <+> text "." <+> pp_partial ty ty'
-    pp_partial (TraceTy gamma ty) (TraceTy gamma' ty')
-        = text "trace" <> parens (pp_partial gamma gamma' <> comma <> pp_partial ty ty')
+    pp_partial (TraceTy ty) (TraceTy ty')
+        = text "trace" <> parens (pp_partial ty ty')
     pp_partial v v' = error ("Error pretty-printing Type: v is " ++ show v ++
                              " and v' is " ++ show v')
 

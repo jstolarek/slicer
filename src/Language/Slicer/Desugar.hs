@@ -25,21 +25,21 @@ lookupOp op [IntTy   , IntTy   ] | isIntRelOp  op = return BoolTy
 lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp op = return BoolTy
 lookupOp op [BoolTy  ]           | isBoolUnOp  op = return BoolTy
 -- built-in primitives
-lookupOp PrimVal           [TraceTy _ ty] = return ty
-lookupOp PrimWhere         [TraceTy _ ty] = return ty
-lookupOp PrimDep           [TraceTy _ ty] = return ty
-lookupOp PrimExpr          [TraceTy _ ty] = return ty
-lookupOp PrimTreeSize      [TraceTy _ _ ] = return IntTy
-lookupOp PrimProfile       [TraceTy _ _ ] = return UnitTy
-lookupOp PrimProfileDiff   [TraceTy _ _ ] = return UnitTy
-lookupOp PrimVisualize     [StringTy, TraceTy _ _]              = return UnitTy
-lookupOp PrimVisualizeDiff [StringTy, TraceTy _ _, TraceTy _ _] = return UnitTy
-lookupOp PrimSlice [ty@(TraceTy _ ty1), ty2] =
+lookupOp PrimVal           [TraceTy ty] = return ty
+lookupOp PrimWhere         [TraceTy ty] = return ty
+lookupOp PrimDep           [TraceTy ty] = return ty
+lookupOp PrimExpr          [TraceTy ty] = return ty
+lookupOp PrimTreeSize      [TraceTy _ ] = return IntTy
+lookupOp PrimProfile       [TraceTy _ ] = return UnitTy
+lookupOp PrimProfileDiff   [TraceTy _ ] = return UnitTy
+lookupOp PrimVisualize     [StringTy, TraceTy _]            = return UnitTy
+lookupOp PrimVisualizeDiff [StringTy, TraceTy _, TraceTy _] = return UnitTy
+lookupOp PrimSlice [ty@(TraceTy ty1), ty2] =
     if ty1 == ty2
     then return ty
     else typeError ("Slice type mismatch: " ++ show ty1 ++
                     " does not match " ++ show ty2)
-lookupOp PrimPSlice [ty@(TraceTy _ ty1), ty2] =
+lookupOp PrimPSlice [ty@(TraceTy ty1), ty2] =
     if ty1 == ty2
     then return ty
     else typeError ("Slice type mismatch: " ++ show ty1 ++
@@ -123,8 +123,8 @@ desugar decls gamma (A.App e1 e2) =
        else typeError ("Mismatched types in application.  Function expects " ++
                         show ty1 ++ " but argument has type " ++ show ty1')
 desugar decls gamma (A.Trace e)
-    = do (e',ty) <- desugar decls gamma e
-         return (Trace e', TraceTy gamma ty)
+    = do (e', ty) <- desugar decls gamma e
+         return (Trace e', TraceTy ty)
 desugar _ _  (A.Hole ty) = return (Hole, desugarTy ty)
 
 
@@ -134,17 +134,19 @@ desugarTy A.BoolTy           = BoolTy
 desugarTy A.UnitTy           = UnitTy
 desugarTy A.StringTy         = StringTy
 desugarTy (A.PairTy ty1 ty2) = PairTy (desugarTy ty1) (desugarTy ty2)
-desugarTy (A.SumTy ty1 ty2)  = SumTy (desugarTy ty1) (desugarTy ty2)
-desugarTy (A.FunTy ty1 ty2)  = FunTy (desugarTy ty1) (desugarTy ty2)
-desugarTy (A.TyVar ty)       = TyVar ty
-desugarTy (A.TraceTy ctx ty) = TraceTy (fmap desugarTy ctx) (desugarTy ty)
+desugarTy (A.SumTy  ty1 ty2) = SumTy (desugarTy ty1) (desugarTy ty2)
+desugarTy (A.FunTy  ty1 ty2) = FunTy (desugarTy ty1) (desugarTy ty2)
+desugarTy (A.TyVar  ty)      = TyVar ty
+desugarTy (A.TraceTy ty)     = TraceTy (desugarTy ty)
 
 
 desugarFun :: A.TyCtx -> Ctx -> A.Code -> SlM (Exp,Type)
 desugarFun decls gamma (A.Rec f args rty e lbl)
-    = do let fun_ty    = desugarTy (foldr (\(_,ty) ty' -> A.FunTy ty ty') rty args)
+    = do let fun_ty    = desugarTy (foldr (\(_,ty) ty' -> A.FunTy ty ty')
+                                          rty args)
              gamma'    = bindEnv gamma f fun_ty
-             gamma''   = foldl (\g (x,ty) -> bindEnv g x (desugarTy ty)) gamma' args
+             gamma''   = foldl (\g (x,ty) -> bindEnv g x (desugarTy ty)) gamma'
+                               args
          (e', rty') <- desugar decls gamma'' e
          let (x1:tl)   = map fst args
              lbl'      = mkL `fmap` lbl

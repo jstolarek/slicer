@@ -94,7 +94,7 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
           | TyVar TyVar
             -- Trace types
-          | TraceTy Ctx Type
+          | TraceTy Type
             deriving (Eq,Ord,Show)
 
 type Ctx = Env Type
