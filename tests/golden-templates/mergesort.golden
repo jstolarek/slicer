@@ -1,2 +1,7 @@
 Running ../../examples/mergesort.tml
-val it =  roll(inr((12,roll(inr((12,roll(inr((12,roll(inr((12,roll(inr((18,roll(inr((23,roll(inr((23,roll(inr((23,roll(inl(())))))))))))))))))))))))))) : intlist
+val it = Cons
+  (12,
+   Cons
+     (12,
+      Cons
+        (12, Cons (12, Cons (18, Cons (23, Cons (23, Cons (23, Nil)))))))) : intlist

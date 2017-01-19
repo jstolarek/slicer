@@ -1,2 +1,2 @@
 Running ../../examples/simple-closure.tml
-val it =  5 : int
+val it = 5 : int

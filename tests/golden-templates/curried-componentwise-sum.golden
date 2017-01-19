@@ -1,2 +1,2 @@
 Running ../../examples/curried-componentwise-sum.tml
-val it =  (8,10) : (int * int)
+val it = (8, 10) : (int * int)

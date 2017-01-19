@@ -1,2 +1,2 @@
 Running ../../examples/curried-pointwise-sum.tml
-val it =  roll(inr(([|_|],roll(inr((12,roll(inl(())))))))) : intlist
+val it = Cons ({$\square$}, Cons (12, Nil)) : intlist

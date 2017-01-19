@@ -1,3 +1,3 @@
 Running ../../examples/sort-eval-trace-profile2.tml
 Profile {unProfile = fromList [((_root,mergesort),1),((split,split),9976),((mergesort,split),999),((mergesort,mergesort),1998),((mergesort,merge),9976)]}
-val it =  500500 : int
+val it = 500500 : int

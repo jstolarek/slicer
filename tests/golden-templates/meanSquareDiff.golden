@@ -1,2 +1,2 @@
 Running ../../examples/meanSquareDiff.tml
-val it =  roll(inr((-22,roll(inr((-19,roll(inr((41,roll(inr((2,roll(inl(())))))))))))))) : intlist
+val it = Cons (-22, Cons (-19, Cons (41, Cons (2, Nil)))) : intlist

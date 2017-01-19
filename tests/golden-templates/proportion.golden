@@ -1,2 +1,2 @@
 Running ../../examples/proportion.tml
-val it =  roll(inr((6,roll(inr((12,roll(inr((50,roll(inr((31,roll(inl(())))))))))))))) : intlist
+val it = Cons (6, Cons (12, Cons (50, Cons (31, Nil)))) : intlist

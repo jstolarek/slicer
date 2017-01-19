@@ -15,4 +15,4 @@ true
 true
 false
 true
-val it =  () : unit
+val it = () : unit

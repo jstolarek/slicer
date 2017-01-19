@@ -3,24 +3,24 @@ module Main
       main
     ) where
 
-import           Language.Slicer.Absyn          ( emptyTyCtx  )
-import           Language.Slicer.Core           ( Value, Type )
+import           Language.Slicer.Absyn          ( emptyTyCtx, TyCtx )
+import           Language.Slicer.Core           ( Value, Type       )
 import           Language.Slicer.Desugar
 import           Language.Slicer.Env
 import           Language.Slicer.Eval
 import           Language.Slicer.Monad
-import           Language.Slicer.PrettyPrinting ( pp          )
+import           Language.Slicer.PrettyPrinting ( pp                )
 import           Language.Slicer.Repl
-import           Language.Slicer.Resugar () -- dummy import to force compilation
-import           Language.Slicer.Parser         ( parseIn     )
+import           Language.Slicer.Resugar () -- PP instances only
+import           Language.Slicer.Parser         ( parseIn           )
 
-import           Control.Monad.Trans      ( lift              )
+import           Control.Monad.Trans      ( lift                    )
 import           System.Console.GetOpt
 import           System.Console.Haskeline
-import           System.Directory         ( getHomeDirectory  )
-import           System.Environment       ( getArgs           )
-import           System.FilePath          ( joinPath          )
-import           System.IO                ( hPutStrLn, stderr )
+import           System.Directory         ( getHomeDirectory        )
+import           System.Environment       ( getArgs                 )
+import           System.FilePath          ( joinPath                )
+import           System.IO                ( hPutStrLn, stderr       )
 
 -- | Command line flags
 data Flag = Repl deriving Eq
@@ -35,12 +35,12 @@ isReplEnabled :: [Flag] -> Bool
 isReplEnabled f = Repl `elem` f
 
 -- | Parse a program and evaluate it.  Return value and its type
-parse_desugar_eval :: String -> SlM (Value, Type)
+parse_desugar_eval :: String -> SlM (Value, Type, TyCtx)
 parse_desugar_eval s = do
     (tyctx, e) <- parseIn s emptyTyCtx
     (e', ty)   <- desugar tyctx emptyEnv e
     v          <- eval emptyEnv e'
-    return (v, ty)
+    return (v, ty, tyctx)
 
 -- | Catch C^ interrupts when running the REPL
 noesc :: MonadException m => InputT m a -> InputT m a
@@ -63,8 +63,8 @@ run arg = do
   code   <- readFile arg
   result <- runSlM $ parse_desugar_eval code
   case result of
-    Right (v, ty) -> putStrLn $ "val it =  " ++ show (pp v) ++
-                                " : " ++ show (pp ty)
+    Right (v, ty, tyctx) -> putStrLn $ "val it = " ++ show (pp (tyctx, v)) ++
+                                       " : "       ++ show (pp ty)
     Left err -> hPutStrLn stderr (show err)
 
 -- | Start an interactive loop
