@@ -1,2 +1,2 @@
 Running ../../examples/copy-list.tml
-val it = Cons ({$\square$}, Cons (4, Nil)) : intlist
+val it = Cons (_, Cons (4, Nil)) : intlist

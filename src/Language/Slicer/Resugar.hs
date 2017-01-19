@@ -188,10 +188,14 @@ instance PP (A.TyCtx, Exp) where
          (Roll (Just tv) (InR e), Roll (eq (Just tv) -> True) (InR e')) ->
             pp_partial_constr tyCtx (InR e) (A.getConstrs tyCtx tv !! 1) e e'
          -- Explicit unrolls (unassociated with desugared scrutinees) also not unsupported.
-         (Hole, Hole) -> colorise "Gray" $ text $ "{$\\square$}"
+         (Hole, Hole) -> colorise "Gray" hole
          t -> error $ show t
 
       where
+         hole :: Doc
+         hole = if forLaTeX
+                then text "{$\\square$}"
+                else text "_"
          -- This breaks if the body calls any of the functions other than the outermost
          -- recursively, but I guess that's very rare. (You'll end up with a function
          -- being mentioned whose syntax isn't visible.) Really we should only treat "anonymous"

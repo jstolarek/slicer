@@ -1,2 +1,2 @@
 Running ../../examples/curried-pointwise-sum-two.tml
-val it = Cons ({$\square$}, Cons (12, Nil)) : intlist
+val it = Cons (_, Cons (12, Nil)) : intlist
