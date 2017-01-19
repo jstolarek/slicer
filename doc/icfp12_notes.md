@@ -231,7 +231,3 @@ Questions
   * Section 4.1: "The Slicer implemention associates every trace node with a
     value".  This is `Eval.trace`.  Why is there no tracing for Holes?  My guess
     would be that a code branch with a Hole will never be taken.
-
-  * uneval : why no code for If?
-
-  * Is Trace also required

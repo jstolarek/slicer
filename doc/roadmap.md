@@ -1,6 +1,8 @@
 TODOs
 =====
 
+  * catalogue removed features in a file
+
   * Implement resugaring. Currently resugaring and pretty-printing are combined
     into one pass.  It would be better to have a resugaring pass that restores
     original surface syntax and then we could pretty-print that syntax.
@@ -21,6 +23,36 @@ TODOs
   * Comments not allowed to begin a file
 
   * try a stronger embedding with GADTs?  See Valuable type class in Trace
+
+
+Questions
+=========
+
+I am confused by `bslice`/`pslice`/`uneval`.
+
+`pslice` reconstructs programs, but:
+
+  * I don't understand how it reconstructs if-expressions, ie. how it figures
+    out whether just one or both branches of an if are used
+
+  * there is no way to access program slice.  A hacky way of doing this is to
+    modify `evalTraceOp` and add `liftIO $ putStrLn (show (pp t'))`.
+
+  * I don't understand how reconstruction of `Call` works (the last two `let`
+    bindings).
+
+`uneval` seems to do the same as `pslice` in a much simpler way.
+
+Isn't the `extract` functions from `Pattern` type class just a greatest lower
+bound?
+
+I don't understand how `slice` primitvie is handled - why call `extract` there?
+Isn't it the case here that *if* `p <= v` then the result of extract will be `p`
+(module VStar)?  Moreover, `bslice` seems to do exactly the same thing,
+ie. prunning branches in the expresson tree that correspond to a hole in the
+slicing criterion.
+
+How do I say `VStar` in the source code?
 
 
 Resugaring notes
