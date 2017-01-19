@@ -219,7 +219,7 @@ traceOp f vts = do let (vs,ts) = unzip vts
 traceCall :: (Value, Trace) -> (Value, Trace) -> SlM (Value, Exp)
 traceCall (v1@(VClosure k env0), t1) (v2, t2)
     = do let envf  = bindEnv env0 (funName k) v1
-             envfx = bindEnv envf (funArg k) v2
+             envfx = bindEnv envf (funArg  k) v2
          (v,t) <- trace' envfx (funBody k)
          return (v, Call t1 t2 k (Rec (funName k) (funArg k) t Nothing))
 traceCall _ _ = evalError "traceCall: cannot call non-VClosure values"

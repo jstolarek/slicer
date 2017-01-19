@@ -110,7 +110,7 @@ parseAndEvalLine line = do
              Right (val, ty) ->
                  do when isLet (val `seq` addBinding var val ty)
                     return (It $ "val it = " ++ show (pp (tyCtx,val)) ++
-                                 " : " ++ show (pp ty))
+                                 " : "       ++ show (pp ty))
              Left err -> return (Error err)
 
 -- Note [Handling let bindings]
