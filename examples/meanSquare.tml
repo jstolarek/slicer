@@ -38,6 +38,6 @@ let p3 = (Cons(1, Cons(4, Cons(64, Cons(25, Nil)))), 23) in
 let s1 = slice(t, p1) in
 let s2 = slice(t, p2) in
 let s3 = slice(t, p3) in
-let z = visualize2("meanSquare-withAvg.pdf", s3, s1) in
-let z = visualize2("meanSquare-withoutAvg.pdf", s3, s2) in
+let z = visualizeDiff("meanSquare-withAvg.pdf", s3, s1) in
+let z = visualizeDiff("meanSquare-withoutAvg.pdf", s3, s2) in
 read t

@@ -54,11 +54,12 @@ evalTraceOp PrimVisualize [VString s, VTrace _ t _]
            ".pdf" -> liftIO (visualizePDF s t) >> return VUnit
            ".svg" -> liftIO (visualizeSVG s t) >> return VUnit
            ext    -> evalError $ "visualize: unknown file extension : " ++ ext
-evalTraceOp PrimVisualize2 [VString s, VTrace _ t1 _, VTrace _ t2 _]
+evalTraceOp PrimVisualizeDiff [VString s, VTrace _ t1 _, VTrace _ t2 _]
     = do case takeExtension s of
-           ".pdf" -> liftIO (visualize2PDF s t1 t2) >> return VUnit
-           ".svg" -> liftIO (visualize2SVG s t1 t2) >> return VUnit
-           ext    -> evalError $ "visualize2: unknown file extension : " ++ ext
+           ".pdf" -> liftIO (visualizeDiffPDF s t1 t2) >> return VUnit
+           ".svg" -> liftIO (visualizeDiffSVG s t1 t2) >> return VUnit
+           ext    -> evalError $ "visualizeDiff: unknown file extension : " ++
+                                 ext
 evalTraceOp PrimTreeSize [VTrace _ t _] =
     return (VInt (forestsize (to_tree t)))
 evalTraceOp PrimProfile [VTrace _ t _]

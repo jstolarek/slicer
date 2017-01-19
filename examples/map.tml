@@ -18,7 +18,7 @@ let t = trace(
 in
 let z = visualize("map.svg", t) in
 let s = slice(t,Cons(_:int,Cons(5,_:intlist))) in
-let z2 = visualize2("map-slice.svg",t,s) in
+let z2 = visualizeDiff("map-slice.svg",t,s) in
 let z3 = where(t) in
 let z4 = expr(t) in
 let z5 = dep(t) in

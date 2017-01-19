@@ -19,7 +19,7 @@ let t = trace(filter equalsthree xs) in
 let u = visualize ("filter.pdf", t) in
 let s1 = slice (t,Cons(_:int,_:intlist)) in
 let s2 = slice (t,Cons(_:int,Cons(3,_:intlist))) in
-let u = visualize2 ("filterslice.pdf", s1, s2) in
+let u = visualizeDiff ("filterslice.pdf", s1, s2) in
 let z = profile(t) in
 let z = profileDiff(t) in
 read(t)

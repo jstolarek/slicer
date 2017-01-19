@@ -18,41 +18,41 @@ data Primitive
     | OpAnd | OpOr | OpNot
     -- Builtin functions
     | PrimDep | PrimExpr | PrimProfile | PrimProfileDiff | PrimPSlice
-    | PrimSlice | PrimTreeSize | PrimVal | PrimVisualize | PrimVisualize2
+    | PrimSlice | PrimTreeSize | PrimVal | PrimVisualize | PrimVisualizeDiff
     | PrimWhere
     deriving (Eq, Ord)
 
 instance Show Primitive where
     -- Arithmetic operators
-    show OpPlus         = "+"
-    show OpMinus        = "-"
-    show OpTimes        = "*"
-    show OpDiv          = "/"
-    show OpMod          = "%"
+    show OpPlus            = "+"
+    show OpMinus           = "-"
+    show OpTimes           = "*"
+    show OpDiv             = "/"
+    show OpMod             = "%"
     -- Integer and boolean comparisons
-    show OpEq           = "="
-    show OpNeq          = "/="
+    show OpEq              = "="
+    show OpNeq             = "/="
     -- Integer comparisons
-    show OpLt           = "<"
-    show OpGt           = ">"
-    show OpLeq          = "<="
-    show OpGeq          = ">="
+    show OpLt              = "<"
+    show OpGt              = ">"
+    show OpLeq             = "<="
+    show OpGeq             = ">="
     -- Logical operators
-    show OpAnd          = "&&"
-    show OpOr           = "||"
-    show OpNot          = "not"
+    show OpAnd             = "&&"
+    show OpOr              = "||"
+    show OpNot             = "not"
     -- Builtin functions
-    show PrimDep        = "dep"
-    show PrimExpr       = "expr"
-    show PrimProfile    = "profile"
-    show PrimProfileDiff = "profileDiff"
-    show PrimPSlice     = "pslice"
-    show PrimSlice      = "slice"
-    show PrimTreeSize   = "treesize"
-    show PrimVal        = "read"
-    show PrimVisualize  = "visualize"
-    show PrimVisualize2 = "visualize2"
-    show PrimWhere      = "where"
+    show PrimDep           = "dep"
+    show PrimExpr          = "expr"
+    show PrimProfile       = "profile"
+    show PrimProfileDiff   = "profileDiff"
+    show PrimPSlice        = "pslice"
+    show PrimSlice         = "slice"
+    show PrimTreeSize      = "treesize"
+    show PrimVal           = "read"
+    show PrimVisualize     = "visualize"
+    show PrimVisualizeDiff = "visualizeDiff"
+    show PrimWhere         = "where"
 
 instance PP Primitive where
     pp op = text (show op)

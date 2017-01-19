@@ -95,7 +95,7 @@ keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
            , strSnd, strThen, strTrace, strTrue, strUnit, strUnroll ] ++
-  map show [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualize2
+  map show [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualizeDiff
            , PrimProfile, PrimProfileDiff, PrimTreeSize, PrimWhere, PrimDep
            , PrimExpr
            ]
@@ -391,13 +391,13 @@ visualize = do
 
 visualize2 :: Parser Exp
 visualize2 = do
-   keyword (show PrimVisualize2)
+   keyword (show PrimVisualizeDiff)
    parenthesise $ do e  <- exp
                      _  <- comma token_
                      e1 <- exp
                      _  <- comma token_
                      e2 <- exp
-                     return (Op PrimVisualize2 [e, e1, e2])
+                     return (Op PrimVisualizeDiff [e, e1, e2])
 
 traceval_ :: Parser Exp
 traceval_ = do

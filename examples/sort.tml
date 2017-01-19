@@ -55,5 +55,5 @@ let l = mklist 10 in
 let t = trace(mergesort(l)) in
 let s = slice(t,Cons(1,_:intlist)) in
 let z = profile(s) in
-let w = visualize2("mergesort.pdf",s,t) in
+let w = visualizeDiff("mergesort.pdf",s,t) in
 sum(read(t))

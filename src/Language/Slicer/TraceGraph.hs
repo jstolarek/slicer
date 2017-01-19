@@ -1,5 +1,5 @@
 module Language.Slicer.TraceGraph
-    ( visualizePDF, visualize2PDF, visualizeSVG, visualize2SVG
+    ( visualizePDF, visualizeDiffPDF, visualizeSVG, visualizeDiffSVG
     ) where
 
 import           Language.Slicer.Core ( Trace, Exp(..), Code(..) )
@@ -292,8 +292,10 @@ visualizePDF fn t = runGraphvizCommand Dot (trace2gv_default t) Pdf fn
 visualizeSVG :: String -> Trace -> IO FilePath
 visualizeSVG fn t = runGraphvizCommand Dot  (trace2gv_default t) Svg fn
 
-visualize2PDF :: String -> Trace -> Trace -> IO FilePath
-visualize2PDF fn t t' = runGraphvizCommand Dot (traces2gv_default t t') Pdf fn
+visualizeDiffPDF :: String -> Trace -> Trace -> IO FilePath
+visualizeDiffPDF fn t t'
+    = runGraphvizCommand Dot (traces2gv_default t t') Pdf fn
 
-visualize2SVG :: String -> Trace -> Trace -> IO FilePath
-visualize2SVG fn t t' = runGraphvizCommand Dot (traces2gv_default t t') Svg fn
+visualizeDiffSVG :: String -> Trace -> Trace -> IO FilePath
+visualizeDiffSVG fn t t'
+    = runGraphvizCommand Dot (traces2gv_default t t') Svg fn

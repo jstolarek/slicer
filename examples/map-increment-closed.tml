@@ -17,5 +17,5 @@ let s0 = slice(t,Cons(_:int,Cons(_:int,Cons(_:int,Nil)))) in
 let z = visualize("map-trace.pdf",t) in
 let z = visualize("map-slice.pdf",s1) in
 let z = visualize("map-slice2.pdf",s0) in
-let z = visualize2("map-slice-diff.pdf",s1,s0) in
+let z = visualizeDiff("map-slice-diff.pdf",s1,s0) in
 read(t)

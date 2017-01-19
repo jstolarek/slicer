@@ -16,10 +16,10 @@ in
 let l = Cons(2,Cons(3,Cons(5,Cons(6,Nil)))) in
 let t = trace(map h l) in
 let s = slice(t,Cons(_:int,Cons(_:int,Cons(5,_:intlist)))) in
-let zz = visualize2("example.pdf",t,s) in
+let zz = visualizeDiff("example.pdf",t,s) in
 let z = where(t) in
 let w = dep(t) in
 let k = expr(t) in
 let s2 = slice(t,(Cons(_:int,Cons(_:int,Cons(_:int,_:intlist))))) in
-let xx = visualize2("example-diff.pdf",s,s2) in
+let xx = visualizeDiff("example-diff.pdf",s,s2) in
 read(t)
