@@ -28,7 +28,8 @@ TODOs
 Questions
 =========
 
-I am confused by `bslice`/`pslice`/`uneval`.
+I am confused by `bslice`/`pslice`/`uneval`.  Does section 4.3 of the ICFP paper
+describe `blsice` or `pslice`.
 
 `pslice` reconstructs programs, but:
 
@@ -40,6 +41,8 @@ I am confused by `bslice`/`pslice`/`uneval`.
 
   * I don't understand how reconstruction of `Call` works (the last two `let`
     bindings).
+
+  * I don't understand the way environments are handles in the `Let` case
 
 `uneval` seems to do the same as `pslice` in a much simpler way.
 
@@ -53,6 +56,8 @@ ie. prunning branches in the expresson tree that correspond to a hole in the
 slicing criterion.
 
 How do I say `VStar` in the source code?
+
+Performance: issues with "reverse" tests.
 
 
 Resugaring notes
