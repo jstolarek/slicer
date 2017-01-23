@@ -84,16 +84,20 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Pair Exp Exp | Fst Exp | Snd Exp
          | Con Con Exp | Case Exp Match
          | Fun Code | App Exp Exp
-           -- run-time tracing
+         -- References
+         | Ref Exp  | Deref Exp | Assign Exp Exp
+         -- run-time tracing
          | Trace Exp
-         -- labels, holes
+         -- holes
          | Hole Type
            deriving (Eq,Show,Ord)
 
 data Type = IntTy | BoolTy | UnitTy | StringTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
           | TyVar TyVar
-            -- Trace types
+          -- References
+          | RefTy Type
+          -- Trace types
           | TraceTy Type
             deriving (Eq,Ord,Show)
 

@@ -59,14 +59,16 @@ isCompilerMode = do
 -- Some constants for keywords, etc.  Note that strings tokens for operators and
 -- other builtin primitives are defined in the Show instance for the Primitive
 -- data type
-strBool, strCase, strCaseClauseSep, strData, strElse, strFalse, strFst, strFun,
-      strFunBodySep, strHole, strIf, strIn, strInL, strInR, strInt, strLet,
-      strOf, strRoll, strSnd, strString, strThen, strTrace, strTrue, strUnit,
-      strUnitVal, strUnroll :: String
+strAssign, strBool, strCase, strCaseClauseSep, strData, strDeref, strElse,
+      strFalse, strFst, strFun, strFunBodySep, strHole, strIf, strIn, strInL,
+      strInR, strInt, strLet, strOf, strRef, strRoll, strSnd, strString,
+      strThen, strTrace, strTrue, strUnit, strUnitVal, strUnroll :: String
+strAssign        = ":="
 strBool          = "bool"
 strCase          = "case"
 strCaseClauseSep = "->" -- separate case clause from constructor pattern
 strData          = "data"
+strDeref         = "!"
 strElse          = "else"
 strFalse         = "false"
 strFst           = "fst"
@@ -80,6 +82,7 @@ strInR           = "inr"
 strInt           = "int"
 strLet           = "let"
 strOf            = "of"
+strRef           = "ref"
 strRoll          = "roll"
 strSnd           = "snd"
 strString        = "string"
@@ -94,9 +97,10 @@ strUnroll        = "unroll"
 -- but we still reserve them as keywords.
 keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
-           , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRoll
-           , strSnd, strThen, strTrace, strTrue, strUnit, strUnroll ] ++
-  map show [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualizeDiff
+           , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRef
+           , strRoll, strSnd, strThen, strTrace, strTrue, strUnit, strUnroll
+           ] ++ map show
+           [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualizeDiff
            , PrimProfile, PrimProfileDiff, PrimTreeSize, PrimWhere, PrimDep
            , PrimExpr
            ]
@@ -143,21 +147,25 @@ type_ = flip buildExpressionParser simpleType
 
 -- We don't allow direct use of recursive types in the concrete grammar.
 simpleType :: Parser Type
-simpleType = boolTy <|> intTy <|> stringTy <|> unitTy <|> typeVar <|> parensType
+simpleType = boolTy <|> intTy <|> stringTy <|> unitTy <|> refTy <|> typeVar <|>
+             parensType
    where
-      intTy :: CharParser st Type
+      intTy :: Parser Type
       intTy = keyword strInt >> return IntTy
 
-      stringTy :: CharParser st Type
+      stringTy :: Parser Type
       stringTy = keyword strString >> return StringTy
 
-      boolTy :: CharParser st Type
+      boolTy :: Parser Type
       boolTy = keyword strBool >> return BoolTy
 
-      unitTy :: CharParser st Type
+      unitTy :: Parser Type
       unitTy = keyword strUnit >> return UnitTy
 
-      typeVar :: CharParser st Type
+      refTy :: Parser Type
+      refTy = keyword strRef >> simpleType >>= return . RefTy
+
+      typeVar :: Parser Type
       typeVar = tyVar >>= return . TyVar
 
       parensType :: Parser Type
@@ -175,7 +183,8 @@ exp =
    flip buildExpressionParser appChain
       -- each element of the _outermost_ list corresponds to a precedence level
       -- (highest first).
-      [ [ Infix  (binaryOp OpMod  ) AssocLeft
+      [ [ Prefix deref_                        ]
+      , [ Infix  (binaryOp OpMod  ) AssocLeft
         , Infix  (binaryOp OpTimes) AssocLeft
         , Infix  (binaryOp OpDiv  ) AssocLeft  ]
       , [ Infix  (binaryOp OpMinus) AssocLeft
@@ -190,6 +199,7 @@ exp =
       , [ Infix  (binaryOp OpAnd  ) AssocLeft  ]
       , [ Infix  (binaryOp OpOr   ) AssocLeft  ]
       , [ Prefix (unaryOp  OpNot  )            ]
+      , [ Infix  assign_            AssocNone  ]
       ]
 
 appChain :: Parser Exp
@@ -203,12 +213,14 @@ simpleExp =
    try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
    snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|> pslice_ <|>
    traceval_ <|> visualize <|> visualize2 <|>
-   profile_ <|> profileDiff_ <|> treesize_ <|> where_ <|> dep_ <|> expr_
+   profile_ <|> profileDiff_ <|> treesize_ <|> where_ <|> dep_ <|> expr_ <|>
+   -- references
+   ref_
 
 unaryOp :: Primitive -> Parser (Exp -> Exp)
 unaryOp op =
    reservedOp token_ (show op) >>
-   (return $ \e1 -> (Op op [e1]))
+   (return $ \e1 -> Op op [e1])
 
 binaryOp :: Primitive -> Parser (Exp -> Exp -> Exp)
 binaryOp op =
@@ -316,6 +328,18 @@ matches = (Match . Map.fromList) `liftM` semiSep token_ match
                       reservedOp token_ strCaseClauseSep
                       e <- exp
                       return (c, (vs, e))
+
+-- Creating a new reference
+ref_ :: Parser Exp
+ref_ = keyword strRef >> exp >>= return . Ref
+
+-- Dereferencing
+deref_ :: Parser (Exp -> Exp)
+deref_ = reservedOp token_ strDeref >> return Deref
+
+-- Updating a reference
+assign_ :: Parser (Exp -> Exp -> Exp)
+assign_ = reservedOp token_ strAssign >> return Assign
 
 typeDef :: Parser (TyVar, TyDecl)
 typeDef = do
