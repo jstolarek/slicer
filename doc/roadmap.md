@@ -27,6 +27,18 @@ TODOs
   * try a stronger embedding with GADTs?  See Valuable type class in Trace
 
 
+References
+==========
+
+How is Lattice defined for new refrence constructs?  How do I take their lub?
+Is this a straightforward extension?
+
+Do we want a sequencing operator?  Probably doesn't change the formalism in any
+relevant way.
+
+How to implement `match` (`Pattern` type class) for `VStoreLoc`?
+
+
 Questions
 =========
 

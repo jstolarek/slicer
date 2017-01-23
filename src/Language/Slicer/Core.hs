@@ -32,7 +32,9 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
           | RecTy TyVar Type | TyVar TyVar
           | HoleTy
-            -- Trace types
+          -- Reference type
+          | RefTy Type
+          -- Trace types
           | TraceTy Type
             deriving (Eq,Ord,Show)
 
@@ -49,6 +51,7 @@ instance UpperSemiLattice Type where
     leq (FunTy  ty1 ty2) (FunTy  ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
     leq (RecTy  a ty   ) (RecTy  a' ty'   ) = a == a' && ty `leq` ty'
     leq (TyVar  a      ) (TyVar  b        ) = a == b
+    leq (RefTy   ty    ) (RefTy   ty'     ) = ty `leq` ty'
     leq (TraceTy ty    ) (TraceTy ty'     ) = ty `leq` ty'
     leq _                _                  = error "UpperSemiLattice Type: leq"
 
@@ -66,6 +69,8 @@ instance UpperSemiLattice Type where
         = SumTy (ty1 `lub` ty1') (ty2 `lub` ty2')
     lub (FunTy ty1 ty2) (FunTy ty1' ty2')
         = FunTy (ty1 `lub` ty1') (ty2 `lub` ty2')
+    lub (RefTy ty) (RefTy ty')
+        = RefTy (ty `lub` ty')
     lub (TraceTy ty) (TraceTy ty')
         = TraceTy (ty `lub` ty')
     lub a b = error $ "UpperSemiLattice Type: error taking lub of " ++
@@ -89,6 +94,8 @@ instance PP Type where
     pp_partial (TyVar v) (TyVar v') = pp_partial v v'
     pp_partial (RecTy a ty) (RecTy a' ty')
         | a == a' = text "rec" <+> pp a <+> text "." <+> pp_partial ty ty'
+    pp_partial (RefTy ty) (RefTy ty')
+        = text "ref" <> parens (pp_partial ty ty')
     pp_partial (TraceTy ty) (TraceTy ty')
         = text "trace" <> parens (pp_partial ty ty')
     pp_partial v v' = error ("Error pretty-printing Type: v is " ++ show v ++
@@ -124,6 +131,8 @@ data Exp = Var Var
          | InL Exp | InR Exp | Case Exp Match
          | Fun Code | App Exp Exp
          | Roll (Maybe TyVar) Exp | Unroll (Maybe TyVar) Exp
+         -- References
+         | Ref Exp  | Deref Exp | Assign Exp Exp
          -- trace forms
          | IfThen Trace Exp Exp Trace | IfElse Trace Exp Exp Trace
          | CaseL Trace Match Var Trace | CaseR Trace Match Var Trace
@@ -150,7 +159,9 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VRoll (Maybe TyVar) Value
            | VClosure Code (Env Value)
            | VHole | VStar
-             -- run-time traces
+           -- mutable store locations
+           | VStoreLoc Int
+           -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord)
 
@@ -169,6 +180,7 @@ instance PP Value where
     pp_partial (VInL v      ) (VInL v')       = text "inl"  <> parens (pp_partial v v')
     pp_partial (VInR v      ) (VInR v')       = text "inr"  <> parens (pp_partial v v')
     pp_partial (VRoll _ v   ) (VRoll _ v')    = text "roll" <> parens (pp_partial v v')
+    pp_partial (VStoreLoc _ ) (VStoreLoc _ )  = text "<ref>"
     pp_partial (VClosure _ _) (VClosure _ _)  = text "<fun>"
     pp_partial (VTrace _ _ _) (VTrace _ _ _)  = text "<trace>"
     pp_partial v v' = error ("Error pretty-printing Value: v is " ++ show v ++
@@ -239,6 +251,12 @@ instance PP Exp where
     pp_partial (Unroll a e) (Unroll a' e')
         | a == a'
         = text "unroll" <> parens (pp_partial e e')
+    pp_partial (Ref e) (Ref e')
+        = text "ref" <+> parens (pp_partial e e')
+    pp_partial (Deref e) (Deref e')
+        = text "!" <> parens (pp_partial e e')
+    pp_partial (Assign e1 e2) (Assign e1' e2')
+        = pp_partial e1 e1' <+> text ":=" <+> pp_partial e2 e2'
     pp_partial (Trace e) (Trace e')
         = text "trace" <> parens (pp_partial e e')
     pp_partial (IfThen t _ _ t1) (IfThen t' _ _ t1')
@@ -350,6 +368,9 @@ instance FVs Exp where
     fvs (App e1 e2)         = fvs e1 `union` fvs e2
     fvs (Roll _ e)          = fvs e
     fvs (Unroll _ e)        = fvs e
+    fvs (Ref e)             = fvs e
+    fvs (Deref e)           = fvs e
+    fvs (Assign e1 e2)      = fvs e1 `union` fvs e2
     fvs (IfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
     fvs (IfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
     fvs (CaseL t m v t1)    = fvs t `union` fvs m `union` (delete v (fvs t1))
@@ -376,6 +397,7 @@ promote (VPair v1 v2)    = VPair (promote v1) (promote v2)
 promote (VInL v)         = VInL (promote v)
 promote (VInR v)         = VInR (promote v)
 promote (VRoll tv v)     = VRoll tv (promote v)
+promote (VStoreLoc l)    = VStoreLoc l
 promote (VClosure k env) = VClosure k (fmap promote env)
 promote (VTrace v t env) = VTrace (promote v) t (fmap promote env)
 
@@ -393,6 +415,7 @@ instance UpperSemiLattice Value where
     leq (VInL v) (VInL v')            = v `leq` v'
     leq (VInR v) (VInR v')            = v `leq` v'
     leq (VRoll tv v) (VRoll tv' v')   | tv == tv' = v `leq` v'
+    leq (VStoreLoc i) (VStoreLoc i')  = i == i'
     leq (VClosure k env) (VClosure k' env')
         = k `leq` k' && env `leq` env'
     leq a b = error $ "UpperSemiLattice Value: error taking leq of " ++
@@ -410,6 +433,7 @@ instance UpperSemiLattice Value where
     lub (VInL v)      (VInL v')       = VInL (v `lub` v')
     lub (VInR v)      (VInR v')       = VInR (v `lub` v')
     lub (VRoll tv v)  (VRoll tv' v')  | tv == tv' = VRoll tv (v `lub` v')
+    lub (VStoreLoc i) (VStoreLoc i')  | i == i' = VStoreLoc i
     lub (VClosure k env) (VClosure k' env')
         = VClosure (k `lub` k') (env `lub` env')
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
@@ -541,6 +565,7 @@ instance Pattern Value where
     extract (VInR p)       (VInR v)        = VInR (extract p v)
     extract (VRoll tv p)   (VRoll tv' v)   | tv == tv' = VRoll tv (extract p v)
     extract (VClosure _ p) (VClosure k' v) = VClosure k' (extract p v)
+    extract (VStoreLoc i ) (VStoreLoc i' ) | i == i' = VStoreLoc i
     extract p v = error ("extract only defined if p <= v, but p is " ++
                          show p ++ " and v is " ++ show v)
 
