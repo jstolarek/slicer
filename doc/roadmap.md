@@ -38,6 +38,10 @@ relevant way.
 
 How to implement `match` (`Pattern` type class) for `VStoreLoc`?
 
+How does assignment to a reference interact with let statements?  Can there be
+anything else on the LHS side of assigmnet other than a valid label? Do we want
+to assign to expressions?
+
 
 Questions
 =========

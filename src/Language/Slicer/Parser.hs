@@ -128,6 +128,9 @@ tyVar = TV `liftM` identifier token_
 equals :: CharParser st ()
 equals = reservedOp token_ (show OpEq)
 
+assign :: CharParser st ()
+assign = reservedOp token_ strAssign
+
 typeAnnotation :: Parser Type
 typeAnnotation = colon token_ >> type_
 
@@ -198,7 +201,6 @@ exp =
       , [ Infix  (binaryOp OpAnd  ) AssocLeft  ]
       , [ Infix  (binaryOp OpOr   ) AssocLeft  ]
       , [ Prefix (unaryOp  OpNot  )            ]
-      , [ Infix  assign_            AssocNone  ]
       ]
 
 appChain :: Parser Exp
@@ -209,12 +211,12 @@ appChain = chainl1 simpleExp (return App)
 simpleExp :: Parser Exp
 simpleExp =
    unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
-   try var <|> fun <|> try (parenthesise exp) <|> let_ <|> pair <|> fst_ <|>
+   try var <|> fun <|> try (parenthesise exp) <|> try let_ <|> pair <|> fst_ <|>
    snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|> pslice_ <|>
    traceval_ <|> visualize <|> visualize2 <|>
    profile_ <|> profileDiff_ <|> treesize_ <|>
    -- references
-   ref_
+   ref_ <|> try assign_
 
 unaryOp :: Primitive -> Parser (Exp -> Exp)
 unaryOp op =
@@ -337,8 +339,21 @@ deref_ :: Parser (Exp -> Exp)
 deref_ = reservedOp token_ strDeref >> return Deref
 
 -- Updating a reference
-assign_ :: Parser (Exp -> Exp -> Exp)
-assign_ = reservedOp token_ strAssign >> return Assign
+assign_ :: Parser Exp
+assign_ = do
+   isCompiler <- isCompilerMode
+   if isCompiler then assignC_ else assignR_
+
+assignC_ :: Parser Exp
+assignC_ = do
+   x  <- keyword strLet >> var_
+   e1 <- assign         >> exp
+   e2 <- keyword strIn  >> exp
+   return (Assign x e1 e2)
+
+-- JSTOLAREK : figure out how to parse and handle references in REPL
+assignR_ :: Parser Exp
+assignR_ = error "References not yet supported in REPL"
 
 typeDef :: Parser (TyVar, TyDecl)
 typeDef = do

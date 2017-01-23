@@ -85,7 +85,7 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Con Con Exp | Case Exp Match
          | Fun Code | App Exp Exp
          -- References
-         | Ref Exp  | Deref Exp | Assign Exp Exp
+         | Ref Exp  | Deref Exp | Assign Var Exp Exp
          -- run-time tracing
          | Trace Exp
          -- holes
