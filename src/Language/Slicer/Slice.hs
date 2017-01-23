@@ -9,7 +9,8 @@ import           Language.Slicer.UpperSemiLattice
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.
 
--- Unevaluation as described in Section 4.3 of the ICFP'12 paper
+-- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
+-- paper
 bslice :: Value -> Trace -> (Trace, Env Value)
 bslice VHole _     = (bot    , bot)
 bslice p (Var x)   = (Var x  , singletonEnv x p)
@@ -100,6 +101,8 @@ bslice p (Unroll tv t)
 bslice _ x = error $ show x
 
 
+-- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
+-- paper
 pslice :: Value -> Trace -> (Exp, Env Value)
 pslice VHole _     = (bot    , bot)
 pslice p (Var x)   = (Var x  , singletonEnv x p)
