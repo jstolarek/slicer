@@ -142,8 +142,8 @@ desugarM (A.Ref e)
 desugarM (A.Deref e)
     = do (e', ty) <- desugarM e
          unless (isRefTy ty) $
-                desugarError ("Dereferenced expression " ++ show e ++
-                             " does not have a reference type")
+                desugarError ("Dereferenced expression (" ++ show e ++
+                             ") does not have a reference type")
          let (RefTy ty') = ty
          return (Deref e', ty')
 desugarM (A.Assign x e1 e2)

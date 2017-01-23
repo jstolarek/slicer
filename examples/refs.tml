@@ -1,3 +1,4 @@
 let n = ref 0 in
-let n := 1 in
+let m = n in
+let m := 1 in
 !n

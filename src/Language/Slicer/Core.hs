@@ -167,7 +167,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VClosure Code (Env Value)
            | VHole | VStar
            -- mutable store locations
-           | VStoreLoc String
+           | VStoreLoc Int
            -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord)

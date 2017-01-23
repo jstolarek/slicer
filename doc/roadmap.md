@@ -1,8 +1,6 @@
 TODOs
 =====
 
-  * Things in annot shold run in a monad
-
   * catalogue removed features in a file
 
   * Implement resugaring. Currently resugaring and pretty-printing are combined
