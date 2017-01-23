@@ -135,6 +135,32 @@ desugarM (A.Trace e)
     = do (e', ty) <- desugarM e
          return (Trace e', TraceTy ty)
 desugarM (A.Hole ty) = return (Hole, desugarTy ty)
+-- Desugaring mutable references. Cf. TAPL, p. 165 for typechecking rules
+desugarM (A.Ref e)
+    = do (e', ty) <- desugarM e
+         return (Ref e', RefTy ty)
+desugarM (A.Deref e)
+    = do (e', ty) <- desugarM e
+         unless (isRefTy ty) $
+                desugarError ("Dereferenced expression " ++ show e ++
+                             " does not have a reference type")
+         let (RefTy ty') = ty
+         return (Deref e', ty')
+desugarM (A.Assign x e1 e2)
+    = do (_, t) <- desugarM (A.Var x)
+         unless (isRefTy t) $
+                typeError ("Variable does not have reference type: " ++ show x)
+         -- No need to bind x when desuagring e1 and e2 since it is already
+         -- bound.  If it is not then this means that the reference was not
+         -- declared
+         (e1', t1) <- desugarM e1
+         let (RefTy t') = t
+         unless (t' == t1) $ typeError ("Cannot assign expression of type: "
+                                     ++ show t1 ++ " to reference of type "
+                                     ++ show t' ++ ". Offending expression is: "
+                                     ++ show e1')
+         (e2', t2) <- desugarM e2
+         return (Assign x e1' e2', t2)
 
 
 desugarTy :: A.Type -> Type
@@ -142,6 +168,7 @@ desugarTy A.IntTy            = IntTy
 desugarTy A.BoolTy           = BoolTy
 desugarTy A.UnitTy           = UnitTy
 desugarTy A.StringTy         = StringTy
+desugarTy (A.RefTy ty)       = RefTy (desugarTy ty)
 desugarTy (A.PairTy ty1 ty2) = PairTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.SumTy  ty1 ty2) = SumTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.FunTy  ty1 ty2) = FunTy (desugarTy ty1) (desugarTy ty2)

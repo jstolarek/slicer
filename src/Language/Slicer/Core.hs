@@ -2,6 +2,9 @@ module Language.Slicer.Core
     ( -- * Abstract syntax
       Code(..), Exp(..), Match(..), Value(..), Type(..), Ctx, Trace
 
+    -- * Helper functions for AST
+    , isRefTy
+
     , Pattern(extract)
 
       -- * Built-in operators
@@ -37,6 +40,10 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           -- Trace types
           | TraceTy Type
             deriving (Eq,Ord,Show)
+
+isRefTy :: Type -> Bool
+isRefTy (RefTy _) = True
+isRefTy _         = False
 
 instance UpperSemiLattice Type where
     bot = HoleTy
@@ -132,7 +139,7 @@ data Exp = Var Var
          | Fun Code | App Exp Exp
          | Roll (Maybe TyVar) Exp | Unroll (Maybe TyVar) Exp
          -- References
-         | Ref Exp  | Deref Exp | Assign Exp Exp
+         | Ref Exp  | Deref Exp | Assign Var Exp Exp
          -- trace forms
          | IfThen Trace Exp Exp Trace | IfElse Trace Exp Exp Trace
          | CaseL Trace Match Var Trace | CaseR Trace Match Var Trace
@@ -160,7 +167,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VClosure Code (Env Value)
            | VHole | VStar
            -- mutable store locations
-           | VStoreLoc Int
+           | VStoreLoc String
            -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord)
@@ -255,8 +262,10 @@ instance PP Exp where
         = text "ref" <+> parens (pp_partial e e')
     pp_partial (Deref e) (Deref e')
         = text "!" <> parens (pp_partial e e')
-    pp_partial (Assign e1 e2) (Assign e1' e2')
-        = pp_partial e1 e1' <+> text ":=" <+> pp_partial e2 e2'
+    pp_partial (Assign x e1 e2) (Assign x' e1' e2')
+        | x == x'
+        = text "let" <+> pp x <+> text ":=" <+> pp_partial e1 e1' $$
+          text "in" <+> pp_partial e2 e2'
     pp_partial (Trace e) (Trace e')
         = text "trace" <> parens (pp_partial e e')
     pp_partial (IfThen t _ _ t1) (IfThen t' _ _ t1')
@@ -370,7 +379,7 @@ instance FVs Exp where
     fvs (Unroll _ e)        = fvs e
     fvs (Ref e)             = fvs e
     fvs (Deref e)           = fvs e
-    fvs (Assign e1 e2)      = fvs e1 `union` fvs e2
+    fvs (Assign x e1 e2)    = delete x (fvs e1 `union` fvs e2)
     fvs (IfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
     fvs (IfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
     fvs (CaseL t m v t1)    = fvs t `union` fvs m `union` (delete v (fvs t1))
