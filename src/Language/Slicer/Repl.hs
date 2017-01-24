@@ -10,6 +10,7 @@ import           Language.Slicer.Absyn
 import qualified Language.Slicer.Core as C      ( Value, Type    )
 import           Language.Slicer.Desugar        ( desugar        )
 import           Language.Slicer.Env
+import           Language.Slicer.Error
 import           Language.Slicer.Eval           ( eval           )
 import           Language.Slicer.Monad
 import           Language.Slicer.PrettyPrinting
@@ -30,55 +31,55 @@ data ParseResult = OK               -- ^ Success without reply
 
 -- | REPL state
 data ReplState = ReplState
-    { tyCtxSt :: TyCtx       -- ^ Data type declarations
-    , gammaSt :: Env C.Type  -- ^ Context Γ, stores variable types
-    , envSt   :: Env C.Value -- ^ Environment ρ, stores variable values
+    { tyCtxS :: TyCtx       -- ^ Data type declarations
+    , gammaS :: Env C.Type  -- ^ Context Γ, stores variable types
+    , envS   :: Env C.Value -- ^ Environment ρ, stores variable values
     }
 
 -- | Empty REPL state.  Used when starting the REPL
 emptyState :: ReplState
-emptyState = ReplState { tyCtxSt = emptyTyCtx
-                       , gammaSt = emptyEnv
-                       , envSt   = emptyEnv }
+emptyState = ReplState { tyCtxS = emptyTyCtx
+                       , gammaS = emptyEnv
+                       , envS   = emptyEnv }
 
 -- | Get data type declarations
 getTyCtx :: ReplM TyCtx
 getTyCtx = do
-  ReplState { tyCtxSt } <- get
-  return tyCtxSt
+  ReplState { tyCtxS } <- get
+  return tyCtxS
 
 -- | Get context
 getGamma :: ReplM (Env C.Type)
 getGamma = do
-  ReplState { gammaSt } <- get
-  return gammaSt
+  ReplState { gammaS } <- get
+  return gammaS
 
 -- | Get environment
 getEnv :: ReplM (Env C.Value)
 getEnv = do
-  ReplState { envSt } <- get
-  return envSt
+  ReplState { envS } <- get
+  return envS
 
 -- | Add new data definition
 addDataDefn :: TyCtx -> ReplM ()
 addDataDefn newCtx = do
-  st@(ReplState { tyCtxSt }) <- get
-  put $ st { tyCtxSt = unionTyCtx tyCtxSt newCtx }
+  st@(ReplState { tyCtxS }) <- get
+  put $ st { tyCtxS = unionTyCtx tyCtxS newCtx }
 
 -- | Add new binding (name + value + type)
 addBinding :: Var -> C.Value -> C.Type -> ReplM ()
 addBinding var val ty = do
   replState <- get
-  let newEnv   = updateEnv (envSt   replState) var val
-      newGamma = updateEnv (gammaSt replState) var ty
-  put $ replState { envSt = newEnv, gammaSt = newGamma }
+  let newEnv   = updateEnv (envS   replState) var val
+      newGamma = updateEnv (gammaS replState) var ty
+  put $ replState { envS = newEnv, gammaS = newGamma }
 
 dropBinding :: Var -> ReplM ()
 dropBinding var = do
   replState <- get
-  let newEnv   = unbindEnv (envSt   replState) var
-      newGamma = unbindEnv (gammaSt replState) var
-  put $ replState { envSt = newEnv, gammaSt = newGamma }
+  let newEnv   = unbindEnv (envS   replState) var
+      newGamma = unbindEnv (gammaS replState) var
+  put $ replState { envS = newEnv, gammaS = newGamma }
 
 -- | Run REPL monad
 runRepl :: ReplM () -> IO ()
@@ -89,10 +90,10 @@ runRepl repl = evalStateT repl emptyState
 parseAndEvalLine :: String -> ReplM ParseResult
 parseAndEvalLine line = do
   tyCtx  <- getTyCtx
-  result <- runSlM $ parseRepl line tyCtx
+  result <- runSlMIO $ liftSlM (parseRepl line tyCtx)
   case result of
     Left err -> return (Error err)
-    Right (tyCtx', Nothing ) -> addDataDefn tyCtx' >> return OK
+    Right (tyCtx', Nothing  ) -> addDataDefn tyCtx' >> return OK
     Right (tyCtx', Just expr) ->
         -- INVARIANT: if we parsed an expression then we could not have parsed a
         -- data definition, hence the parsed context must be empty.
@@ -102,8 +103,8 @@ parseAndEvalLine line = do
            when isLet (dropBinding var)
            env    <- getEnv
            gamma  <- getGamma
-           dsgres <- runSlM $ do
-                          (dexpr, ty) <- desugar tyCtx gamma expr
+           dsgres <- runSlMIO $ do
+                          (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
                           val         <- eval env dexpr
                           return (val, ty)
            case dsgres of

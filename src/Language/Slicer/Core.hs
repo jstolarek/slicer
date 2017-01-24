@@ -5,8 +5,8 @@ module Language.Slicer.Core
     , Pattern(extract)
 
       -- * Built-in operators
-    , Primitive(..), evalOp, isCommonOp, isIntBinOp, isIntRelOp
-    , isBoolRelOp, isBoolUnOp
+    , commonOps, intBinOps, intRelOps, boolRelOps, boolUnOps
+    , isCommonOp, isIntBinOp, isIntRelOp, isBoolRelOp, isBoolUnOp
 
       -- * Lables
     , Lab, mkL
@@ -19,13 +19,11 @@ module Language.Slicer.Core
 
 
 import           Language.Slicer.Env
-import           Language.Slicer.Monad
 import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
-import           Data.Map as Map ( Map, fromList, mapWithKey, keys, member
-                                 , (!) )
+import           Data.Map as Map ( Map, fromList, mapWithKey, keys, member )
 import           Data.List       ( union, delete )
 import qualified Data.Hashable as H ( hash )
 import           Text.PrettyPrint
@@ -552,22 +550,6 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
                            (lookupEnv' env2 x)) (Map.keys penv')
     extract (Env penv') env
         = Env (Map.mapWithKey (\x p -> extract p (lookupEnv' env x)) penv')
-
-
--- These functions don't really belong here but putting them in this module
--- seems to be the only way to avoid cycles.  evalOp should go into Eval module
--- but this would cause cycle with Annot module. Oh well.
-evalOp :: Primitive -> [Value] -> SlM Value
-evalOp f [VInt    i, VInt    j] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [VBool   i, VBool   j] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [VString i, VString j] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [VInt    i, VInt    j] | isIntBinOp  f = return ((intBinOps ! f) (i,j))
-evalOp f [VInt    i, VInt    j] | isIntRelOp  f = return ((intRelOps ! f) (i,j))
-evalOp f [VBool   i, VBool   j] | isBoolRelOp f = return ((boolRelOps! f) (i,j))
-evalOp f [VBool   b]            | isBoolUnOp  f = return ((boolUnOps ! f) b)
-evalOp _ vs                     | VHole `elem` vs = return VHole
-evalOp _ vs                     | VStar `elem` vs = return VStar
-evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
 
 commonOps :: Eq a => Map Primitive ((a, a) -> Value)
 commonOps = fromList

@@ -1,45 +1,66 @@
 module Language.Slicer.Monad
     ( -- * Slicer monad
-      SlM, runSlM, SlicerError
-
-      -- * Raising errors
-    , parseError, desugarError, evalError, typeError
+      SlM, SlMIO, runSlMIO, liftSlM
     ) where
 
+import           Language.Slicer.Error
+
 import           Control.Monad.Except
-import           Text.ParserCombinators.Parsec (ParseError)
+import           Data.Functor.Identity
 
--- | Error types that the program can raise
-data SlicerError = ParseError ParseError
-                 | DesugarError String
-                 | TypeError String
-                 | EvalError String
-                   deriving (Eq)
+-- | Error monad
+type SlM   a = Except  SlicerError     a
 
-instance Show SlicerError where
-    show (ParseError   msg) = "Syntax error: " ++ show msg
-    show (EvalError    msg) = "Evaluation error: " ++ msg
-    show (DesugarError msg) = "Desugaring error: " ++ msg
-    show (TypeError    msg) = "Type error: " ++ msg
+-- | Error monad on top of IO
+type SlMIO a = ExceptT SlicerError IO  a
 
--- | Monad in which we perform parsing, desugaring and evaluation.  This is
--- essentially an Either monad stacked on top of IO.  The reason we stack on IO
--- is because our language is side-effecting and evaluation will include running
--- some side-effecting commands
-type SlM = ExceptT SlicerError IO
+-- | Run error monad and return an Either inside IO
+runSlMIO :: MonadIO m => SlMIO a -> m (Either SlicerError a)
+runSlMIO = liftIO . runExceptT
 
--- | Run compiler monad inside an IO monad
-runSlM :: MonadIO m => SlM a -> m (Either SlicerError a)
-runSlM = liftIO . runExceptT
+-- | Lift error monad into IO
+liftSlM :: SlM a -> SlMIO a
+liftSlM slm = ExceptT $ return (runIdentity (runExceptT slm))
 
-parseError :: ParseError -> SlM a
-parseError msg = throwError (ParseError msg)
-
-desugarError :: String -> SlM a
-desugarError msg = throwError (DesugarError msg)
-
-typeError :: String -> SlM a
-typeError msg = throwError (TypeError msg)
-
-evalError :: String -> SlM a
-evalError msg = throwError (EvalError msg)
+-- Note [Monad transformers bog]
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+-- Running a TML program consists of three stages, and each of these stages
+-- requires different monadic effects:
+--
+--   * parsing : requires error reporting.  (Parsec handles errors under the
+--               hood and returns parsing result as an Either.  We still want to
+--               have our own error reporting so that we have a uniform
+--               treatment of errors in all three stages of compilation.)
+--
+--   * desugaring : requires error reporting, reading an immutable environment
+--                  of data declarations and having access to a mutable state to
+--                  store the context (variables visible in scope and their
+--                  types)
+--
+--   * evaluation : requires error reporting, mutable state to store the
+--                  environment (variables visible in scope and their values)
+--                  and side effects (IO)
+--
+-- Error reporting is the only effect common to all three stages.  The problem
+-- is that in case of evaluation we need to build error reporting on top of IO
+-- monad.  This means we have two monads:
+--
+--   * SlM - plain error reporting
+--
+--   * SlMIO - error reporting inside IO
+--
+-- When running all three compilation stages at once we will need to lift
+-- parsing and desugaring (performed inside SlM) into the SlMIO monad (built on
+-- top of IO to enable evaluation).  This is done using liftSlM.  So, a rule of
+-- thumb:
+--
+--    Use liftSlM on parsing and desugaring when running inside SlMIO
+--
+-- SlM monad suffices to run parsing.  To run desugaring and evaluation we need
+-- monads that stack all the required effects.  What is important is that when
+-- we run these monads we need to return the result inside an error monad (SlM
+-- for desugaring, SlMIO for evaluation).  This allows to run the computations
+-- sequentially inside an SlMIO monad.  The only moment we want to exit the
+-- SlM/SlMIO monad is at the very top level of the compilation pipeline,
+-- ie. either in the Main or Repl module.

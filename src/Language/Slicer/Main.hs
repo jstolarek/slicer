@@ -35,10 +35,10 @@ isReplEnabled :: [Flag] -> Bool
 isReplEnabled f = Repl `elem` f
 
 -- | Parse a program and evaluate it.  Return value and its type
-parse_desugar_eval :: String -> SlM (Value, Type, TyCtx)
+parse_desugar_eval :: String -> SlMIO (Value, Type, TyCtx)
 parse_desugar_eval s = do
-    (tyctx, e) <- parseIn s emptyTyCtx
-    (e', ty)   <- desugar tyctx emptyEnv e
+    (tyctx, e) <- liftSlM $ parseIn s emptyTyCtx
+    (e', ty)   <- liftSlM $ desugar tyctx emptyEnv e
     v          <- eval emptyEnv e'
     return (v, ty, tyctx)
 
@@ -50,18 +50,18 @@ noesc w = withInterrupt $ let loop = handle (\Interrupt -> loop) w in loop
 haskelineSettings :: IO (Settings ReplM)
 haskelineSettings = do
   homeDir <- getHomeDirectory
-  return Settings { complete       = completeFilename
-                  , historyFile    = Just $ joinPath [ homeDir
-                                                     , ".slicer.history" ]
-                  , autoAddHistory = True
-                  }
+  return Settings
+             { complete       = completeFilename
+             , historyFile    = Just $ joinPath [ homeDir, ".slicer.history" ]
+             , autoAddHistory = True
+             }
 
 -- | Compile and run a given program
 run :: FilePath -> IO ()
 run arg = do
   putStrLn $ "Running " ++ arg
   code   <- readFile arg
-  result <- runSlM $ parse_desugar_eval code
+  result <- runSlMIO $ parse_desugar_eval code
   case result of
     Right (v, ty, tyctx) -> putStrLn $ "val it = " ++ show (pp (tyctx, v)) ++
                                        " : "       ++ show (pp ty)

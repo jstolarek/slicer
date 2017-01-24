@@ -13,6 +13,7 @@ module Language.Slicer.Parser
 
 import           Language.Slicer.Absyn
 import           Language.Slicer.Env
+import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice

@@ -4,10 +4,15 @@ module Language.Slicer.Annot
     , ErasableToValue(erase_to_v)
     ) where
 
-import           Language.Slicer.Env
 import           Language.Slicer.Core
+import           Language.Slicer.Env
+import           Language.Slicer.Error
+import {-# SOURCE #-}
+                 Language.Slicer.Eval
 import           Language.Slicer.Monad
+import           Language.Slicer.Monad.Eval
 import           Language.Slicer.PrettyPrinting
+import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
 import qualified Data.Set as Set
@@ -266,7 +271,7 @@ class Prov a where
     ifelse  :: a -> AValue a -> AValue a
     cint    :: Int -> AValue a
     cstring :: String -> AValue a
-    op      :: Primitive -> [AValue a] -> SlM (AValue a)
+    op      :: Primitive -> [AValue a] -> EvalM (AValue a) (AValue a)
     pair    :: AValue a -> AValue a -> AValue a
     first   :: a -> AValue a -> AValue a
     second  :: a -> AValue a -> AValue a
@@ -279,62 +284,64 @@ class Prov a where
     roll    :: AValue a -> AValue a
     unroll  :: a -> AValue a -> AValue a
 
-prov :: Prov a => Env (AValue a) -> Exp -> SlM (AValue a)
-prov _   Hole = return AVHole
-prov env (Var x) = case lookupEnvMaybe env x of
+prov :: Prov a => Exp -> EvalM (AValue a) (AValue a)
+prov Hole    = return AVHole
+prov (Var x) = do env <- getEnv
+                  case lookupEnvMaybe env x of
                      Just var -> return var
                      Nothing  -> evalError ("prov: unbound " ++ show x)
-prov env (Let x t1 t2) = do t1' <- prov env t1
-                            prov (bindEnv env x t1') t2
-prov _   Unit = return unit
-prov _   (CBool b) = return (cbool b)
-prov env (IfThen t _ _ t1)
-    = do (AValue (RBool True) a) <- prov env t
-         t1' <- prov env t1
+prov (Let x t1 t2) = do t1' <- prov t1
+                        withBinder x t1' (prov t2)
+prov Unit = return unit
+prov (CBool b) = return (cbool b)
+prov (IfThen t _ _ t1)
+    = do (AValue (RBool True) a) <- prov t
+         t1' <- prov t1
          return (ifthen a t1')
-prov env (IfElse t _ _ t2)
-    = do (AValue (RBool False) a) <- prov env t
-         t2' <- prov env t2
+prov (IfElse t _ _ t2)
+    = do (AValue (RBool False) a) <- prov t
+         t2' <- prov t2
          return (ifelse a t2')
-prov _   (CInt i)
+prov (CInt i)
     = return (cint i)
-prov _   (CString s)
+prov (CString s)
     = return (cstring s)
-prov env (Op f ts)
-    = do ts' <- mapM (prov env) ts
+prov (Op f ts)
+    = do ts' <- mapM prov ts
          op f ts'
-prov env (Pair e1 e2)
-    = do e1' <- prov env e1
-         e2' <- prov env e2
+prov (Pair e1 e2)
+    = do e1' <- prov e1
+         e2' <- prov e2
          return (pair e1' e2')
-prov env (Fst e)
-    = do (AValue (RPair v1 _) a) <- prov env e
+prov (Fst e)
+    = do (AValue (RPair v1 _) a) <- prov e
          return (first a v1)
-prov env (Snd e)
-    = do (AValue (RPair _ v2) a) <- prov env e
+prov (Snd e)
+    = do (AValue (RPair _ v2) a) <- prov e
          return (second a v2)
-prov env (InL e) = prov env e >>= return . inl
-prov env (InR e) = prov env e >>= return . inr
-prov env (Fun k) = return (fun k env)
-prov env (CaseL t _ x t1)
-    = do (AValue (RInL v) a) <- prov env t
-         v' <- prov (bindEnv env x v) t1
+prov (InL e) = prov e >>= return . inl
+prov (InR e) = prov e >>= return . inr
+prov (Fun k) = do env <- getEnv
+                  return (fun k env)
+prov (CaseL t _ x t1)
+    = do (AValue (RInL v) a) <- prov t
+         v' <- withBinder x v (prov t1)
          return (casel a v')
-prov env (CaseR t _ x t2)
-    = do (AValue (RInR v) a) <- prov env t
-         v'                  <- prov (bindEnv env x v) t2
+prov (CaseR t _ x t2)
+    = do (AValue (RInR v) a) <- prov t
+         v'                  <- withBinder x v (prov t2)
          return (caser a v')
-prov env (Call t1 t2 _ t)
-    = do v1@(AValue (RClosure _ env0) a) <- prov env t1
-         v2                              <- prov env t2
-         v <- prov (bindEnv (bindEnv env0 (funArg t) v2) (funName t) v1)
-                   (funBody t)
+prov (Call t1 t2 _ t)
+    = do v1@(AValue (RClosure _ env0) a) <- prov t1
+         v2                              <- prov t2
+         v <- withEnv (bindEnv (bindEnv env0 (funArg t) v2) (funName t) v1)
+                      (prov (funBody t))
          return (app a v)
-prov env (Roll   _ t) = prov env t >>= return . roll
-prov env (Unroll _ t)
-    = do (AValue (RRoll v) a) <- prov env t
+prov (Roll   _ t) = prov t >>= return . roll
+prov (Unroll _ t)
+    = do (AValue (RRoll v) a) <- prov t
          return (unroll a v)
-prov _ e = evalError $ "Provenance not supported for " ++ show e
+prov e = evalError $ "Provenance not supported for " ++ show e
 
 -- where provenance semantics
 make_where :: Value -> AValue (Where Int)
@@ -364,7 +371,7 @@ instance (Eq a) => Prov (Where a) where
     cstring s  = AValue (RString s) bot
     op f avs   =
         do let (vs, _) = unzip (map (\(AValue v a) -> (erase_to_v v,a)) avs)
-           v'  <- evalOp f vs
+           v'  <- liftEvalM $ evalOp f vs
            return (inject v')
     pair v1 v2 = AValue (RPair v1 v2) bot
     first _ v  = v
@@ -378,8 +385,8 @@ instance (Eq a) => Prov (Where a) where
     roll v     = AValue( RRoll v) bot
     unroll _ v = v
 
-whr :: (Eq a) => Env (AValue (Where a)) -> Exp -> SlM (AValue (Where a))
-whr env t = prov env t
+whr :: (Eq a) => Env (AValue (Where a)) -> Exp -> SlMIO (AValue (Where a))
+whr env t = runEvalM env (prov t)
 
 -- expression provenance semantics
 instance Prov Exp where
@@ -391,7 +398,7 @@ instance Prov Exp where
     cstring i  = AValue (RString i) (CString i)
     op f avs   =
         do let (vs,as) = unzip (map (\(AValue v a) -> (erase_to_v v,a)) avs)
-           v   <- evalOp f vs
+           v   <- liftEvalM $ evalOp f vs
            return (AValue (rinject v) (Op f as))
     pair v1 v2 = AValue (RPair v1 v2) bot
     first _ v  = v
@@ -405,8 +412,8 @@ instance Prov Exp where
     roll v     = AValue( RRoll v) bot
     unroll _ v = v
 
-expr :: Env (AValue Exp) -> Exp -> SlM (AValue Exp)
-expr env t = prov env t
+expr :: Env (AValue Exp) -> Exp -> SlMIO (AValue Exp)
+expr env t = runEvalM env (prov t)
 
 make_expr :: Value -> AValue Exp
 make_expr v = fmap (\x -> (Var (V ("x_" ++ show x)))) (runGensym $ uniq v)
@@ -445,7 +452,7 @@ instance (Ord a) => Prov (Dep a) where
     cstring i  = AValue (RString i) bot
     op f avs   =
         do let (vs,as) = unzip (map (\v -> (erase_to_v v, annots v)) avs)
-           v'  <- evalOp f vs
+           v'  <- liftEvalM $ evalOp f vs
            return (AValue (rinject v') (Set.fold lub bot (Set.unions as)))
     pair v1 v2 = AValue (RPair v1 v2) bot
     first a v  = addAnnot v a
@@ -462,5 +469,5 @@ instance (Ord a) => Prov (Dep a) where
 make_dep :: Value -> AValue (Dep Int)
 make_dep v = fmap (\x -> D (Set.singleton x)) (runGensym $ uniq v)
 
-dep :: Ord a => Env (AValue (Dep a)) -> Exp -> SlM (AValue (Dep a))
-dep env t = prov env t
+dep :: Ord a => Env (AValue (Dep a)) -> Exp -> SlMIO (AValue (Dep a))
+dep env t = runEvalM env (prov t)
