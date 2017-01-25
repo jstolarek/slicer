@@ -3,7 +3,7 @@
 module Language.Slicer.Monad.Eval
     ( -- * Evaluation monad
       EvalM, EvalState(..), runEvalM, evalEvalM, liftEvalM
-    , emptyEvalState, addEmptyStore
+    , emptyEvalState, addBinding, dropBinding
 
     -- * Variable environment
     , getEnv, withEnv, withBinder
@@ -59,6 +59,18 @@ emptyEvalState = EvalState emptyEnv 0 M.empty
 -- reference store
 addEmptyStore :: Env a -> EvalState a
 addEmptyStore env = EvalState env 0 M.empty
+
+-- | Add variable binding to environment
+addBinding :: EvalState a -> Var -> a -> EvalState a
+addBinding st var val =
+    let env = envS st
+    in st { envS = updateEnv env var val }
+
+-- | Drop variable binding from environment
+dropBinding :: EvalState a -> Var -> EvalState a
+dropBinding st var =
+    let env = envS st
+    in st { envS = unbindEnv env var }
 
 -- | Lift monadic action from SlM to EvalM.
 liftEvalM :: SlM value -> EvalM env value

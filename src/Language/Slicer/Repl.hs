@@ -7,16 +7,17 @@ module Language.Slicer.Repl
     ) where
 
 import           Language.Slicer.Absyn
-import qualified Language.Slicer.Core as C      ( Value, Type    )
-import           Language.Slicer.Desugar        ( desugar        )
+import qualified Language.Slicer.Core as C         ( Value, Type             )
+import           Language.Slicer.Desugar           ( desugar                 )
 import           Language.Slicer.Env
 import           Language.Slicer.Error
-import           Language.Slicer.Eval           ( run            )
+import           Language.Slicer.Eval              ( run                     )
 import           Language.Slicer.Monad
-import           Language.Slicer.Monad.Eval
+import           Language.Slicer.Monad.Eval hiding ( addBinding, dropBinding )
+import qualified Language.Slicer.Monad.Eval as E   ( addBinding, dropBinding )
 import           Language.Slicer.PrettyPrinting
-import           Language.Slicer.Resugar        () -- PP instances only
-import           Language.Slicer.Parser         ( parseRepl      )
+import           Language.Slicer.Resugar           () -- PP instances only
+import           Language.Slicer.Parser            ( parseRepl               )
 
 import           Control.Exception                 ( assert      )
 import           Control.Monad.State.Strict
@@ -78,16 +79,16 @@ addDataDefn newCtx = do
 addBinding :: Var -> C.Value -> C.Type -> ReplM ()
 addBinding var val ty = do
   replState@(ReplState { evalS, gammaS }) <- get
-  let newEnv   = updateEnv (envS evalS) var val
+  let evalS'   = E.addBinding evalS var val
       newGamma = updateEnv gammaS var ty
-  put $ replState { evalS = evalS { envS = newEnv }, gammaS = newGamma }
+  put $ replState { evalS = evalS', gammaS = newGamma }
 
 dropBinding :: Var -> ReplM ()
 dropBinding var = do
   replState@(ReplState { evalS, gammaS }) <- get
-  let newEnv   = unbindEnv (envS evalS) var
+  let evalS'   = E.dropBinding evalS var
       newGamma = unbindEnv gammaS var
-  put $ replState { evalS = evalS { envS = newEnv }, gammaS = newGamma }
+  put $ replState { evalS = evalS', gammaS = newGamma }
 
 -- | Run REPL monad
 runRepl :: ReplM () -> IO ()
