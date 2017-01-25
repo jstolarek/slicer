@@ -32,37 +32,37 @@ evalM :: Exp -> EvalMV Value
 evalM Hole          = return VHole
 evalM (Var x)       = do env <- getEnv
                          return (lookupEnv' env x)
-evalM (Let x e1 e2) = do v <- eval' e1
-                         withBinder x v (eval' e2)
+evalM (Let x e1 e2) = do v <- evalM' e1
+                         withBinder x v (evalM' e2)
 evalM (Unit)        = return VUnit
 evalM (CBool b)     = return (VBool b)
-evalM (If e e1 e2)  = do cond <- eval' e
+evalM (If e e1 e2)  = do cond <- evalM' e
                          evalIf cond e1 e2
 evalM (CInt i)      = return (VInt i)
 evalM (CString s)   = return (VString s)
-evalM (Op f exps)   = do exps' <- mapM eval' exps
+evalM (Op f exps)   = do exps' <- mapM evalM' exps
                          evalTraceOp f exps'
-evalM (Pair e1 e2)  = do e1' <- eval' e1
-                         e2' <- eval' e2
+evalM (Pair e1 e2)  = do e1' <- evalM' e1
+                         e2' <- evalM' e2
                          return (VPair e1' e2')
-evalM (Fst e)       = do (VPair v1 _) <- eval' e
+evalM (Fst e)       = do (VPair v1 _) <- evalM' e
                          return v1
-evalM (Snd e)       = do (VPair _ v2) <- eval' e
+evalM (Snd e)       = do (VPair _ v2) <- evalM' e
                          return v2
-evalM (InL e)       = do e' <- eval' e
+evalM (InL e)       = do e' <- evalM' e
                          return (VInL e')
-evalM (InR e)       = do e' <- eval' e
+evalM (InR e)       = do e' <- evalM' e
                          return (VInR e')
-evalM (Case e m)    = do e' <- eval' e
+evalM (Case e m)    = do e' <- evalM' e
                          evalMatch e' m
 evalM (Fun k)       = do env <- getEnv
                          return (VClosure k env)
-evalM (App e1 e2)   = do e1' <- eval' e1
-                         e2' <- eval' e2
+evalM (App e1 e2)   = do e1' <- evalM' e1
+                         e2' <- evalM' e2
                          evalCall e1' e2'
-evalM (Roll tv e)   = do e' <- eval' e
+evalM (Roll tv e)   = do e' <- evalM' e
                          return (VRoll tv e')
-evalM (Unroll tv e) = do (VRoll tv' v) <- eval' e
+evalM (Unroll tv e) = do (VRoll tv' v) <- evalM' e
                          assert (tv == tv') (return v)
 evalM (Trace e)     = do env    <- getEnv
                          (v, t) <- trace e
@@ -71,9 +71,9 @@ evalM e             = evalError ("Cannot eval: " ++ show e)
 
 -- | Evaluates an expression and forces the result before returning it.  Ensures
 -- strict semantics.
-eval' :: Exp -> EvalMV Value
-eval' e = do v <- evalM e
-             v `seq` return v
+evalM' :: Exp -> EvalMV Value
+evalM' e = do v <- evalM e
+              v `seq` return v
 
 evalCall :: Value -> Value -> EvalMV Value
 evalCall v1@(VClosure k env0) v2 =
@@ -85,16 +85,16 @@ evalCall _ _ = evalError "evalCall: cannot call non-VClosure values"
 evalMatch :: Value -> Match -> EvalMV Value
 evalMatch (VInL v) m
     = let (x, e) = inL m
-      in withBinder x v (eval' e)
+      in withBinder x v (evalM' e)
 evalMatch (VInR v) m
     = let (x, e) = inR m
-      in withBinder x v (eval' e)
+      in withBinder x v (evalM' e)
 evalMatch _ _
     = evalError "evalMatch: scrutinee does not reduce to a constructor"
 
 evalIf :: Value -> Exp -> Exp -> EvalMV Value
-evalIf (VBool True ) e1 _  = eval' e1
-evalIf (VBool False) _  e2 = eval' e2
+evalIf (VBool True ) e1 _  = evalM' e1
+evalIf (VBool False) _  e2 = evalM' e2
 evalIf _ _ _ = evalError "evalIf: condition is not a VBool value"
 
 evalTraceOp :: Primitive -> [Value] -> EvalMV Value
