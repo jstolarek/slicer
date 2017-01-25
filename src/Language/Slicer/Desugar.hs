@@ -146,22 +146,25 @@ desugarM (A.Deref e)
                              ") does not have a reference type")
          let (RefTy ty') = ty
          return (Deref e', ty')
-desugarM (A.Assign x e1 e2)
-    = do (_, t) <- desugarM (A.Var x)
-         unless (isRefTy t) $
-                typeError ("Variable does not have reference type: " ++ show x)
-         -- No need to bind x when desuagring e1 and e2 since it is already
-         -- bound.  If it is not then this means that the reference was not
-         -- declared
-         (e1', t1) <- desugarM e1
-         let (RefTy t') = t
-         unless (t' == t1) $ typeError ("Cannot assign expression of type: "
-                                     ++ show t1 ++ " to reference of type "
-                                     ++ show t' ++ ". Offending expression is: "
-                                     ++ show e1')
+desugarM (A.Assign e1 e2)
+    = do (e1', t1) <- desugarM e1
+         unless (isRefTy t1) $
+                typeError ("Expression does not have reference type: " ++
+                           show e1)
          (e2', t2) <- desugarM e2
-         return (Assign x e1' e2', t2)
-
+         let (RefTy t1') = t1
+         unless (t1' == t2) $ typeError ("Cannot assign expression of type: "
+                                    ++ show t2  ++ " to reference of type "
+                                    ++ show t1' ++ ". Offending expression is: "
+                                    ++ show e2)
+         return (Assign e1' e2', UnitTy)
+desugarM (A.Seq e1 e2)
+    = do (e1', t1) <- desugarM e1
+         unless (t1 == UnitTy) $ typeError ("Cannot sequence.  Expression "
+                                    ++ show e1 ++ " has type " ++ show t1
+                                    ++ " but it shold have unit type.")
+         (e2', t2) <- desugarM e2
+         return (Seq e1' e2', t2)
 
 desugarTy :: A.Type -> Type
 desugarTy A.IntTy            = IntTy
