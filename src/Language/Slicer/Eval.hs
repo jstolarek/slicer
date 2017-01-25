@@ -33,7 +33,8 @@ evalM :: Exp -> EvalMV Value
 evalM Hole          = return VHole
 evalM (Var x)       = do env <- getEnv
                          return (lookupEnv' env x)
-evalM (Let x e1 e2) = do v <- evalM' e1
+evalM (Let x e1 e2) = do unbind x
+                         v <- evalM' e1
                          withBinder x v (evalM' e2)
 evalM (Unit)        = return VUnit
 evalM (CBool b)     = return (VBool b)

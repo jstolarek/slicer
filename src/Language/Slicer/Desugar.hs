@@ -69,8 +69,8 @@ desugarM (A.CBool   b) = return (CBool   b, BoolTy  )
 desugarM (A.CInt    i) = return (CInt    i, IntTy   )
 desugarM (A.CString s) = return (CString s, StringTy)
 desugarM (A.Let x e1 e2)
-    = do (e1',ty1) <- desugarM e1
-         (e2',ty2) <- withBinder x ty1 (desugarM e2)
+    = do (e1', ty1) <- withoutBinder x     (desugarM e1)
+         (e2', ty2) <- withBinder    x ty1 (desugarM e2)
          return (Let x e1' e2',ty2)
 desugarM (A.LetR _ e1) = desugarM e1
 desugarM (A.Unit) = return (Unit, UnitTy)

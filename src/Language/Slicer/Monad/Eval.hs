@@ -6,7 +6,7 @@ module Language.Slicer.Monad.Eval
     , emptyEvalState, addBinding, dropBinding
 
     -- * Variable environment
-    , getEnv, withEnv, withBinder
+    , getEnv, withEnv, withBinder, unbind
 
     -- * References
     , newRef, getRef, updateRef
@@ -101,9 +101,9 @@ getRef v = evalError ("Not a reference value: " ++ show v)
 updateRef :: Value -> env -> EvalM env ()
 updateRef (VStoreLoc l) val = do
   st@(EvalState { refs }) <- get
-  unless (l `M.member` refs) $ evalError "Cannot update reference: not allocated"
+  unless (l `M.member` refs) $
+         evalError ("Cannot update reference: not allocated: " ++ show l)
   put $ st { refs = M.insert l val refs }
-
 updateRef v _ = evalError ("Not a reference value: " ++ show v)
 
 -- | Run monadic evaluation with extra binder in scope
@@ -112,6 +112,12 @@ withBinder var val thing = do
   env <- getEnv
   st  <- get
   lift (evalStateT thing (st { envS = bindEnv env var val }))
+
+-- | Run monadic evaluation removing a given binder from scope
+unbind :: Var -> EvalM env ()
+unbind var = do
+  st@(EvalState { envS }) <- get
+  put $ st { envS = unbindEnv envS var }
 
 -- | Run monadic evaluation inside a given environment
 withEnv :: Env env -> EvalM env value -> EvalM env value
