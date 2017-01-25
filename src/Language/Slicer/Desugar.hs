@@ -18,7 +18,7 @@ import qualified Data.Map as M
 import           Data.Maybe ( isNothing )
 
 desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp, Type)
-desugar decls gamma expr = runDesugarM decls gamma (desugar' expr)
+desugar decls gamma expr = runDesugarM decls gamma (desugarM expr)
 
 -- Assuming that op name + argument types determines the op result type.
 lookupOp :: Primitive -> [Type] -> DesugarM Type
@@ -62,49 +62,49 @@ inject _ _ _ = desugarError "Non binary sums not yet implemented"
 
 
 -- simple version that just fails if term is not well-typed
-desugar' :: A.Exp -> DesugarM (Exp, Type)
-desugar' (A.Var x)
+desugarM :: A.Exp -> DesugarM (Exp, Type)
+desugarM (A.Var x)
     = do gamma <- getGamma
          case lookupEnv' gamma x of
            HoleTy -> desugarError ("Unbound variable " ++ show x)
            ty     -> return (Var x, ty)
-desugar' (A.CBool   b) = return (CBool   b, BoolTy  )
-desugar' (A.CInt    i) = return (CInt    i, IntTy   )
-desugar' (A.CString s) = return (CString s, StringTy)
-desugar' (A.Let x e1 e2)
-    = do (e1',ty1) <- desugar' e1
-         (e2',ty2) <- withBinder x ty1 (desugar' e2)
+desugarM (A.CBool   b) = return (CBool   b, BoolTy  )
+desugarM (A.CInt    i) = return (CInt    i, IntTy   )
+desugarM (A.CString s) = return (CString s, StringTy)
+desugarM (A.Let x e1 e2)
+    = do (e1',ty1) <- desugarM e1
+         (e2',ty2) <- withBinder x ty1 (desugarM e2)
          return (Let x e1' e2',ty2)
-desugar' (A.LetR _ e1) = desugar' e1
-desugar' (A.Unit) = return (Unit, UnitTy)
-desugar' (A.If e e1 e2)
-    = do (e' , BoolTy) <- desugar' e
-         (e1', ty1   ) <- desugar' e1
-         (e2', ty2   ) <- desugar' e2
+desugarM (A.LetR _ e1) = desugarM e1
+desugarM (A.Unit) = return (Unit, UnitTy)
+desugarM (A.If e e1 e2)
+    = do (e' , BoolTy) <- desugarM e
+         (e1', ty1   ) <- desugarM e1
+         (e2', ty2   ) <- desugarM e2
          if ty1 == ty2
          then return (If e' e1' e2', ty1)
          else typeError ("Types of branches do not match :" ++
                         show ty1 ++ " does not match " ++ show ty2)
-desugar' (A.Op f es)
-    = do (es',tys) <- mapAndUnzipM desugar' es
+desugarM (A.Op f es)
+    = do (es',tys) <- mapAndUnzipM desugarM es
          ty        <- lookupOp f tys
          return (Op f es', ty)
-desugar' (A.Pair e1 e2)
-    = do (e1',ty1) <- desugar' e1
-         (e2',ty2) <- desugar' e2
+desugarM (A.Pair e1 e2)
+    = do (e1',ty1) <- desugarM e1
+         (e2',ty2) <- desugarM e2
          return (Pair e1' e2', PairTy ty1 ty2)
-desugar' (A.Fst e)
-    = do (e1', ty) <- desugar' e
+desugarM (A.Fst e)
+    = do (e1', ty) <- desugarM e
          case ty of
            PairTy ty1 _ -> return (Fst e1', ty1)
            _ -> typeError ("Expected pair type but got " ++ show ty)
-desugar' (A.Snd e)
-    = do (e1', ty) <- desugar' e
+desugarM (A.Snd e)
+    = do (e1', ty) <- desugarM e
          case ty of
            PairTy _ ty2 -> return (Snd e1', ty2)
            _ -> typeError ("Expected pair type but got " ++  show ty)
-desugar' (A.Con k e)
-    = do (e', ty) <- desugar' e
+desugarM (A.Con k e)
+    = do (e', ty) <- desugarM e
          decls    <- getDecls
          case A.getTyDeclByCon decls k of
            Just (A.TyDecl dataty cons, ty') ->
@@ -115,26 +115,26 @@ desugar' (A.Con k e)
                               " to constructor "     ++ show k  ++
                               " which expects type " ++ show ty')
            Nothing -> desugarError ("Undeclared constructor: " ++ show k)
-desugar' (A.Case e m)
-    = do (e', TyVar dataty) <- desugar' e
+desugarM (A.Case e m)
+    = do (e', TyVar dataty) <- desugarM e
          decls              <- getDecls
          case (A.getTyDeclByName decls dataty) of
            Just decl -> desugarMatch (A.constrs decl)
                                      (Unroll (Just dataty) e') m
            Nothing -> desugarError ("Undeclared datatype in case: " ++
                                     show dataty)
-desugar' (A.Fun k) = desugarFun k
-desugar' (A.App e1 e2) =
-    do (e1', FunTy ty1 ty2) <- desugar' e1
-       (e2', ty1'         ) <- desugar' e2
+desugarM (A.Fun k) = desugarFun k
+desugarM (A.App e1 e2) =
+    do (e1', FunTy ty1 ty2) <- desugarM e1
+       (e2', ty1'         ) <- desugarM e2
        if ty1 == ty1'
        then return (App e1' e2', ty2)
        else typeError ("Mismatched types in application.  Function expects " ++
                         show ty1 ++ " but argument has type " ++ show ty1')
-desugar' (A.Trace e)
-    = do (e', ty) <- desugar' e
+desugarM (A.Trace e)
+    = do (e', ty) <- desugarM e
          return (Trace e', TraceTy ty)
-desugar' (A.Hole ty) = return (Hole, desugarTy ty)
+desugarM (A.Hole ty) = return (Hole, desugarTy ty)
 
 
 desugarTy :: A.Type -> Type
@@ -157,7 +157,7 @@ desugarFun (A.Rec f args rty e lbl)
              gamma'    = bindEnv gamma f fun_ty
              gamma''   = foldl (\g (x,ty) -> bindEnv g x (desugarTy ty)) gamma'
                                args
-         (e', rty') <- withGamma gamma'' (desugar' e)
+         (e', rty') <- withGamma gamma'' (desugarM e)
          let (x1:tl)   = map fst args
              lbl'      = mkL `fmap` lbl
              e''       = foldr (\x e0 -> Fun (Rec bot x e0 Nothing)) e' tl
@@ -180,8 +180,8 @@ desugarMatch [(inl, ty1), (inr, ty2)] e (A.Match m) =
                                           show inr ++ " but none found.")
        let Just (x1, e1) = con1
            Just (x2, e2) = con2
-       (e1', ty1') <- withBinder x1 (desugarTy ty1) (desugar' e1)
-       (e2', ty2') <- withBinder x2 (desugarTy ty2) (desugar' e2)
+       (e1', ty1') <- withBinder x1 (desugarTy ty1) (desugarM e1)
+       (e2', ty2') <- withBinder x2 (desugarTy ty2) (desugarM e2)
        if ty1' == ty2'
        then return (Case e (Match (x1, e1') (x2, e2')), ty1')
        else typeError ("Type mismatch in case expression: " ++ show ty1' ++
