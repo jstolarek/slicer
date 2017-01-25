@@ -2,7 +2,8 @@
 
 module Language.Slicer.Monad.Eval
     ( -- * Evaluation monad
-      EvalM, runEvalM, liftEvalM
+      EvalM, EvalState(..), runEvalM, evalEvalM, liftEvalM
+    , emptyEvalState, addEmptyStore
 
     -- * Variable environment
     , getEnv, withEnv, withBinder
@@ -40,12 +41,24 @@ data EvalState a = EvalState
     , refs     :: M.IntMap a -- ^ Reference store
     }
 
--- | Run the evaluation monad with a supplied environment.  Return result inside
--- an error monad.
-runEvalM :: Env env -> EvalM env value -> SlMIO value
--- JSTOLAREK: hardcoding 0 and empty map here most likely breaks references in
--- REPL
-runEvalM env m = evalStateT m (EvalState env 0 M.empty)
+-- | Run the evaluation monad with a supplied state.  Return result and final
+-- state inside an error monad.
+runEvalM :: EvalState env -> EvalM env value -> SlMIO (value, EvalState env)
+runEvalM st m = runStateT m st
+
+-- | Run the evaluation monad with a supplied state.  Return result inside an
+-- error monad.
+evalEvalM :: Env env -> EvalM env value -> SlMIO value
+evalEvalM st m = evalStateT m (addEmptyStore st)
+
+-- | Construct empty EvalState
+emptyEvalState :: EvalState a
+emptyEvalState = EvalState emptyEnv 0 M.empty
+
+-- | Constructs evaluation state containing a given environment and an empty
+-- reference store
+addEmptyStore :: Env a -> EvalState a
+addEmptyStore env = EvalState env 0 M.empty
 
 -- | Lift monadic action from SlM to EvalM.
 liftEvalM :: SlM value -> EvalM env value

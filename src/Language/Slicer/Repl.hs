@@ -11,8 +11,9 @@ import qualified Language.Slicer.Core as C      ( Value, Type    )
 import           Language.Slicer.Desugar        ( desugar        )
 import           Language.Slicer.Env
 import           Language.Slicer.Error
-import           Language.Slicer.Eval           ( eval           )
+import           Language.Slicer.Eval           ( run            )
 import           Language.Slicer.Monad
+import           Language.Slicer.Monad.Eval
 import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Resugar        () -- PP instances only
 import           Language.Slicer.Parser         ( parseRepl      )
@@ -31,16 +32,18 @@ data ParseResult = OK               -- ^ Success without reply
 
 -- | REPL state
 data ReplState = ReplState
-    { tyCtxS :: TyCtx       -- ^ Data type declarations
-    , gammaS :: Env C.Type  -- ^ Context Γ, stores variable types
-    , envS   :: Env C.Value -- ^ Environment ρ, stores variable values
+    { tyCtxS :: TyCtx             -- ^ Data type declarations
+    , gammaS :: Env C.Type        -- ^ Context Γ, stores variable types
+    , evalS  :: EvalState C.Value -- ^ Evaluation monad state. Contains
+                                  --   environment ρ (variable values) and
+                                  --   reference store
     }
 
 -- | Empty REPL state.  Used when starting the REPL
 emptyState :: ReplState
 emptyState = ReplState { tyCtxS = emptyTyCtx
                        , gammaS = emptyEnv
-                       , envS   = emptyEnv }
+                       , evalS  = emptyEvalState }
 
 -- | Get data type declarations
 getTyCtx :: ReplM TyCtx
@@ -55,10 +58,15 @@ getGamma = do
   return gammaS
 
 -- | Get environment
-getEnv :: ReplM (Env C.Value)
-getEnv = do
-  ReplState { envS } <- get
-  return envS
+getEvalState :: ReplM (EvalState C.Value)
+getEvalState = do
+  ReplState { evalS } <- get
+  return evalS
+
+setEvalState :: EvalState C.Value -> ReplM ()
+setEvalState newEvalSt = do
+  replState <- get
+  put $ replState { evalS = newEvalSt }
 
 -- | Add new data definition
 addDataDefn :: TyCtx -> ReplM ()
@@ -69,10 +77,17 @@ addDataDefn newCtx = do
 -- | Add new binding (name + value + type)
 addBinding :: Var -> C.Value -> C.Type -> ReplM ()
 addBinding var val ty = do
-  replState <- get
-  let newEnv   = updateEnv (envS   replState) var val
-      newGamma = updateEnv (gammaS replState) var ty
-  put $ replState { envS = newEnv, gammaS = newGamma }
+  replState@(ReplState { evalS, gammaS }) <- get
+  let newEnv   = updateEnv (envS evalS) var val
+      newGamma = updateEnv gammaS var ty
+  put $ replState { evalS = evalS { envS = newEnv }, gammaS = newGamma }
+
+dropBinding :: Var -> ReplM ()
+dropBinding var = do
+  replState@(ReplState { evalS, gammaS }) <- get
+  let newEnv   = unbindEnv (envS evalS) var
+      newGamma = unbindEnv gammaS var
+  put $ replState { evalS = evalS { envS = newEnv }, gammaS = newGamma }
 
 -- | Run REPL monad
 runRepl :: ReplM () -> IO ()
@@ -91,17 +106,19 @@ parseAndEvalLine line = do
         -- INVARIANT: if we parsed an expression then we could not have parsed a
         -- data definition, hence the parsed context must be empty.
         assert (nullTyCtx tyCtx') $
-        do env    <- getEnv
+        do let isLet = isLetBinding expr -- See Note [Handling let bindings]
+               var   = getVar expr -- only safe to force when isLet == True
+           when isLet (dropBinding var)
+           evalS  <- getEvalState
            gamma  <- getGamma
            dsgres <- runSlMIO $ do
                           (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
-                          val         <- eval env dexpr
-                          return (val, ty)
+                          (val, st)   <- run evalS dexpr
+                          return (val, ty, st)
            case dsgres of
-             Right (val, ty) ->
-                 do -- See Note [Handling let bindings]
-                    when (isLetBinding expr)
-                             (val `seq` addBinding (getVar expr) val ty)
+             Right (val, ty, st) ->
+                 do setEvalState st
+                    when isLet (val `seq` addBinding var val ty)
                     return (It $ "val it = " ++ show (pp (tyCtx,val)) ++
                                  " : "       ++ show (pp ty))
              Left err -> return (Error err)

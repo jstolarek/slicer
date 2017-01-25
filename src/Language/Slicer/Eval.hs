@@ -1,6 +1,6 @@
 module Language.Slicer.Eval
     ( -- * Evaluating TML expressions
-      eval
+      eval, run
     ) where
 
 import           Language.Slicer.Core
@@ -23,8 +23,11 @@ import           System.FilePath.Posix
 -- All monadic computations in this module will use environment of Values
 type EvalMV = EvalM Value
 
+run :: EvalState Value -> Exp -> SlMIO (Value, EvalState Value)
+run env e = runEvalM env (evalM e)
+
 eval :: Env Value -> Exp -> SlMIO Value
-eval env e = runEvalM env (evalM e)
+eval env e = evalEvalM env (evalM e)
 
 evalM :: Exp -> EvalMV Value
 evalM Hole          = return VHole
