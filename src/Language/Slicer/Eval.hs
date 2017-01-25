@@ -65,16 +65,23 @@ evalM (Unroll tv e) = do (VRoll tv' v) <- evalM' e
 evalM (Trace e)     = do env    <- getEnv
                          (v, t) <- trace e
                          return (VTrace v t env)
-evalM (Ref e)       = do v <- evalM' e
-                         newRef v
-evalM (Deref e)     = do v <- evalM' e
-                         getRef v
-evalM (Assign x e1 e2) = do x'  <- evalM' (Var x)
-                            e1' <- evalM' e1
-                            updateRef x' e1'
-                            evalM' e2
-
---evalM e             = evalError ("Cannot eval: " ++ show e)
+-- References
+evalM (Ref e)        = do v <- evalM' e
+                          newRef v
+evalM (Deref e)      = do v <- evalM' e
+                          getRef v
+evalM (Assign e1 e2) = do e1' <- evalM' e1
+                          e2' <- evalM' e2
+                          updateRef e1' e2'
+                          return VUnit
+evalM (Seq e1 e2)    = do VUnit <- evalM' e1
+                          evalM' e2
+-- Traces
+evalM (IfThen _ _ _ _) = errorReplayTrace
+evalM (IfElse _ _ _ _) = errorReplayTrace
+evalM (CaseL  _ _ _ _) = errorReplayTrace
+evalM (CaseR  _ _ _ _) = errorReplayTrace
+evalM (Call   _ _ _ _) = errorReplayTrace
 
 -- | Evaluates an expression and forces the result before returning it.  Ensures
 -- strict semantics.
@@ -152,6 +159,9 @@ evalOp f [VBool   b]            | isBoolUnOp  f = return ((boolUnOps ! f) b)
 evalOp _ vs                     | VHole `elem` vs = return VHole
 evalOp _ vs                     | VStar `elem` vs = return VStar
 evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
+
+errorReplayTrace :: EvalMV a
+errorReplayTrace = evalError "Evaluation of trace expressions not permitted"
 
 -- Tracing as described in Section 4.2 of ICFP'12 paper
 trace :: Exp -> EvalMV (Value, Trace)
