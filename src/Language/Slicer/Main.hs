@@ -57,8 +57,8 @@ haskelineSettings = do
              }
 
 -- | Compile and run a given program
-run :: FilePath -> IO ()
-run arg = do
+compileAndRun :: FilePath -> IO ()
+compileAndRun arg = do
   putStrLn $ "Running " ++ arg
   code   <- readFile arg
   result <- runSlMIO $ parse_desugar_eval code
@@ -92,6 +92,6 @@ main = do
                         putStrLn "Welcome to Slicer REPL"
                         settings <- haskelineSettings
                         runRepl (runInputT settings $ noesc replLoop)
-    ([], files, []) -> mapM_ run files
+    ([], files, []) -> mapM_ compileAndRun files
     (_, _, errs) -> hPutStrLn stderr (concat errs ++ usageInfo usage options)
         where usage = "Usage: slicer [--repl|<file>.tml ...]"

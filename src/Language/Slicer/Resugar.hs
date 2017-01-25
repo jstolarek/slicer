@@ -71,6 +71,8 @@ instance PP (A.TyCtx, Value) where
    pp_partial (tyCtx, VStar) (eq tyCtx -> True, VStar) = colorise "Gray" $ text $ "{$\\Diamond$}"
    pp_partial (tyCtx, VClosure k env) (eq tyCtx -> True, VClosure k' env') =
       pp_partial (tyCtx, (env, Fun k)) (tyCtx, (env', Fun k'))
+   pp_partial (tyCtx, VStoreLoc _) (eq tyCtx -> True, VStoreLoc _) =
+      text "<ref>"
    pp_partial (tyCtx, v) (eq tyCtx -> True, v') =
       pp_partial (tyCtx, val2exp v) (tyCtx, val2exp v')
    pp_partial _ _ = error "Pretty-printing error: (TyCtx, Value)"

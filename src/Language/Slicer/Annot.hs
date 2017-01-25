@@ -386,7 +386,7 @@ instance (Eq a) => Prov (Where a) where
     unroll _ v = v
 
 whr :: (Eq a) => Env (AValue (Where a)) -> Exp -> SlMIO (AValue (Where a))
-whr env t = runEvalM env (prov t)
+whr env t = evalEvalM env (prov t)
 
 -- expression provenance semantics
 instance Prov Exp where
@@ -413,7 +413,7 @@ instance Prov Exp where
     unroll _ v = v
 
 expr :: Env (AValue Exp) -> Exp -> SlMIO (AValue Exp)
-expr env t = runEvalM env (prov t)
+expr env t = evalEvalM env (prov t)
 
 make_expr :: Value -> AValue Exp
 make_expr v = fmap (\x -> (Var (V ("x_" ++ show x)))) (runGensym $ uniq v)
@@ -470,4 +470,4 @@ make_dep :: Value -> AValue (Dep Int)
 make_dep v = fmap (\x -> D (Set.singleton x)) (runGensym $ uniq v)
 
 dep :: Ord a => Env (AValue (Dep a)) -> Exp -> SlMIO (AValue (Dep a))
-dep env t = runEvalM env (prov t)
+dep env t = evalEvalM env (prov t)

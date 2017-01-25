@@ -561,6 +561,7 @@ instance Pattern Value where
     match (VRoll tv p)  (VRoll tv' v) (VRoll tv'' v')
         | tv == tv' && tv' == tv''
         = match p v v'
+    -- JSTOLAREK: What about VStoreLoc?
     match _ _ _ = False
 
     extract  VStar          v              = v
