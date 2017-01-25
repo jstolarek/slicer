@@ -98,7 +98,7 @@ bslice VStar (Roll tv t)
 bslice p (Unroll tv t)
     = let (t',rho) = bslice (VRoll tv p) t
       in (Unroll tv t', rho)
---bslice _ x = error $ show x
+bslice _ x = error $ show x
 
 
 -- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
@@ -189,8 +189,8 @@ pslice VStar (Roll tv' t)
 pslice p (Unroll tv t)
     = let (t',rho) = pslice (VRoll tv p) t
       in (Unroll tv t', rho)
---pslice v t = error $ "Cannot unevaluate value " ++ show v ++
---                     " from trace " ++ show t
+pslice v t = error $ "Cannot unevaluate value " ++ show v ++
+                     " from trace " ++ show t
 
 -- unevaluation.  Squash trace back down into expression.
 uneval :: Trace -> Exp

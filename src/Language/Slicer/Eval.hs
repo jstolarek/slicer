@@ -65,14 +65,14 @@ evalM (Unroll tv e) = do (VRoll tv' v) <- evalM' e
 evalM (Trace e)     = do env    <- getEnv
                          (v, t) <- trace e
                          return (VTrace v t env)
-evalM (Ref e)       = do v <- eval' e
+evalM (Ref e)       = do v <- evalM' e
                          newRef v
-evalM (Deref e)     = do v <- eval' e
+evalM (Deref e)     = do v <- evalM' e
                          getRef v
-evalM (Assign x e1 e2) = do x'  <- eval' (Var x)
-                            e1' <- eval' e1
+evalM (Assign x e1 e2) = do x'  <- evalM' (Var x)
+                            e1' <- evalM' e1
                             updateRef x' e1'
-                            eval' e2
+                            evalM' e2
 
 --evalM e             = evalError ("Cannot eval: " ++ show e)
 
