@@ -7,17 +7,17 @@ module Language.Slicer.Repl
     ) where
 
 import           Language.Slicer.Absyn
-import qualified Language.Slicer.Core as C         ( Value, Type             )
-import           Language.Slicer.Desugar           ( desugar                 )
+import qualified Language.Slicer.Core as C         ( Value, Type )
+import           Language.Slicer.Desugar           ( desugar     )
 import           Language.Slicer.Env
 import           Language.Slicer.Error
-import           Language.Slicer.Eval              ( run                     )
+import           Language.Slicer.Eval              ( run         )
 import           Language.Slicer.Monad
-import           Language.Slicer.Monad.Eval hiding ( addBinding, dropBinding )
-import qualified Language.Slicer.Monad.Eval as E   ( addBinding, dropBinding )
+import           Language.Slicer.Monad.Eval hiding ( addBinding  )
+import qualified Language.Slicer.Monad.Eval as E   ( addBinding  )
 import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Resugar           () -- PP instances only
-import           Language.Slicer.Parser            ( parseRepl               )
+import           Language.Slicer.Parser            ( parseRepl   )
 
 import           Control.Exception                 ( assert      )
 import           Control.Monad.State.Strict
@@ -45,12 +45,6 @@ emptyState :: ReplState
 emptyState = ReplState { tyCtxS = emptyTyCtx
                        , gammaS = emptyEnv
                        , evalS  = emptyEvalState }
-
-getState :: ReplM ReplState
-getState = get
-
-setState :: ReplState -> ReplM ()
-setState = put
 
 -- | Get data type declarations
 getTyCtx :: ReplM TyCtx
@@ -89,13 +83,6 @@ addBinding var val ty = do
       newGamma = updateEnv gammaS var ty
   put $ replState { evalS = evalS', gammaS = newGamma }
 
-dropBinding :: Var -> ReplM ()
-dropBinding var = do
-  replState@(ReplState { evalS, gammaS }) <- get
-  let evalS'   = E.dropBinding evalS var
-      newGamma = unbindEnv gammaS var
-  put $ replState { evalS = evalS', gammaS = newGamma }
-
 -- | Run REPL monad
 runRepl :: ReplM () -> IO ()
 runRepl repl = evalStateT repl emptyState
@@ -113,11 +100,7 @@ parseAndEvalLine line = do
         -- INVARIANT: if we parsed an expression then we could not have parsed a
         -- data definition, hence the parsed context must be empty.
         assert (nullTyCtx tyCtx') $
-        do let isLet = isLetBinding expr -- See Note [Handling let bindings]
-               var   = getVar expr -- only safe to force when isLet == True
-           bkp    <- getState -- See Note [Backup REPL State]
-           when isLet (dropBinding var)
-           evalS  <- getEvalState
+        do evalS  <- getEvalState
            gamma  <- getGamma
            dsgres <- runSlMIO $ do
                           (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
@@ -126,10 +109,12 @@ parseAndEvalLine line = do
            case dsgres of
              Right (val, ty, st) ->
                  do setEvalState st
-                    when isLet (val `seq` addBinding var val ty)
+                     -- See Note [Handling let bindings]
+                    when (isLetBinding expr)
+                             (val `seq` addBinding (getVar expr) val ty)
                     return (It $ "val it = " ++ show (pp (tyCtx,val)) ++
                                  " : "       ++ show (pp ty))
-             Left err -> setState bkp >> return (Error err)
+             Left err -> return (Error err)
 
 -- Note [Handling let bindings]
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -138,33 +123,6 @@ parseAndEvalLine line = do
 -- our environment.  Once the binding is desugared and evaluated we add it to
 -- the environment.  Keep in mind that the result of getVar can only be forced
 -- safely when the REPL expression is a let binding.
-
--- Note [Backup REPL State]
--- ~~~~~~~~~~~~~~~~~~~~~~~~
---
--- Before we try to desugar and run the expression we backup REPL state.  This
--- is necessary because we drop the binding the user just defined and only after
--- we've done that we try to desugar the expression.  If the desugaring or
--- evaluation fails we restore the state, which basically means we restore the
--- binding that we dropped.  If we didn't do this here's what would happen:
---
---  slicer> let f = 5
---  val it = 5 : int
---  slicer> let f = sadsa
---  Desugaring error: Unbound variable sadsa
---  slicer> f
---  Desugaring error: Unbound variable f
---
--- In other words, providing an incorrect binding for f would delete the
--- existing correct binding for f.  Saving the state allows us to preserve the
--- correct binding:
---
---  slicer> let f = 5
---  val it = 5 : int
---  slicer> let f = sadsa
---  Desugaring error: Unbound variable sadsa
---  slicer> f
---  val it = 5 : int
 
 -- | Is this expression a REPL let binding?
 isLetBinding :: Exp -> Bool
