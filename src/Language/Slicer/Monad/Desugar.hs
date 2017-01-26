@@ -1,8 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Slicer.Monad.Desugar
-    ( DesugarM, runDesugarM, getGamma, getDecls
-    , withGamma, withBinder, withoutBinder
+    ( DesugarM, runDesugarM, getGamma, getDecls, withGamma, withBinder
     ) where
 
 import qualified Language.Slicer.Absyn as A
@@ -48,12 +47,6 @@ withBinder :: Var -> Type -> DesugarM a -> DesugarM a
 withBinder var ty thing = do
   gamma <- getGamma
   lift (evalStateT thing (DesugarState (bindEnv gamma var ty)))
-
--- | Run monadic desugaring removing a given binder from scope
-withoutBinder :: Var -> DesugarM a -> DesugarM a
-withoutBinder var thing = do
-  gamma <- getGamma
-  lift (evalStateT thing (DesugarState (unbindEnv gamma var)))
 
 -- | Run monadic desugaring inside a given context
 withGamma :: Ctx -> DesugarM a -> DesugarM a
