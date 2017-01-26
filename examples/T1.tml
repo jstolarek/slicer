@@ -1,3 +1,0 @@
-let f = fun f (n : int) : int => n + 1 in
-let f = fun f (n : int) : int => n + 1 in
-f

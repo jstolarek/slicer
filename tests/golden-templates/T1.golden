@@ -1,2 +1,0 @@
-Running ../../examples/T1.tml
-val it = fun f (n) => n + 1 : (int -> int)
