@@ -32,9 +32,6 @@ lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp op = return BoolTy
 lookupOp op [BoolTy  ]           | isBoolUnOp  op = return BoolTy
 -- built-in primitives
 lookupOp PrimVal           [TraceTy ty] = return ty
-lookupOp PrimWhere         [TraceTy ty] = return ty
-lookupOp PrimDep           [TraceTy ty] = return ty
-lookupOp PrimExpr          [TraceTy ty] = return ty
 lookupOp PrimTreeSize      [TraceTy _ ] = return IntTy
 lookupOp PrimProfile       [TraceTy _ ] = return UnitTy
 lookupOp PrimProfileDiff   [TraceTy _ ] = return UnitTy

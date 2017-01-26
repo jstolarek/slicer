@@ -1,18 +1,2 @@
 Running ../../examples/operators.tml
-4
--1
-4
-3
-1
-true
-false
-true
-true
-false
-false
-false
-true
-true
-false
-true
 val it = () : unit

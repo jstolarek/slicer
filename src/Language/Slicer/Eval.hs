@@ -1,15 +1,13 @@
 module Language.Slicer.Eval
     ( -- * Evaluating TML expressions
-      eval, run, evalOp
+      eval, run
     ) where
 
-import           Language.Slicer.Annot
 import           Language.Slicer.Core
 import           Language.Slicer.Env
 import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Eval
-import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Primitives
 import           Language.Slicer.Profile
 import           Language.Slicer.Slice
@@ -132,21 +130,6 @@ evalTraceOp PrimPSlice [VTrace v t _, p]
          return (VTrace p t' env')
     | otherwise = evalError ("pslice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
-evalTraceOp PrimWhere [VTrace _ t env]
-    = do let env' = fmap make_where env
-         v' <- lift $ whr env' t
-         liftIO $ putStrLn (show (pp v'))
-         return $ erase_to_v v'
-evalTraceOp PrimExpr [VTrace _ t env]
-    = do let env' = fmap make_expr env
-         v' <- lift $ expr env' t
-         liftIO $ putStrLn (show (pp v'))
-         return $ erase_to_v v'
-evalTraceOp PrimDep [VTrace _ t env]
-    = do let env' = fmap make_dep env
-         v' <- lift $ dep env' t
-         liftIO $ putStrLn (show ( pp v'))
-         return $ erase_to_v v'
 evalTraceOp PrimVisualize [VString s, VTrace _ t _]
     = do case takeExtension s of
            ".pdf" -> liftIO (visualizePDF s t) >> return VUnit
