@@ -42,6 +42,7 @@ test-suite slicer-test-suite
   default-language: Haskell2010
   main-is:          SlicerTestSuite.hs
   build-depends:    base         >= 4.8 && < 4.10,
+                    directory    >= 1.2.6.2,
                     filepath     >= 1.4,
                     process      >= 1.4,
                     tasty        >= 0.11,

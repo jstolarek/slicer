@@ -1,6 +1,7 @@
 module SlicerTestSuiteUtils where
 
 import           System.FilePath   ( joinPath                            )
+import           System.Directory  ( makeAbsolute                        )
 import           System.IO         ( IOMode(..), openFile                )
 import           System.Process    ( CreateProcess(..), StdStream(..)
                                    , createProcess, proc, waitForProcess )
@@ -17,8 +18,7 @@ tmlFilesPath = [ "examples" ]
 
 -- path to slicer executable relative to goldenPath
 slicerPath :: FilePath
-slicerPath = joinPath $ replicate (length goldenPath) ".." ++
-                                  [ "dist", "build", "slicer", "slicer" ]
+slicerPath = joinPath $ [ "dist", "build", "slicer", "slicer" ]
 
 -- location of tests
 relativeTestPath :: [FilePath]
@@ -42,7 +42,8 @@ runTMLTest testName =
       runTMLFile :: IO ()
       runTMLFile = do
         hActualFile <- openFile actualFilePath WriteMode
-        (_, _, _, pid) <- createProcess (proc slicerPath [testFile])
+        absSlicerPath <- makeAbsolute (slicerPath)
+        (_, _, _, pid) <- createProcess (proc absSlicerPath [testFile])
                                         { std_out = UseHandle hActualFile
                                         , std_err = UseHandle hActualFile
                                         , cwd     = Just (joinPath goldenPath) }
