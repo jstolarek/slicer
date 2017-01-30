@@ -7,18 +7,9 @@ TODOs
     into one pass.  It would be better to have a resugaring pass that restores
     original surface syntax and then we could pretty-print that syntax.
 
-  * Finish reading the paper
-
-  * Represent program as a series of expressions rather than as a single
-    expression.  This should allow to have better performance as desuagring and
-    evaluation of lets would be tail-recursive.  While I'm at it, change the
-    syntax of let-statements to store a series of binds.
-
   * Add benchmarks?
 
   * Make the code strict?
-
-  * Separate the code into library and executable?
 
   * Comments not allowed to begin a file
 
@@ -31,53 +22,37 @@ References
 How is Lattice defined for new refrence constructs?  How do I take their lub?
 Is this a straightforward extension?
 
-Do we want a sequencing operator?  Probably doesn't change the formalism in any
-relevant way.
-
 How to implement `match` (`Pattern` type class) for `VStoreLoc`?
 
-How does assignment to a reference interact with let statements?  Can there be
-anything else on the LHS side of assigmnet other than a valid label? Do we want
-to assign to expressions?
+I don't understand how store works in the slicing rules for references.  When
+slicing, when are values allocated to the store?
+
+Shouldn't we have rules for typing and evaluating reference traces?
+
+We need a constructor for tracing dereferences.  That constructor needs to
+record a label that is being dereferenced - cf. U-DEREF rule in the paper.
+
+Does "B.4 Backward slicing" section describe program slicing or trace slicing?
+I think the latter.
 
 
-Questions
-=========
-
-I am confused by `bslice`/`pslice`/`uneval`.  Does section 4.3 of the ICFP paper
-describe `blsice` or `pslice`.
-
-`pslice` reconstructs programs, but:
-
-  * I don't understand how it reconstructs if-expressions, ie. how it figures
-    out whether just one or both branches of an if are used
+Inconsistencies
+===============
 
   * there is no way to access program slice.  A hacky way of doing this is to
     modify `evalTraceOp` and add `liftIO $ putStrLn (show (pp t'))`.
 
-  * I don't understand how reconstruction of `Call` works (the last two `let`
-    bindings).
-
-  * I don't understand the way environments are handles in the `Let` case
-
-`uneval` seems to do the same as `pslice` in a much simpler way.
-
-Isn't the `extract` functions from `Pattern` type class just a greatest lower
-bound?
-
-I don't understand how `slice` primitvie is handled - why call `extract` there?
-Isn't it the case here that *if* `p <= v` then the result of extract will be `p`
-(module VStar)?  Moreover, `bslice` seems to do exactly the same thing,
-ie. prunning branches in the expresson tree that correspond to a hole in the
-slicing criterion.
-
-How do I say `VStar` in the source code?
-
-Performance: issues with "reverse" tests.
+  * there is no way to evaluate a trace, although we specifically define trace
+    evaluation rules.
 
 
 Resugaring notes
 ================
+
+Notes below were made assuming that expressions and traces have a common AST.  I
+haven't thought much how resugaring will be affected by separating expressions
+and traces into separate syntax trees.
+
 
 ### Differences in type language
 
