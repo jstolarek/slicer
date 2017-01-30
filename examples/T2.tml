@@ -1,0 +1,5 @@
+-- Test case for bug #2.  Tests that the reference store does not shrink
+let n = ref 0 in
+let m = let x = ()
+        in  n:=2;; ()
+in !n
