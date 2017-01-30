@@ -342,8 +342,23 @@ deref_ = reservedOp token_ strDeref >> return Deref
 assign_ :: Parser (Exp -> Exp -> Exp)
 assign_ = reservedOp token_ strAssign >> return Assign
 
+-- Sequencing operator
 seq_ :: Parser (Exp -> Exp -> Exp)
 seq_ = reservedOp token_ strSeq >> return Seq
+
+-- Comments.  See Note [Comments hack]
+comments :: Parser String
+comments = string "--" >> manyTill anyChar newline
+
+-- Note [Comments hack]
+-- ~~~~~~~~~~~~~~~~~~~~
+--
+-- We're using Haskell tokenizer to parse our language.  Parsec by default
+-- ensures that Haskell comments are permitted *inside expressions*.  But we
+-- want to be able to use comments also at the beginning of a file and Parsec
+-- does not seem to support that.  So we use a hack: define our own production
+-- for single-line comments and use it explicitly to permit comments at the top
+-- of the file.
 
 typeDef :: Parser (TyVar, TyDecl)
 typeDef = do
@@ -436,7 +451,8 @@ repl =
 -- expression in that variable context.
 program :: Parser (ParserState, Exp)
 program = do
-   _      <- many typeDef -- discards type ctxt, we'll read it from parser state
+   skipMany comments -- See Note [Comments hack]
+   skipMany typeDef  -- discards type ctxt, we'll read it from parser state
    e      <- exp
    eof
    tyCtx' <- getState

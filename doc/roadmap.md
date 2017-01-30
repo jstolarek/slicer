@@ -11,8 +11,6 @@ TODOs
 
   * Make the code strict?
 
-  * Comments not allowed to begin a file
-
   * try a stronger embedding with GADTs?  See Valuable type class in Trace
 
 
