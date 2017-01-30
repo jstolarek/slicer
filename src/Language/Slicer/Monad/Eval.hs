@@ -76,6 +76,12 @@ getEnv = do
   EvalState { envS } <- get
   return envS
 
+-- | Set the environment
+setEnv :: Env env -> EvalM env ()
+setEnv env = do
+  st <- get
+  put $ st { envS = env }
+
 -- | Allocates a new reference number
 newRef :: env -> EvalM env Value
 newRef val = do
@@ -103,12 +109,24 @@ updateRef v _ = evalError ("Not a reference value: " ++ show v)
 -- | Run monadic evaluation with extra binder in scope
 withBinder :: Var -> env -> EvalM env value -> EvalM env value
 withBinder var val thing = do
-  env <- getEnv
-  st  <- get
-  lift (evalStateT thing (st { envS = bindEnv env var val }))
+  env    <- getEnv
+  withEnv (bindEnv env var val) thing
 
 -- | Run monadic evaluation inside a given environment
 withEnv :: Env env -> EvalM env value -> EvalM env value
-withEnv env thing = do
-  st <- get
-  lift (evalStateT thing (st { envS = env }))
+withEnv newEnv thing = do
+  oldEnv <- getEnv
+  setEnv newEnv
+  result <- thing
+  setEnv oldEnv -- See Note [Store does not shrink]
+  return result
+
+-- Note [Store does not shrink]
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+-- It is important to remember that while scope (environment) can grow and
+-- shrink during execution, the reference store can only grow.  The
+-- withBinder/withEnv functions save the original environment, extend the
+-- environbment as requested, run the computations (possibly allowing them to
+-- grow the store) and restore original environment.  Thus the environment
+-- shrinks, but the store modified by execution of the "thing" remains.
