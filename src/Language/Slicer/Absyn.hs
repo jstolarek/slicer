@@ -2,7 +2,7 @@
 
 module Language.Slicer.Absyn
     ( -- * Abstract syntax
-      Code(..), Con(..), Exp(..), Lab(..), Match(..), Type(..), Ctx
+      Code(..), Con(..), Exp(..), Match(..), Type(..), Ctx
 
       -- * Type declarations
     , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName, getConstrs
@@ -17,7 +17,6 @@ import           Language.Slicer.Primitives
 import           Data.Maybe
 import qualified Data.Map as Map
 
-newtype Lab = L String deriving (Show, Eq, Ord)
 newtype Con = C String deriving (Eq, Ord)
 
 instance Show Con where
