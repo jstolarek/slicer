@@ -4,7 +4,7 @@ module Language.Slicer.TraceGraph
     ( visualizePDF, visualizeDiffPDF, visualizeSVG, visualizeDiffSVG
     ) where
 
-import           Language.Slicer.Core ( Trace, Exp(..), Code(..), Match(..) )
+import           Language.Slicer.Core
 import           Language.Slicer.PrettyPrinting
 
 import           Data.GraphViz
@@ -50,6 +50,11 @@ gNode clr lbl = do
   addNode n
   return i
 
+whiteNode, grayNode, blackNode :: String -> G Int
+whiteNode = gNode (X11Color White)
+grayNode  = gNode (X11Color Gray )
+blackNode = gNode (X11Color Black)
+
 gHole :: G Int
 gHole = do
   i <- gensym
@@ -69,52 +74,7 @@ trace2gv attribs node t = g
 
 trace2gvG :: (String -> G Int) -> (Int -> Int -> G ()) -> Trace -> G Int
 trace2gvG node edge = buildGraph
-    where buildGraph (Var x) = node (show (pp x))
-          buildGraph (Let x e1 e2) = do i <- node ("let " ++ show x)
-                                        i2 <- buildGraph e2
-                                        edge i i2
-                                        i1 <- buildGraph e1
-                                        edge i i1
-                                        return i
-          buildGraph (Fun (Rec { funBody })) = buildGraph funBody
-          buildGraph Unit = node "()"
-          buildGraph (CBool b) = node (if b then "true" else "false")
-          buildGraph (CInt  i) = node (show i)
-          buildGraph (CString s) = node s
-          buildGraph (Op f ts) = do i <- node (show (pp f))
-                                    idxs <- mapM buildGraph (reverse ts)
-                                    mapM_ (\j -> edge i j) idxs
-                                    return i
-          buildGraph (Pair t1 t2) = do i <- node "pair"
-                                       i2 <- buildGraph t2
-                                       edge i i2
-                                       i1 <- buildGraph t1
-                                       edge i i1
-                                       return i
-          buildGraph (Fst t) = do i <- node "fst"
-                                  j <- buildGraph t
-                                  edge i j
-                                  return i
-          buildGraph (Snd t) = do i <- node "snd"
-                                  j <- buildGraph t
-                                  edge i j
-                                  return i
-          buildGraph (InL t) = do i <- node "inl"
-                                  j <- buildGraph t
-                                  edge i j
-                                  return i
-          buildGraph (InR t) = do i <- node "inr"
-                                  j <- buildGraph t
-                                  edge i j
-                                  return i
-          buildGraph (If c e1 e2) = do
-            -- Not constructing graph for condition, just printing
-            i <- node ("if: " ++ show (pp c))
-            k <- buildGraph e1
-            edge i k
-            j <- buildGraph e2
-            edge i j
-            return i
+    where buildGraph :: Trace -> G Int
           buildGraph (IfThen t _ _ t1) = do i <- node "if/t"
                                             k <- buildGraph t1
                                             edge i k
@@ -127,26 +87,18 @@ trace2gvG node edge = buildGraph
                                             j <- buildGraph t
                                             edge i j
                                             return i
-          buildGraph (Case e m) = do
-            -- Not constructing graph for scrutinee, just printing
-            i <- node ("case:" ++ show (pp e))
-            k <- buildGraph (snd (inL m))
-            edge i k
-            j <- buildGraph (snd (inR m))
-            edge i j
-            return i
-          buildGraph (CaseL t _ _ t1) = do i <- node "case/l"
-                                           k <- buildGraph t1
-                                           edge i k
-                                           j <- buildGraph t
-                                           edge i j
-                                           return i
-          buildGraph (CaseR t _ _ t2) = do i <- node "case/r"
-                                           k <- buildGraph t2
-                                           edge i k
-                                           j <- buildGraph t
-                                           edge i j
-                                           return i
+          buildGraph (CaseL t _ t1) = do i <- node "case/l"
+                                         k <- buildGraph t1
+                                         edge i k
+                                         j <- buildGraph t
+                                         edge i j
+                                         return i
+          buildGraph (CaseR t _ t2) = do i <- node "case/r"
+                                         k <- buildGraph t2
+                                         edge i k
+                                         j <- buildGraph t
+                                         edge i j
+                                         return i
           buildGraph (Call t1 t2 _ t) = do i <- node "app"
                                            k <- buildGraph (funBody t)
                                            edge i k
@@ -155,19 +107,83 @@ trace2gvG node edge = buildGraph
                                            j1 <- buildGraph t1
                                            edge i j1
                                            return i
-          buildGraph (Roll   _ t) = buildGraph t
-          buildGraph (Unroll _ t) = buildGraph t
-          buildGraph Hole = gHole
-          buildGraph (App e1 e2) = do i <- node "app"
-                                      j2 <- buildGraph e2
-                                      edge i j2
-                                      j1 <- buildGraph e1
-                                      edge i j1
+          buildGraph (TExp expr) = buildSyntaxGraph expr
+
+          buildSyntaxGraph :: Syntax Trace -> G Int
+          buildSyntaxGraph (Var x) = node (show (pp x))
+          buildSyntaxGraph (Let x e1 e2) = do i <- node ("let " ++ show x)
+                                              i2 <- buildGraph e2
+                                              edge i i2
+                                              i1 <- buildGraph e1
+                                              edge i i1
+                                              return i
+          buildSyntaxGraph (Fun _) =
+           -- JSTOLAREK: Need to implement Exp graphing logic here.  This will
+           -- allow to graph body of a function.  This, however requires type
+           -- classes because buildSyntaxGraph will have to accept `Syntax a`,
+           -- where `a` is Graphable.  Or I could just make buildSyntaxGraph
+           -- into a higher order function, but that would be a lot of
+           -- boilerplate.
+           --
+           -- buildExpGraph funBody
+              node "<fun>"
+          buildSyntaxGraph Unit = node "()"
+          buildSyntaxGraph (CBool b) = node (if b then "true" else "false")
+          buildSyntaxGraph (CInt  i) = node (show i)
+          buildSyntaxGraph (CString s) = node s
+          buildSyntaxGraph (Op f ts) = do i <- node (show (pp f))
+                                          idxs <- mapM buildGraph (reverse ts)
+                                          mapM_ (\j -> edge i j) idxs
+                                          return i
+          buildSyntaxGraph (Pair t1 t2) = do i <- node "pair"
+                                             i2 <- buildGraph t2
+                                             edge i i2
+                                             i1 <- buildGraph t1
+                                             edge i i1
+                                             return i
+          buildSyntaxGraph (Fst t) = do i <- node "fst"
+                                        j <- buildGraph t
+                                        edge i j
+                                        return i
+          buildSyntaxGraph (Snd t) = do i <- node "snd"
+                                        j <- buildGraph t
+                                        edge i j
+                                        return i
+          buildSyntaxGraph (InL t) = do i <- node "inl"
+                                        j <- buildGraph t
+                                        edge i j
+                                        return i
+          buildSyntaxGraph (InR t) = do i <- node "inr"
+                                        j <- buildGraph t
+                                        edge i j
+                                        return i
+          buildSyntaxGraph (Roll   _ t) = buildGraph t
+          buildSyntaxGraph (Unroll _ t) = buildGraph t
+          buildSyntaxGraph Hole = gHole
+{-
+These belong to Exp
+          buildGraph (TrIf c e1 e2) = do
+            -- Not constructing graph for condition, just printing
+            i <- node ("if: " ++ show (pp c))
+            k <- buildGraph e1
+            edge i k
+            j <- buildGraph e2
+            edge i j
+            return i
+          buildGraph (TrCase e m) = do
+            -- Not constructing graph for scrutinee, just printing
+            i <- node ("case:" ++ show (pp e))
+            k <- buildExpGraph (snd (inL m))
+            edge i k
+            j <- buildExpGraph (snd (inR m))
+            edge i j
+            return i
+          buildGraph (TrTrace t) = do i <- node "trace"
+                                      j <- buildGraph t
+                                      edge i j
                                       return i
-          buildGraph (Trace t) = do i <- node "trace"
-                                    j <- buildGraph t
-                                    edge i j
-                                    return i
+-}
+
 
 -- Takes traces t1,t2
 -- Visualize differences between traces:
@@ -176,7 +192,7 @@ trace2gvG node edge = buildGraph
 -- Red for t1 only
 traces2gv :: [GlobalAttributes]
           -> (String -> G Int, String -> G Int, String -> G Int)
-          -> Exp -> Exp -> DotGraph Int
+          -> Trace -> Trace -> DotGraph Int
 traces2gv attribs (node, node1, node2) t1 t2 = g
 
     where g0 = DotGraph True True (Just (Str (pack "G")))
@@ -185,58 +201,11 @@ traces2gv attribs (node, node1, node2) t1 t2 = g
           (_,g,_) = f 0 g0
 
 traces2gvG :: (String -> G Int, String -> G Int, String -> G Int)
-           -> (Int -> Int -> G ()) -> Exp -> Exp -> G Int
+           -> (Int -> Int -> G ()) -> Trace -> Trace -> G Int
 traces2gvG (node, node1, node2) edge = buildGraph
-    where buildGraph (Var x) (Var _) = node (show (pp x))
-          buildGraph (Let x e1 e2) (Let _ e1' e2')
-              = do i <- node ("let " ++ show x)
-                   i2 <- buildGraph e2 e2'
-                   edge i i2
-                   i1 <- buildGraph e1 e1'
-                   edge i i1
-                   return i
-          buildGraph (Fun _) (Fun _) = node "<fun>"
-          buildGraph Unit Unit = node "()"
-          buildGraph (CBool b) (CBool b')
-              | b == b'
-              = node (if b then "true" else "false")
-          buildGraph (CInt i) (CInt i')
-              | i == i'
-              = node (show i)
-          buildGraph (Op f ts) (Op f' ts')
-              | f == f' && length ts == length ts'
-                  = do i <- node (show (pp f))
-                       idxs <- mapM (\(t1,t2) -> buildGraph t1 t2)
-                                    (reverse (zip ts ts'))
-                       mapM_ (\j -> edge i j) idxs
-                       return i
-          buildGraph (Pair t1 t2) (Pair t1' t2')
-              = do i <- node "pair"
-                   i2 <- buildGraph t2 t2'
-                   edge i i2
-                   i1 <- buildGraph t1 t1'
-                   edge i i1
-                   return i
-          buildGraph (Fst t) (Fst t')
-              = do i <- node "fst"
-                   j <- buildGraph t t'
-                   edge i j
-                   return i
-          buildGraph (Snd t) (Snd t')
-              = do i <- node "snd"
-                   j <- buildGraph t t'
-                   edge i j
-                   return i
-          buildGraph (InL t) (InL t') =
-              do i <- node "inl"
-                 j <- buildGraph t t'
-                 edge i j
-                 return i
-          buildGraph (InR t) (InR t')
-              = do i <- node "inr"
-                   j <- buildGraph t t';
-                   edge i j
-                   return i
+    where buildGraph t THole = trace2gvG node1 edge t
+          buildGraph THole t = trace2gvG node2 edge t
+          buildGraph (TExp expr) (TExp expr') = buildSyntaxGraph expr expr'
           buildGraph (IfThen t _ _ t1) (IfThen t' _ _ t1')
               = do i <- node "if/t"
                    k <- buildGraph t1 t1'
@@ -251,14 +220,14 @@ traces2gvG (node, node1, node2) edge = buildGraph
                    j <- buildGraph t t'
                    edge i j
                    return i
-          buildGraph (CaseL t _ _ t1) (CaseL t' _ _ t1')
+          buildGraph (CaseL t _ t1) (CaseL t' _ t1')
               = do i <- node "case/l"
                    k <- buildGraph t1 t1'
                    edge i k
                    j <- buildGraph t t'
                    edge i j
                    return i
-          buildGraph (CaseR t _ _ t2) (CaseR t' _ _ t2')
+          buildGraph (CaseR t _ t2) (CaseR t' _ t2')
               = do i <- node "case/r"
                    k <- buildGraph t2 t2'
                    edge i k
@@ -274,24 +243,71 @@ traces2gvG (node, node1, node2) edge = buildGraph
                    j1 <- buildGraph t1 t1'
                    edge i j1
                    return i
-          buildGraph (App e1 e2) (App e1' e2')
-              = do i <- node "app"
-                   j2 <- buildGraph e2 e2'
-                   edge i j2
-                   j1 <- buildGraph e1 e1'
-                   edge i j1
-                   return i
-          buildGraph (Roll tv t) (Roll tv' t')
-              | tv == tv'
-              = buildGraph t t'
-          buildGraph (Unroll tv t) (Unroll tv' t')
-              | tv == tv'
-              = buildGraph t t'
-          buildGraph t Hole = trace2gvG node1 edge t
-          buildGraph Hole t = trace2gvG node2 edge t
-
           buildGraph _ _ = error "Not safe to throw an exception here..."
 
+
+          buildSyntaxGraph :: Syntax Trace -> Syntax Trace -> G Int
+          buildSyntaxGraph (Var x) (Var _) = node (show (pp x))
+          buildSyntaxGraph (Let x e1 e2) (Let _ e1' e2')
+              = do i <- node ("let " ++ show x)
+                   i2 <- buildGraph e2 e2'
+                   edge i i2
+                   i1 <- buildGraph e1 e1'
+                   edge i i1
+                   return i
+          buildSyntaxGraph (Fun _) (Fun _) = node "<fun>"
+          buildSyntaxGraph Unit Unit = node "()"
+          buildSyntaxGraph (CBool b) (CBool b')
+              | b == b'
+              = node (if b then "true" else "false")
+          buildSyntaxGraph (CInt i) (CInt i')
+              | i == i'
+              = node (show i)
+          buildSyntaxGraph (Op f ts) (Op f' ts')
+              | f == f' && length ts == length ts'
+                  = do i <- node (show (pp f))
+                       idxs <- mapM (\(t1,t2) -> buildGraph t1 t2)
+                                    (reverse (zip ts ts'))
+                       mapM_ (\j -> edge i j) idxs
+                       return i
+          buildSyntaxGraph (Pair t1 t2) (Pair t1' t2')
+              = do i <- node "pair"
+                   i2 <- buildGraph t2 t2'
+                   edge i i2
+                   i1 <- buildGraph t1 t1'
+                   edge i i1
+                   return i
+          buildSyntaxGraph (Fst t) (Fst t')
+              = do i <- node "fst"
+                   j <- buildGraph t t'
+                   edge i j
+                   return i
+          buildSyntaxGraph (Snd t) (Snd t')
+              = do i <- node "snd"
+                   j <- buildGraph t t'
+                   edge i j
+                   return i
+          buildSyntaxGraph (InL t) (InL t') =
+              do i <- node "inl"
+                 j <- buildGraph t t'
+                 edge i j
+                 return i
+          buildSyntaxGraph (InR t) (InR t')
+              = do i <- node "inr"
+                   j <- buildGraph t t';
+                   edge i j
+                   return i
+          buildSyntaxGraph (Roll tv t) (Roll tv' t')
+              | tv == tv'
+              = buildGraph t t'
+          buildSyntaxGraph (Unroll tv t) (Unroll tv' t')
+              | tv == tv'
+              = buildGraph t t'
+          -- JSTOLAREK: Wrapping in TrExp will hopefully go away with type
+          -- classes
+          buildSyntaxGraph t Hole = trace2gvG node1 edge (TExp t)
+          buildSyntaxGraph Hole t = trace2gvG node2 edge (TExp t)
+          buildSyntaxGraph _ _ = error "Not safe to throw an exception here..."
 
 
 common_attrs :: [GlobalAttributes]
@@ -302,10 +318,9 @@ common_attrs = [GraphAttrs [RankDir FromTop,
 trace2gv_default :: Trace -> DotGraph Int
 trace2gv_default t = trace2gv common_attrs (gNode (X11Color White)) t
 
-traces2gv_default :: Exp -> Exp -> DotGraph Int
-traces2gv_default t t' = traces2gv common_attrs (gNode (X11Color White),
-                                       gNode (X11Color Gray),
-                                       gNode (X11Color Black)) t t'
+traces2gv_default :: Trace -> Trace -> DotGraph Int
+traces2gv_default t t' = traces2gv common_attrs ( whiteNode, grayNode
+                                                , blackNode) t t'
 
 visualizePDF :: String -> Trace -> IO FilePath
 visualizePDF fn t = runGraphvizCommand Dot (trace2gv_default t) Pdf fn
