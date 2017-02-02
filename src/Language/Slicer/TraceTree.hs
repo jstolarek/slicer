@@ -1,58 +1,58 @@
 module Language.Slicer.TraceTree
-    ( TraceTree(..), to_tree, forestsize
+    ( TraceTree(..), toTree, forestsize
     ) where
 
 import           Language.Slicer.Core
 
-data TraceTree = THole
-               | TTrue TraceForest TraceForest
-               | TFalse TraceForest TraceForest
-               | TInL TraceForest TraceForest
-               | TInR TraceForest TraceForest
-               | TCall Code TraceForest TraceForest TraceForest
+data TraceTree = TTHole
+               | TTTrue TraceForest TraceForest
+               | TTFalse TraceForest TraceForest
+               | TTInL TraceForest TraceForest
+               | TTInR TraceForest TraceForest
+               | TTCall (Maybe Lab) TraceForest TraceForest TraceForest
                  deriving (Show, Eq, Ord)
 
 type TraceForest = [TraceTree]
 
 treesize :: TraceTree -> Int
-treesize THole              = 1
-treesize (TTrue   t1 t2   ) = forestsize t1 + forestsize t2 + 1
-treesize (TFalse  t1 t2   ) = forestsize t1 + forestsize t2 + 1
-treesize (TInL    t1 t2   ) = forestsize t1 + forestsize t2 + 1
-treesize (TInR    t1 t2   ) = forestsize t1 + forestsize t2 + 1
-treesize (TCall _ t1 t2 ts) = forestsize t1 + forestsize t2 + forestsize ts + 1
+treesize TTHole              = 1
+treesize (TTTrue   t1 t2   ) = forestsize t1 + forestsize t2 + 1
+treesize (TTFalse  t1 t2   ) = forestsize t1 + forestsize t2 + 1
+treesize (TTInL    t1 t2   ) = forestsize t1 + forestsize t2 + 1
+treesize (TTInR    t1 t2   ) = forestsize t1 + forestsize t2 + 1
+treesize (TTCall _ t1 t2 ts) = forestsize t1 + forestsize t2 + forestsize ts + 1
 
 forestsize :: TraceForest -> Int
 forestsize = sum . map treesize
 
-to_tree :: Trace -> TraceForest
-to_tree t = to_tree_fast t []
+toTree :: Trace -> TraceForest
+toTree t = toTreeFast t []
 
-to_tree_fast :: Trace -> TraceForest -> TraceForest
-to_tree_fast  Hole             acc = THole : acc
-to_tree_fast (Var _)           acc = acc
-to_tree_fast (Let _ t1 t2)     acc = (to_tree_fast t1 . to_tree_fast t2) acc
-to_tree_fast  Unit             acc = acc
-to_tree_fast (CBool _)         acc = acc
-to_tree_fast (IfThen t _ _ t1) acc =
-    (TTrue  (to_tree_fast t []) (to_tree_fast t1 [])):acc
-to_tree_fast (IfElse t _ _ t2) acc =
-    (TFalse (to_tree_fast t []) (to_tree_fast t2 [])):acc
-to_tree_fast (CInt _)          acc = acc
-to_tree_fast (Op _ ts)         acc = foldr to_tree_fast acc ts
-to_tree_fast (Pair t1 t2)      acc = (to_tree_fast t1 . to_tree_fast t2) acc
-to_tree_fast (Fst t)           acc = to_tree_fast t acc
-to_tree_fast (Snd t)           acc = to_tree_fast t acc
-to_tree_fast (InL t)           acc = to_tree_fast t acc
-to_tree_fast (InR t)           acc = to_tree_fast t acc
-to_tree_fast (CaseL t _ _ t1)  acc =
-    (TInL (to_tree_fast t []) (to_tree_fast t1 [])) : acc
-to_tree_fast (CaseR t _ _ t2)  acc =
-    (TInR (to_tree_fast t []) (to_tree_fast t2 [])) : acc
-to_tree_fast (Fun _)           acc = acc
-to_tree_fast (Call t1 t2 k t)  acc =
-    (TCall k (to_tree_fast t1 []) (to_tree_fast t2 [])
-             (to_tree_fast (funBody t) [])) : acc
-to_tree_fast (Roll   _ t)      acc = to_tree_fast t acc
-to_tree_fast (Unroll _ t)      acc = to_tree_fast t acc
-to_tree_fast t                 _   = error ("to_tree_fast" ++ show t)
+toTreeFast :: Trace -> TraceForest -> TraceForest
+toTreeFast  THole         acc = TTHole : acc
+toTreeFast (TVar _)       acc = acc
+toTreeFast (TLet _ t1 t2) acc = (toTreeFast t1 . toTreeFast t2) acc
+toTreeFast  TUnit         acc = acc
+toTreeFast (TBool _)      acc = acc
+toTreeFast (TInt _)       acc = acc
+toTreeFast (TString _)    acc = acc
+toTreeFast (TOp _ ts)     acc = foldr toTreeFast acc ts
+toTreeFast (TPair t1 t2)  acc = (toTreeFast t1 . toTreeFast t2) acc
+toTreeFast (TFst t)       acc = toTreeFast t acc
+toTreeFast (TSnd t)       acc = toTreeFast t acc
+toTreeFast (TInL t)       acc = toTreeFast t acc
+toTreeFast (TInR t)       acc = toTreeFast t acc
+toTreeFast (TFun _)       acc = acc
+toTreeFast (TRoll   _ t)  acc = toTreeFast t acc
+toTreeFast (TUnroll _ t)  acc = toTreeFast t acc
+toTreeFast (IfThen t _ _ t1) acc =
+    (TTTrue  (toTreeFast t []) (toTreeFast t1 [])):acc
+toTreeFast (IfElse t _ _ t2) acc =
+    (TTFalse (toTreeFast t []) (toTreeFast t2 [])):acc
+toTreeFast (CaseL t _ t1)  acc =
+    (TTInL (toTreeFast t []) (toTreeFast t1 [])) : acc
+toTreeFast (CaseR t _ t2)  acc =
+    (TTInR (toTreeFast t []) (toTreeFast t2 [])) : acc
+toTreeFast (Call t1 t2 k t)  acc =
+    (TTCall k (toTreeFast t1 []) (toTreeFast t2 [])
+              (toTreeFast (funBody t) [])) : acc

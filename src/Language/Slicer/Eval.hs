@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Language.Slicer.Eval
     ( -- * Evaluating TML expressions
       eval, run
@@ -30,61 +32,59 @@ eval :: Env Value -> Exp -> SlMIO Value
 eval env e = evalEvalM env (evalM e)
 
 evalM :: Exp -> EvalMV Value
-evalM Hole          = return VHole
-evalM (Var x)       = do env <- getEnv
-                         return (lookupEnv' env x)
-evalM (Let x e1 e2) = do v <- evalM' e1
-                         withBinder x v (evalM' e2)
-evalM (Unit)        = return VUnit
-evalM (CBool b)     = return (VBool b)
-evalM (If e e1 e2)  = do cond <- evalM' e
-                         evalIf cond e1 e2
-evalM (CInt i)      = return (VInt i)
-evalM (CString s)   = return (VString s)
-evalM (Op f exps)   = do exps' <- mapM evalM' exps
-                         evalTraceOp f exps'
-evalM (Pair e1 e2)  = do e1' <- evalM' e1
-                         e2' <- evalM' e2
-                         return (VPair e1' e2')
-evalM (Fst e)       = do (VPair v1 _) <- evalM' e
-                         return v1
-evalM (Snd e)       = do (VPair _ v2) <- evalM' e
-                         return v2
-evalM (InL e)       = do e' <- evalM' e
-                         return (VInL e')
-evalM (InR e)       = do e' <- evalM' e
-                         return (VInR e')
-evalM (Case e m)    = do e' <- evalM' e
-                         evalMatch e' m
-evalM (Fun k)       = do env <- getEnv
-                         return (VClosure k env)
-evalM (App e1 e2)   = do e1' <- evalM' e1
-                         e2' <- evalM' e2
-                         evalCall e1' e2'
-evalM (Roll tv e)   = do e' <- evalM' e
-                         return (VRoll tv e')
-evalM (Unroll tv e) = do (VRoll tv' v) <- evalM' e
-                         assert (tv == tv') (return v)
-evalM (Trace e)     = do env    <- getEnv
-                         (v, t) <- trace e
-                         return (VTrace v t env)
+evalM EHole           = return VHole
+evalM (EVar x)        = do env <- getEnv
+                           return (lookupEnv' env x)
+evalM (ELet x e1 e2)  = do v <- evalM' e1
+                           withBinder x v (evalM' e2)
+evalM  EUnit          = return VUnit
+evalM (EBool b)       = return (VBool b)
+evalM (If e e1 e2)    = do cond <- evalM' e
+                           evalIf cond e1 e2
+evalM (EInt i)        = return (VInt i)
+evalM (EString s)     = return (VString s)
+evalM (EOp f exps)    = do exps' <- mapM evalM' exps
+                           evalTraceOp f exps'
+evalM (EPair e1 e2)   = do e1' <- evalM' e1
+                           e2' <- evalM' e2
+                           return (VPair e1' e2')
+evalM (EFst e)        = do (VPair v1 _) <- evalM' e
+                           return v1
+evalM (ESnd e)        = do (VPair _ v2) <- evalM' e
+                           return v2
+evalM (EInL e)        = do e' <- evalM' e
+                           return (VInL e')
+evalM (EInR e)        = do e' <- evalM' e
+                           return (VInR e')
+evalM (Case e m)      = do e' <- evalM' e
+                           evalMatch e' m
+evalM (EFun k)        = do env <- getEnv
+                           return (VClosure k env)
+evalM (App e1 e2)     = do e1' <- evalM' e1
+                           e2' <- evalM' e2
+                           evalCall e1' e2'
+evalM (ERoll tv e)    = do e' <- evalM' e
+                           return (VRoll tv e')
+evalM (EUnroll tv e)  = do (VRoll tv' v) <- evalM' e
+                           assert (tv == tv') (return v)
+evalM (Trace e)       = do env    <- getEnv
+                           (v, t) <- trace e
+                           return (VTrace v t env)
 -- References
-evalM (Ref e)        = do v <- evalM' e
-                          newRef v
-evalM (Deref e)      = do v <- evalM' e
-                          getRef v
-evalM (Assign e1 e2) = do e1' <- evalM' e1
-                          e2' <- evalM' e2
-                          updateRef e1' e2'
-                          return VUnit
-evalM (Seq e1 e2)    = do VUnit <- evalM' e1
-                          evalM' e2
--- Traces
-evalM (IfThen _ _ _ _) = errorReplayTrace
-evalM (IfElse _ _ _ _) = errorReplayTrace
-evalM (CaseL  _ _ _ _) = errorReplayTrace
-evalM (CaseR  _ _ _ _) = errorReplayTrace
-evalM (Call   _ _ _ _) = errorReplayTrace
+evalM (ERef e)        = do v <- evalM' e
+                           newRef v
+evalM (EDeref e)      = do v <- evalM' e
+                           getRef v
+evalM (EAssign e1 e2) = do e1' <- evalM' e1
+                           e2' <- evalM' e2
+                           updateRef e1' e2'
+                           return VUnit
+evalM (ESeq e1 e2)    = do VUnit <- evalM' e1
+                           evalM' e2
+-- This will never happen because the above matches cover all cases.  But the
+-- pattern exhaustiveness checker doesn't see that because we're using pattern
+-- synonym.  See GHC bug #8779.  Hopefully GHC 8.2 will ship a fix.
+evalM _ = error "Impossible happened in evalM"
 
 -- | Evaluates an expression and forces the result before returning it.  Ensures
 -- strict semantics.
@@ -127,7 +127,7 @@ evalTraceOp PrimSlice [VTrace v t env, p]
 evalTraceOp PrimPSlice [VTrace v t _, p]
     | p `leq` v
     = do let (t',env') = pslice p t
-         return (VTrace p t' env')
+         return (VExp p t' env')
     | otherwise = evalError ("pslice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
 evalTraceOp PrimVisualize [VString s, VTrace _ t _]
@@ -142,7 +142,7 @@ evalTraceOp PrimVisualizeDiff [VString s, VTrace _ t1 _, VTrace _ t2 _]
            ext    -> evalError $ "visualizeDiff: unknown file extension : " ++
                                  ext
 evalTraceOp PrimTreeSize [VTrace _ t _] =
-    return (VInt (forestsize (to_tree t)))
+    return (VInt (forestsize (toTree t)))
 evalTraceOp PrimProfile [VTrace _ t _]
     = do liftIO $ putStrLn (show (profile t))
          return VUnit
@@ -163,79 +163,45 @@ evalOp _ vs                     | VHole `elem` vs = return VHole
 evalOp _ vs                     | VStar `elem` vs = return VStar
 evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
 
-errorReplayTrace :: EvalMV a
-errorReplayTrace = evalError "Evaluation of trace expressions not permitted"
-
 -- Tracing as described in Section 4.2 of ICFP'12 paper
 trace :: Exp -> EvalMV (Value, Trace)
-trace (Var x)       = do env <- getEnv
-                         return (lookupEnv' env x, Var x)
-trace (Let x e1 e2) = do (v1, t1) <- trace' e1
-                         (v2, t2) <- withBinder x v1 (trace' e2)
-                         v1 `seq` return (v2, Let x t1 t2)
-trace (Unit)        = return (VUnit, Unit)
-trace (CBool b)     = return (VBool b, CBool b)
-trace (If e e1 e2)  = do e' <- trace' e
-                         traceIf e' e1 e2
-trace (CInt i)      = return (VInt i, CInt i)
-trace (CString s)   = return (VString s, CString s)
-trace (Op f exps)   = do vts <- mapM trace' exps
-                         traceOp f vts
-trace (Pair e1 e2)  = do (v1, t1) <- trace' e1
-                         (v2, t2) <- trace' e2
-                         return (VPair v1 v2, Pair t1 t2)
-trace (Fst e)       = do (VPair v1 _, t) <- trace' e
-                         return (v1, Fst t)
-trace (Snd e)       = do (VPair _ v2, t) <- trace' e
-                         return (v2, Snd t)
-trace (InL e)       = do (v, t) <- trace' e
-                         return (VInL v, InL t)
-trace (InR e)       = do (v, t) <- trace' e
-                         return (VInR v, InR t)
-trace (Case e m)    = do e' <- trace' e
-                         traceMatch e' m
-trace (Fun k)       = do env <- getEnv
-                         return (VClosure k env, Fun k)
-trace (App e1 e2)   = do e1' <- trace' e1
-                         e2' <- trace' e2
-                         traceCall e1' e2'
-trace (Roll tv e)   = do (v, t) <- trace' e
-                         return (VRoll tv v, Roll tv t)
-trace (Unroll tv e) = do (VRoll tv' v, t) <- trace' e
-                         assert (tv == tv') (return (v, Unroll tv t))
--- replay cases
-trace (IfThen t e1 e2 t1)
-    = do tr <- trace' t
-         case tr of
-           (VBool True, t') -> do (v1, t1') <- trace' t1
-                                  return (v1, IfThen t' e1 e2 t1')
-           (v, t') -> traceIf (v, t') e1 e2
-trace (IfElse t e1 e2 t2)
-    = do tr <- trace' t
-         case tr of
-           (VBool False, t') -> do (v1, t2') <- trace' t2
-                                   return (v1, IfElse t' e1 e2 t2')
-           (v, t') -> traceIf (v, t') e1 e2
-trace (CaseL t m x t1)
-    = do tr <- trace' t
-         case tr of
-           (VInL v, t') -> do (v1, t1') <- withBinder x v (trace' t1)
-                              return (v1, CaseL t' m x t1')
-           v -> traceMatch v m
-trace (CaseR t m x t2)
-    = do tr <- trace' t
-         case tr of
-           (VInR v, t') -> do (v2, t2') <- withBinder x v (trace' t2)
-                              return (v2, CaseR t' m x t2')
-           v -> traceMatch v m
-trace (Call t1 t2 _ _)
-    = do (VClosure k' env0, t1') <- trace' t1
-         (v2, t2')               <- trace' t2
-         traceCall (VClosure k' env0, t1') (v2, t2')
-trace (Trace e)
-    = do env    <- getEnv
-         (v, t) <- trace' e
-         return (VTrace v t env, Trace t)
+trace EHole          = return (VHole, THole)
+trace (EVar x)       = do env <- getEnv
+                          return (lookupEnv' env x, TVar x)
+trace (ELet x e1 e2) = do (v1, t1) <- trace' e1
+                          (v2, t2) <- withBinder x v1 (trace' e2)
+                          v1 `seq` return (v2, TLet x t1 t2)
+trace  EUnit         = return (VUnit, TUnit)
+trace (EBool b)      = return (VBool b, TBool b)
+trace (If e e1 e2)   = do e' <- trace' e
+                          traceIf e' e1 e2
+trace (EInt i)       = return (VInt i, TInt i)
+trace (EString s)    = return (VString s, TString s)
+trace (EOp f exps)   = do vts <- mapM trace' exps
+                          traceOp f vts
+trace (EPair e1 e2)  = do (v1, t1) <- trace' e1
+                          (v2, t2) <- trace' e2
+                          return (VPair v1 v2, TPair t1 t2)
+trace (EFst e)       = do (VPair v1 _, t) <- trace' e
+                          return (v1, TFst t)
+trace (ESnd e)       = do (VPair _ v2, t) <- trace' e
+                          return (v2, TSnd t)
+trace (EInL e)       = do (v, t) <- trace' e
+                          return (VInL v, TInL t)
+trace (EInR e)       = do (v, t) <- trace' e
+                          return (VInR v, TInR t)
+trace (Case e m)     = do e' <- trace' e
+                          traceMatch e' m
+trace (EFun k)       = do env <- getEnv
+                          return (VClosure k env, TFun k)
+trace (App e1 e2)    = do e1' <- trace' e1
+                          e2' <- trace' e2
+                          traceCall e1' e2'
+trace (ERoll tv e)   = do (v, t) <- trace' e
+                          return (VRoll tv v, TRoll tv t)
+trace (EUnroll tv e) = do (VRoll tv' v, t) <- trace' e
+                          assert (tv == tv') (return (v, TUnroll tv t))
+trace (Trace _)      = evalError "Cannot trace a trace"
 trace t =
    evalError $ "Cannot trace: " ++ show t
 
@@ -246,29 +212,30 @@ trace' e = do (v, t) <- trace e
 traceOp :: Primitive -> [(Value,Trace)] -> EvalMV (Value, Trace)
 traceOp f vts = do let (vs,ts) = unzip vts
                    v <- evalTraceOp f vs
-                   return (v, Op f ts)
+                   return (v, TOp f ts)
 
-traceCall :: (Value, Trace) -> (Value, Trace) -> EvalMV (Value, Exp)
+traceCall :: (Value, Trace) -> (Value, Trace) -> EvalMV (Value, Trace)
 traceCall (v1@(VClosure k env0), t1) (v2, t2)
     = do let envf  = bindEnv env0 (funName k) v1
              envfx = bindEnv envf (funArg  k) v2
          (v,t) <- withEnv envfx (trace' (funBody k))
-         return (v, Call t1 t2 k (Rec (funName k) (funArg k) t Nothing))
+         return (v, Call t1 t2 (funLabel k)
+                         (Rec (funName k) (funArg k) t Nothing))
 traceCall _ _ = evalError "traceCall: cannot call non-VClosure values"
 
-traceMatch :: (Value, Trace) -> Match -> EvalMV (Value, Exp)
+traceMatch :: (Value, Trace) -> Match -> EvalMV (Value, Trace)
 traceMatch (VInL v, t) m
     = do let (x, e) = inL m
          (v1,t1) <- withBinder x v (trace' e)
-         return (v1, CaseL t m x t1)
+         return (v1, CaseL t x t1)
 traceMatch (VInR v, t) m
     = do let (x, e) = inR m
          (v2,t2) <- withBinder x v (trace' e)
-         return (v2, CaseR t m x t2)
+         return (v2, CaseR t x t2)
 traceMatch _ _ =
     evalError "traceMatch: scrutinee does not reduce to a constructor"
 
-traceIf :: (Value, Trace) -> Exp -> Exp -> EvalMV (Value, Exp)
+traceIf :: (Value, Trace) -> Exp -> Exp -> EvalMV (Value, Trace)
 traceIf (VBool True , t) e1 e2 = do (v1,t1) <- trace' e1
                                     return (v1, IfThen t e1 e2 t1)
 traceIf (VBool False, t) e1 e2 = do (v2,t2) <- trace' e2

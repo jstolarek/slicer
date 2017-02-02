@@ -23,29 +23,29 @@ merges :: Ord a => [Profile a] -> Profile a
 merges ps = Profile (Map.unionsWith (+) (map unProfile ps))
 
 profile :: Trace -> Profile Lab
-profile trace = profiles' (to_tree trace)
-    where profiles' ts               = merges (map profile' ts)
-          profile' THole             = empty
-          profile' (TTrue t t1)      = profiles' (t ++ t1)
-          profile' (TFalse t t2)     = profiles' (t ++ t2)
-          profile' (TInL t t1)       = profiles' (t ++ t1)
-          profile' (TInR t t2)       = profiles' (t ++ t2)
-          profile' (TCall k t1 t2 t) =
-              let m = case funLabel k of
+profile trace = profiles' (toTree trace)
+    where profiles' ts                = merges (map profile' ts)
+          profile' TTHole             = empty
+          profile' (TTTrue t t1)      = profiles' (t ++ t1)
+          profile' (TTFalse t t2)     = profiles' (t ++ t2)
+          profile' (TTInL t t1)       = profiles' (t ++ t1)
+          profile' (TTInR t t2)       = profiles' (t ++ t2)
+          profile' (TTCall k t1 t2 t) =
+              let m = case k of
                         Nothing -> empty
                         Just lbl -> singleton lbl 1
               in profiles' (t ++ t1 ++ t2) `merge` m
 
 profileDiff :: Trace -> Profile (Lab, Lab)
-profileDiff trace = profiles' (mkL "_root") (to_tree trace)
-    where profiles' parent ts               = merges (map (profile' parent) ts)
-          profile' _ THole                  = empty
-          profile' parent (TTrue t t1)      = profiles' parent (t ++ t1)
-          profile' parent (TFalse t t2)     = profiles' parent (t ++ t2)
-          profile' parent (TInL t t1)       = profiles' parent (t ++ t1)
-          profile' parent (TInR t t2)       = profiles' parent (t ++ t2)
-          profile' parent (TCall k t1 t2 t) =
-              let (lbl,m) = case funLabel k of
+profileDiff trace = profiles' (mkL "_root") (toTree trace)
+    where profiles' parent ts                = merges (map (profile' parent) ts)
+          profile' _ TTHole                  = empty
+          profile' parent (TTTrue t t1)      = profiles' parent (t ++ t1)
+          profile' parent (TTFalse t t2)     = profiles' parent (t ++ t2)
+          profile' parent (TTInL t t1)       = profiles' parent (t ++ t1)
+          profile' parent (TTInR t t2)       = profiles' parent (t ++ t2)
+          profile' parent (TTCall k t1 t2 t) =
+              let (lbl,m) = case k of
                               Nothing -> (parent,empty)
                               Just lbl' -> (lbl',singleton (parent,lbl') 1)
               in profiles' parent (t1 ++ t2) `merge` profiles' lbl t `merge` m
