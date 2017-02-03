@@ -1,19 +1,3 @@
-TODOs
-=====
-
-  * catalogue removed features in a file
-
-  * Implement resugaring. Currently resugaring and pretty-printing are combined
-    into one pass.  It would be better to have a resugaring pass that restores
-    original surface syntax and then we could pretty-print that syntax.
-
-  * Add benchmarks?
-
-  * Make the code strict?
-
-  * try a stronger embedding with GADTs?  See Valuable type class in Trace
-
-
 References
 ==========
 

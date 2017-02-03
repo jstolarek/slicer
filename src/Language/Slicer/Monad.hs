@@ -64,3 +64,32 @@ liftSlM slm = ExceptT $ return (runIdentity (runExceptT slm))
 -- sequentially inside an SlMIO monad.  The only moment we want to exit the
 -- SlM/SlMIO monad is at the very top level of the compilation pipeline,
 -- ie. either in the Main or Repl module.
+--
+--
+-- DON'T SHOOT YOURSELF IN THE FOOT
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+-- Most mistakes in using the monad transformers and related combinators will
+-- simply not type check.  But there is still a way to write erroneous code that
+-- actually runs and does not do what you intended.  Say we have a computation
+-- inside SlMIO monad:
+--
+--   foo :: SlMIO Bool
+--   foo = return True
+--
+-- Suppose we want to run that computation inside EvalM monad, returning a unit
+-- if the computations succeed and propagating any errors that are raised.  If
+-- we write:
+--
+--   bar :: EvalM ()
+--   bar = runSlmIO foo >> return ()
+--
+-- then this code will compile but will not work as intended.  Instead of
+-- propagating errors, usage of `>>` will simply discard ANY result returned by
+-- foo - successful on not - and thus `bar` will always return a unit.  The
+-- problem is caused by using `runSlMIO` instead of `lift`.  So the correct
+-- version of `bar` is:
+--
+--   bar :: EvalM ()
+--   bar = lift foo >> return ()
+--

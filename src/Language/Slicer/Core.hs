@@ -15,8 +15,7 @@ module Language.Slicer.Core
             , TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy, MkSyntax(..), mkIf, mkCase, mkApp, mkTrace
-    , mkIfThen, mkIfElse, mkCaseL, mkCaseR, mkCall
+    , isRefTy
 
     , Pattern(extract)
 
@@ -156,71 +155,14 @@ data Syntax a = Var Var
               | Ref a  | Deref a | Assign a a | Seq a a
                 deriving (Show, Eq, Ord)
 
--- JSTOLAREK: with pattern synonyms it might be the case that this type class is
--- redundant.
-class MkSyntax a where
-    mkVar    :: Var -> a
-    mkLet    :: Var -> a -> a -> a
-    mkUnit   :: a
-    mkBool   :: Bool -> a
-    mkInt    :: Int -> a
-    mkOp     :: Primitive -> [a] -> a
-    mkString :: String -> a
-    mkPair   :: a -> a -> a
-    mkFst    :: a -> a
-    mkSnd    :: a -> a
-    mkInL    :: a -> a
-    mkInR    :: a -> a
-    mkFun    :: Code Exp -> a
-    mkRoll   :: Maybe TyVar -> a -> a
-    mkUnroll :: Maybe TyVar -> a -> a
-    mkHole   :: a
-    mkRef    :: a -> a
-    mkDeref  :: a -> a
-    mkAssign :: a -> a -> a
-    mkSeq    :: a -> a -> a
 
 data Exp = Exp (Syntax Exp)
-         | If Exp Exp Exp
-         | Case Exp Match
-         | App Exp Exp
+         | EIf Exp Exp Exp
+         | ECase Exp Match
+         | EApp Exp Exp
            -- run-time tracing
-         | Trace Exp
+         | ETrace Exp
            deriving (Show, Eq, Ord)
-
-mkIf :: Exp -> Exp -> Exp -> Exp
-mkIf = If
-
-mkCase :: Exp -> Match -> Exp
-mkCase = Case
-
-mkApp :: Exp -> Exp -> Exp
-mkApp = App
-
-mkTrace :: Exp -> Exp
-mkTrace = Trace
-
-instance MkSyntax Exp where
-    mkVar v        = Exp (Var v)
-    mkLet v e1 e2  = Exp (Let v e1 e2)
-    mkUnit         = Exp Unit
-    mkBool b       = Exp (CBool b)
-    mkInt i        = Exp (CInt i)
-    mkOp op args   = Exp (Op op args)
-    mkString s     = Exp (CString s)
-    mkPair e1 e2   = Exp (Pair e1 e2)
-    mkFst e1       = Exp (Fst e1)
-    mkSnd e2       = Exp (Snd e2)
-    mkInL e1       = Exp (InL e1)
-    mkInR e2       = Exp (InR e2)
-    mkFun code     = Exp (Fun code)
-    mkRoll tv e    = Exp (Roll tv e)
-    mkUnroll tv e  = Exp (Unroll tv e)
-    mkHole         = Exp Hole
-    mkRef  e       = Exp (Ref e)
-    mkDeref e      = Exp (Deref e)
-    mkAssign e1 e2 = Exp (Assign e1 e2)
-    mkSeq e1 e2    = Exp (Seq e1 e2)
 
 pattern EVar :: Var -> Exp
 pattern EVar v = Exp (Var v)
@@ -283,49 +225,12 @@ pattern ESeq :: Exp -> Exp -> Exp
 pattern ESeq t1 t2 = Exp (Seq t1 t2)
 
 data Trace = TExp (Syntax Trace)
-           | IfThen Trace Exp Exp Trace
-           | IfElse Trace Exp Exp Trace
-           | CaseL Trace Var Trace
-           | CaseR Trace Var Trace
-           | Call Trace Trace (Maybe Lab) (Code Trace)
+           | TIfThen Trace Exp Exp Trace
+           | TIfElse Trace Exp Exp Trace
+           | TCaseL Trace Var Trace
+           | TCaseR Trace Var Trace
+           | TCall Trace Trace (Maybe Lab) (Code Trace)
              deriving (Show, Eq, Ord)
-
-mkIfThen :: Trace -> Exp -> Exp -> Trace -> Trace
-mkIfThen = IfThen
-
-mkIfElse :: Trace -> Exp -> Exp -> Trace -> Trace
-mkIfElse = IfElse
-
-mkCaseL :: Trace -> Var -> Trace -> Trace
-mkCaseL = CaseL
-
-mkCaseR :: Trace -> Var -> Trace -> Trace
-mkCaseR = CaseR
-
-mkCall :: Trace -> Trace -> Maybe Lab -> Code Trace -> Trace
-mkCall = Call
-
-instance MkSyntax Trace where
-    mkVar v        = TExp (Var v)
-    mkLet v e1 e2  = TExp (Let v e1 e2)
-    mkUnit         = TExp Unit
-    mkBool b       = TExp (CBool b)
-    mkInt i        = TExp (CInt i)
-    mkOp op args   = TExp (Op op args)
-    mkString s     = TExp (CString s)
-    mkPair e1 e2   = TExp (Pair e1 e2)
-    mkFst e1       = TExp (Fst e1)
-    mkSnd e2       = TExp (Snd e2)
-    mkInL e1       = TExp (InL e1)
-    mkInR e2       = TExp (InR e2)
-    mkFun code     = TExp (Fun code)
-    mkRoll tv e    = TExp (Roll tv e)
-    mkUnroll tv e  = TExp (Unroll tv e)
-    mkHole         = TExp Hole
-    mkRef  e       = TExp (Ref e)
-    mkDeref e      = TExp (Deref e)
-    mkAssign e1 e2 = TExp (Assign e1 e2)
-    mkSeq e1 e2    = TExp (Seq e1 e2)
 
 pattern TVar :: Var -> Trace
 pattern TVar v = TExp (Var v)
@@ -403,7 +308,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VRoll (Maybe TyVar) Value
            | VClosure (Code Exp) (Env Value)
            | VHole | VStar
-           | VExp Value Exp (Env Value)
+           | VExp Exp (Env Value)
            -- mutable store locations
            | VStoreLoc Int
            -- run-time traces
@@ -442,6 +347,7 @@ val2exp (VPair v1 v2 ) = Exp (Pair (val2exp v1) (val2exp v2))
 val2exp (VInL v      ) = Exp (InL  (val2exp v))
 val2exp (VInR v      ) = Exp (InR  (val2exp v))
 val2exp (VRoll tv v  ) = Exp (Roll tv (val2exp v))
+val2exp (VExp v _    ) = v
 -- We could potentially also convert VClosure to a value be turning an
 -- environment into a series of "let"s.  This raises the problem however of how
 -- to maintain the original order of declarations
@@ -501,15 +407,15 @@ instance PP Exp where
     pp e = pp_partial e e
 
     pp_partial (Exp e) (Exp e') = pp_partial e e'
-    pp_partial (If e e1 e2) (If e' e1' e2')
+    pp_partial (EIf e e1 e2) (EIf e' e1' e2')
         = text "if" <+> pp_partial e e'
                 $$ text "then" <+> pp_partial e1 e1'
                 $$ text "else" <+> pp_partial e2 e2'
-    pp_partial (Case e m) (Case e' m')
+    pp_partial (ECase e m) (ECase e' m')
         = text "case" <+> pp_partial e e' $$ (nest 2 ( pp_partial m m'))
-    pp_partial (App e1 e2) (App e1' e2')
+    pp_partial (EApp e1 e2) (EApp e1' e2')
         = parens (sep [pp_partial e1 e1',pp_partial e2 e2'])
-    pp_partial (Trace e) (Trace e')
+    pp_partial (ETrace e) (ETrace e')
         = text "trace" <> parens (pp_partial e e')
     pp_partial e e' = error ("Error pretty-printing Exp: e is " ++ show e ++
                              " and e' is " ++ show e')
@@ -542,23 +448,23 @@ instance PP Trace where
     pp e = pp_partial e e
 
     pp_partial (TExp e) (TExp e') = pp_partial e e'
-    pp_partial (IfThen t _ _ t1) (IfThen t' _ _ t1')
+    pp_partial (TIfThen t _ _ t1) (TIfThen t' _ _ t1')
         = text "IF" <+> pp_partial t t'
           $$ text "THEN" <+> nest 2 (brackets (pp_partial t1 t1'))
-    pp_partial (IfElse t _ _ t2) (IfElse t' _ _ t2')
+    pp_partial (TIfElse t _ _ t2) (TIfElse t' _ _ t2')
         = text "IF" <+> pp_partial t t'
           <+> text "ELSE" <+> nest 2 (brackets (pp_partial t2 t2'))
-    pp_partial (CaseL t x t1) (CaseL t' x' t1')
+    pp_partial (TCaseL t x t1) (TCaseL t' x' t1')
         | x == x'
         = text "CASE" <+> pp_partial t t' $$
                nest 2 (brackets (text "inl" <> parens (pp x) <> text "." <>
                                       pp_partial t1 t1'))
-    pp_partial (CaseR t x t2) (CaseR t' x' t2')
+    pp_partial (TCaseR t x t2) (TCaseR t' x' t2')
         | x == x'
         = text "CASE" <+> pp_partial t t' $$
                nest 2 (brackets( text "inr" <> parens (pp x) <> text "." <>
                                       pp_partial t2 t2'))
-    pp_partial (Call t1 t2 _ t) (Call t1' t2' _ t') =
+    pp_partial (TCall t1 t2 _ t) (TCall t1' t2' _ t') =
         text "CALL" <> parens (pp_partial t1 t1' $$
                                nest 2 (pp_partial t2 t2')) $$
                        nest 2 ( brackets (pp_partial t t'))
@@ -632,11 +538,11 @@ instance FVs a => FVs (Syntax a) where
     fvs  Hole          = []
 
 instance FVs Exp where
-    fvs (If e1 e2 e3) = fvs e1 `union` fvs e2 `union` fvs e3
-    fvs (Case e m)    = fvs e `union` fvs m
-    fvs (App e1 e2)   = fvs e1 `union` fvs e2
-    fvs (Trace e)     = fvs e
-    fvs (Exp e)       = fvs e
+    fvs (EIf e1 e2 e3) = fvs e1 `union` fvs e2 `union` fvs e3
+    fvs (ECase e m)    = fvs e `union` fvs m
+    fvs (EApp e1 e2)   = fvs e1 `union` fvs e2
+    fvs (ETrace e)     = fvs e
+    fvs (Exp e)        = fvs e
 
 instance FVs Match where
     fvs (Match (x, e1) (y, e2))
@@ -648,12 +554,12 @@ instance FVs a => FVs (Code a) where
 
 
 instance FVs Trace where
-    fvs (IfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
-    fvs (IfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
-    fvs (CaseL t v t1)      = fvs t `union` (delete v (fvs t1))
-    fvs (CaseR t v t2)      = fvs t `union` (delete v (fvs t2))
-    fvs (Call t1 t2 _ t)    = fvs t1 `union` fvs t2 `union` fvs t
-    fvs (TExp e)           = fvs e
+    fvs (TIfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
+    fvs (TIfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
+    fvs (TCaseL t v t1)      = fvs t `union` (delete v (fvs t1))
+    fvs (TCaseR t v t2)      = fvs t `union` (delete v (fvs t2))
+    fvs (TCall t1 t2 _ t)    = fvs t1 `union` fvs t2 `union` fvs t
+    fvs (TExp e)             = fvs e
 
 promote :: Value -> Value
 promote VStar            = VStar
@@ -669,7 +575,7 @@ promote (VRoll tv v)     = VRoll tv (promote v)
 promote (VStoreLoc l)    = VStoreLoc l
 promote (VClosure k env) = VClosure k (fmap promote env)
 promote (VTrace v t env) = VTrace (promote v) t (fmap promote env)
-promote (VExp   v e env) = VExp (promote v) e (fmap promote env)
+promote (VExp     e env) = VExp e (fmap promote env)
 
 instance UpperSemiLattice Value where
     bot                               = VHole
@@ -760,10 +666,10 @@ instance UpperSemiLattice Exp where
 
     leq (Exp Hole) _                   = True
     leq (Exp e1) (Exp e2)              = e1 `leq` e2
-    leq (If e e1 e2) (If e' e1' e2')   = e `leq` e' && e1 `leq` e1' && e2 `leq` e2'
-    leq (Case e m) (Case e' m')        = e `leq` e' && m `leq` m'
-    leq (App e1 e2) (App e1' e2')      = e1 `leq`  e1' && e2 `leq` e2'
-    leq (Trace e) (Trace e')
+    leq (EIf e e1 e2) (EIf e' e1' e2') = e `leq` e' && e1 `leq` e1' && e2 `leq` e2'
+    leq (ECase e m) (ECase e' m')      = e `leq` e' && m `leq` m'
+    leq (EApp e1 e2) (EApp e1' e2')    = e1 `leq`  e1' && e2 `leq` e2'
+    leq (ETrace e) (ETrace e')
         = e `leq` e'
     leq a b = error $ "UpperSemiLattice Exp: error taking leq of " ++
                       show a ++ " and " ++ show b
@@ -771,11 +677,11 @@ instance UpperSemiLattice Exp where
     lub (Exp Hole) e                   = e
     lub e (Exp Hole)                   = e
     lub (Exp e1) (Exp e2)              = Exp (e1 `lub` e2)
-    lub (If e e1 e2) (If e' e1' e2')   = If (e `lub` e') (e1 `lub` e1') (e2 `lub` e2')
-    lub (Case e m) (Case e' m')        = Case (e `lub` e') (m `lub` m')
-    lub (App e1 e2) (App e1' e2')      = App (e1 `lub` e1') (e2 `lub` e2')
-    lub (Trace e) (Trace e')
-        = Trace (e `lub` e')
+    lub (EIf e e1 e2) (EIf e' e1' e2') = EIf (e `lub` e') (e1 `lub` e1') (e2 `lub` e2')
+    lub (ECase e m) (ECase e' m')      = ECase (e `lub` e') (m `lub` m')
+    lub (EApp e1 e2) (EApp e1' e2')    = EApp (e1 `lub` e1') (e2 `lub` e2')
+    lub (ETrace e) (ETrace e')
+        = ETrace (e `lub` e')
     lub a b = error $ "UpperSemiLattice Exp: error taking lub of " ++
                       show a ++ " and " ++ show b
 
@@ -803,15 +709,15 @@ instance UpperSemiLattice Trace where
     bot                = TExp Hole
 
     leq (TExp Hole) _ = True
-    leq (IfThen t e1 e2 t1) (IfThen t' e1' e2' t1')
+    leq (TIfThen t e1 e2 t1) (TIfThen t' e1' e2' t1')
         = t `leq` t' && e1 `leq` e1' && e2 `leq` e2' && t1 `leq` t1'
-    leq (IfElse t e1 e2 t2) (IfElse t' e1' e2' t2')
+    leq (TIfElse t e1 e2 t2) (TIfElse t' e1' e2' t2')
         = t `leq` t' && e1 `leq` e1' && e2 `leq` e2' && t2 `leq` t2'
-    leq (CaseL t x t1) (CaseL t' x' t1')
+    leq (TCaseL t x t1) (TCaseL t' x' t1')
         = t `leq` t' && x == x' && t1 `leq` t1'
-    leq (CaseR t x t2) (CaseR t'  x' t2')
+    leq (TCaseR t x t2) (TCaseR t'  x' t2')
         = t `leq` t' && x == x' && t2 `leq` t2'
-    leq (Call t1 t2 k t) (Call t1' t2' k' t')
+    leq (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = t1 `leq` t1' && t2 `leq` t2' && k `leq` k' && t `leq` t'
     leq a b = error $ "UpperSemiLattice Trace: error taking leq of " ++
                       show a ++ " and " ++ show b
@@ -819,16 +725,16 @@ instance UpperSemiLattice Trace where
     lub (TExp Hole) e       = e
     lub e (TExp Hole)       = e
     lub (TExp e1) (TExp e2) = TExp (e1 `lub` e2)
-    lub (IfThen t e1 e2 t1) (IfThen t' e1' e2' t1')
-        = IfThen (t `lub` t') (e1 `lub` e1') (e2 `lub` e2') (t1 `lub` t1')
-    lub (IfElse t e1 e2 t2) (IfElse t' e1' e2' t2')
-        = IfElse (t `lub` t') (e1 `lub` e1') (e2 `lub` e2') (t2 `lub` t2')
-    lub (CaseL t x t1) (CaseL t' x' t1')
-        = CaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
-    lub (CaseR t x t2) (CaseR t' x' t2')
-        = CaseR (t `lub` t') (x `lub` x') (t2 `lub` t2')
-    lub (Call t1 t2 k t) (Call t1' t2' k' t')
-        = Call (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
+    lub (TIfThen t e1 e2 t1) (TIfThen t' e1' e2' t1')
+        = TIfThen (t `lub` t') (e1 `lub` e1') (e2 `lub` e2') (t1 `lub` t1')
+    lub (TIfElse t e1 e2 t2) (TIfElse t' e1' e2' t2')
+        = TIfElse (t `lub` t') (e1 `lub` e1') (e2 `lub` e2') (t2 `lub` t2')
+    lub (TCaseL t x t1) (TCaseL t' x' t1')
+        = TCaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
+    lub (TCaseR t x t2) (TCaseR t' x' t2')
+        = TCaseR (t `lub` t') (x `lub` x') (t2 `lub` t2')
+    lub (TCall t1 t2 k t) (TCall t1' t2' k' t')
+        = TCall (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
     lub a b = error $ "UpperSemiLattice Trace: error taking lub of " ++
                       show a ++ " and " ++ show b
 

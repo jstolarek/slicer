@@ -60,5 +60,6 @@ tests =
       , runTMLTest "sum-eval-trace"
       , runTMLTest "sum-slice-size"
       , runTMLTest "T2"
+      , runTMLTest "T9"
       , runTMLTest "uncurried-componentwise-sum"
       ]
