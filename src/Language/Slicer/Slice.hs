@@ -59,27 +59,27 @@ bslice (VInR p) (TInR t)
 bslice VStar (TInR t)
     = let (t', rho) = bslice VStar t
       in (TInR t', rho)
-bslice p1 (IfThen t e1 e2 t1)
+bslice p1 (TIfThen t e1 e2 t1)
     = let (t1',rho1) = bslice p1 t1
           (t',rho)   = bslice VStar t
-      in (IfThen t' e1 e2 t1', rho `lub` rho1)
-bslice p2 (IfElse t e1 e2 t2)
+      in (TIfThen t' e1 e2 t1', rho `lub` rho1)
+bslice p2 (TIfElse t e1 e2 t2)
     = let (t2',rho2) = bslice p2 t2
           (t',rho)   = bslice VStar t
-      in (IfElse t' e1 e2 t2', rho `lub` rho2)
-bslice p1 (CaseL t x t1)
+      in (TIfElse t' e1 e2 t2', rho `lub` rho2)
+bslice p1 (TCaseL t x t1)
     = let (t1',rho1) = bslice p1 t1
           p          = lookupEnv' rho1 x
           rho1'      = unbindEnv rho1 x
           (t',rho)   = bslice (VInL p) t
-      in (CaseL t' x t1', rho `lub` rho1')
-bslice p2 (CaseR t x t2)
+      in (TCaseL t' x t1', rho `lub` rho1')
+bslice p2 (TCaseR t x t2)
     = let (t2',rho2) = bslice p2 t2
           p          = lookupEnv' rho2 x
           rho2'      = unbindEnv rho2 x
           (t',rho)   = bslice (VInR p) t
-      in (CaseR t' x t2', rho `lub` rho2')
-bslice p (Call t1 t2 k t)
+      in (TCaseR t' x t2', rho `lub` rho2')
+bslice p (TCall t1 t2 k t)
     = let (t',rho)    = bslice p (funBody t)
           f           = funName t
           x           = funArg  t
@@ -90,7 +90,7 @@ bslice p (Call t1 t2 k t)
           rho0        = unbindEnv (unbindEnv rho f) x
           (t1', rho1) = bslice (p1 `lub` VClosure k0 rho0) t1
           (t2', rho2) = bslice p2 t2
-      in (Call t1' t2' k (Rec f x t' Nothing), rho1 `lub` rho2)
+      in (TCall t1' t2' k (Rec f x t' Nothing), rho1 `lub` rho2)
 bslice (VRoll tv p) (TRoll tv' t)
     | tv == tv'
     = let (t',rho) = bslice p t
@@ -108,8 +108,8 @@ bslice _ x = error $ show x
 -- paper
 pslice :: Value -> Trace -> (Exp, Env Value)
 pslice VHole _      = (bot    , bot)
-pslice p (TVar x )  = (EVar x  , singletonEnv x p)
-pslice _ TUnit      = (EUnit   , bot)
+pslice p (TVar x )  = (EVar x , singletonEnv x p)
+pslice _ TUnit      = (EUnit  , bot)
 pslice _ (TBool b)  = (EBool b, bot)
 pslice _ (TInt i)   = (EInt i , bot)
 pslice (VClosure k env) (TFun _k')
@@ -151,27 +151,27 @@ pslice (VInR p) (TInR t)
 pslice VStar (TInR t)
     = let (t', rho) = pslice VStar t
       in (EInR t', rho)
-pslice p1 (IfThen t _ _ t1)
+pslice p1 (TIfThen t _ _ t1)
     = let (e1, rho1) = pslice p1 t1
           (e, rho)   = pslice VStar t
-      in (If e e1 EHole, rho `lub` rho1)
-pslice p2 (IfElse t _ _ t2)
+      in (EIf e e1 EHole, rho `lub` rho1)
+pslice p2 (TIfElse t _ _ t2)
     = let (e2, rho2) = pslice p2 t2
           (e, rho)   = pslice VStar t
-      in (If e EHole e2, rho `lub` rho2)
-pslice p1 (CaseL t x t1)
+      in (EIf e EHole e2, rho `lub` rho2)
+pslice p1 (TCaseL t x t1)
     = let (e1, rho1) = pslice p1 t1
           p          = lookupEnv' rho1 x
           rho1'      = unbindEnv rho1 x
           (e, rho)   = pslice (VInL p) t
-      in (Case e (Match (x,e1) (bot,bot)), rho `lub` rho1')
-pslice p2 (CaseR t x t2)
+      in (ECase e (Match (x,e1) (bot,bot)), rho `lub` rho1')
+pslice p2 (TCaseR t x t2)
     = let (e2, rho2) = pslice p2 t2
           p          = lookupEnv' rho2 x
           rho2'      = unbindEnv rho2 x
           (e, rho)   = pslice (VInR p) t
-      in (Case e (Match (bot,bot) (x,e2)), rho `lub` rho2')
-pslice p (Call t1 t2 _ t)
+      in (ECase e (Match (bot,bot) (x,e2)), rho `lub` rho2')
+pslice p (TCall t1 t2 _ t)
     = let (e, rho)   = pslice p (funBody t)
           f          = funName t
           x          = funArg  t
@@ -181,7 +181,7 @@ pslice p (Call t1 t2 _ t)
           rho0       = unbindEnv (unbindEnv rho f) x
           (e1, rho1) = pslice (p1 `lub` VClosure k0 rho0) t1
           (e2, rho2) = pslice p2 t2
-      in (App e1 e2, rho1 `lub` rho2)
+      in (EApp e1 e2, rho1 `lub` rho2)
 pslice (VRoll tv p) (TRoll tv' t)
     | tv == tv'
     = let (t',rho) = pslice p t
@@ -200,12 +200,12 @@ class Uneval a b | a -> b where
     uneval :: a -> b
 
 instance Uneval Trace Exp where
-    uneval (CaseL t x t1)    = Case (uneval t) (Match (x, uneval t1) (bot, EHole))
-    uneval (CaseR t x t2)    = Case (uneval t) (Match (bot, EHole) (x, uneval t2))
-    uneval (IfThen t _ _ t1) = If (uneval t) (uneval t1) EHole
-    uneval (IfElse t _ _ t2) = If (uneval t) EHole (uneval t2)
-    uneval (Call t1 t2 _ _)  = App (uneval t1) (uneval t2)
-    uneval (TExp expr)       = Exp (uneval expr)
+    uneval (TCaseL t x t1)    = ECase (uneval t) (Match (x, uneval t1) (bot, EHole))
+    uneval (TCaseR t x t2)    = ECase (uneval t) (Match (bot, EHole) (x, uneval t2))
+    uneval (TIfThen t _ _ t1) = EIf (uneval t) (uneval t1) EHole
+    uneval (TIfElse t _ _ t2) = EIf (uneval t) EHole (uneval t2)
+    uneval (TCall t1 t2 _ _)  = EApp (uneval t1) (uneval t2)
+    uneval (TExp expr)        = Exp (uneval expr)
 
 instance Uneval a b => Uneval (Syntax a) (Syntax b) where
     uneval (Var x)       = Var x

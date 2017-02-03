@@ -1,0 +1,5 @@
+data intlist = Nil | Cons int * intlist
+
+visualize("T9.pdf", Cons (1, (Cons (2, Cons (3, Nil)))));;
+visualizeDiff("T9-diff.pdf", Cons (1, (Cons (_:int, Cons (3, Nil))))
+                           , Cons (1, (Cons (2, Cons (_:int, Nil)))))

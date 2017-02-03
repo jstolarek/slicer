@@ -13,7 +13,7 @@ import           Language.Slicer.Monad.Eval
 import           Language.Slicer.Primitives
 import           Language.Slicer.Profile
 import           Language.Slicer.Slice
-import           Language.Slicer.TraceGraph
+import           Language.Slicer.Visualize
 import           Language.Slicer.TraceTree
 import           Language.Slicer.UpperSemiLattice
 
@@ -39,7 +39,7 @@ evalM (ELet x e1 e2)  = do v <- evalM' e1
                            withBinder x v (evalM' e2)
 evalM  EUnit          = return VUnit
 evalM (EBool b)       = return (VBool b)
-evalM (If e e1 e2)    = do cond <- evalM' e
+evalM (EIf e e1 e2)   = do cond <- evalM' e
                            evalIf cond e1 e2
 evalM (EInt i)        = return (VInt i)
 evalM (EString s)     = return (VString s)
@@ -56,18 +56,18 @@ evalM (EInL e)        = do e' <- evalM' e
                            return (VInL e')
 evalM (EInR e)        = do e' <- evalM' e
                            return (VInR e')
-evalM (Case e m)      = do e' <- evalM' e
+evalM (ECase e m)     = do e' <- evalM' e
                            evalMatch e' m
 evalM (EFun k)        = do env <- getEnv
                            return (VClosure k env)
-evalM (App e1 e2)     = do e1' <- evalM' e1
+evalM (EApp e1 e2)    = do e1' <- evalM' e1
                            e2' <- evalM' e2
                            evalCall e1' e2'
 evalM (ERoll tv e)    = do e' <- evalM' e
                            return (VRoll tv e')
 evalM (EUnroll tv e)  = do (VRoll tv' v) <- evalM' e
                            assert (tv == tv') (return v)
-evalM (Trace e)       = do env    <- getEnv
+evalM (ETrace e)      = do env    <- getEnv
                            (v, t) <- trace e
                            return (VTrace v t env)
 -- References
@@ -127,20 +127,19 @@ evalTraceOp PrimSlice [VTrace v t env, p]
 evalTraceOp PrimPSlice [VTrace v t _, p]
     | p `leq` v
     = do let (t',env') = pslice p t
-         return (VExp p t' env')
+         return (VExp t' env')
     | otherwise = evalError ("pslice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
-evalTraceOp PrimVisualize [VString s, VTrace _ t _]
-    = do case takeExtension s of
-           ".pdf" -> liftIO (visualizePDF s t) >> return VUnit
-           ".svg" -> liftIO (visualizeSVG s t) >> return VUnit
-           ext    -> evalError $ "visualize: unknown file extension : " ++ ext
-evalTraceOp PrimVisualizeDiff [VString s, VTrace _ t1 _, VTrace _ t2 _]
-    = do case takeExtension s of
-           ".pdf" -> liftIO (visualizeDiffPDF s t1 t2) >> return VUnit
-           ".svg" -> liftIO (visualizeDiffSVG s t1 t2) >> return VUnit
-           ext    -> evalError $ "visualizeDiff: unknown file extension : " ++
-                                 ext
+evalTraceOp PrimVisualize [VString s, v]
+    = case takeExtension s of
+        ".pdf" -> lift (visualizePDF s v) >> return VUnit
+        ".svg" -> lift (visualizeSVG s v) >> return VUnit
+        ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
+evalTraceOp PrimVisualizeDiff [VString s, v1, v2]
+    = case takeExtension s of
+        ".pdf" -> lift (visualizeDiffPDF s v1 v2) >> return VUnit
+        ".svg" -> lift (visualizeDiffSVG s v1 v2) >> return VUnit
+        ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
 evalTraceOp PrimTreeSize [VTrace _ t _] =
     return (VInt (forestsize (toTree t)))
 evalTraceOp PrimProfile [VTrace _ t _]
@@ -173,7 +172,7 @@ trace (ELet x e1 e2) = do (v1, t1) <- trace' e1
                           v1 `seq` return (v2, TLet x t1 t2)
 trace  EUnit         = return (VUnit, TUnit)
 trace (EBool b)      = return (VBool b, TBool b)
-trace (If e e1 e2)   = do e' <- trace' e
+trace (EIf e e1 e2)  = do e' <- trace' e
                           traceIf e' e1 e2
 trace (EInt i)       = return (VInt i, TInt i)
 trace (EString s)    = return (VString s, TString s)
@@ -190,18 +189,18 @@ trace (EInL e)       = do (v, t) <- trace' e
                           return (VInL v, TInL t)
 trace (EInR e)       = do (v, t) <- trace' e
                           return (VInR v, TInR t)
-trace (Case e m)     = do e' <- trace' e
+trace (ECase e m)    = do e' <- trace' e
                           traceMatch e' m
 trace (EFun k)       = do env <- getEnv
                           return (VClosure k env, TFun k)
-trace (App e1 e2)    = do e1' <- trace' e1
+trace (EApp e1 e2)   = do e1' <- trace' e1
                           e2' <- trace' e2
                           traceCall e1' e2'
 trace (ERoll tv e)   = do (v, t) <- trace' e
                           return (VRoll tv v, TRoll tv t)
 trace (EUnroll tv e) = do (VRoll tv' v, t) <- trace' e
                           assert (tv == tv') (return (v, TUnroll tv t))
-trace (Trace _)      = evalError "Cannot trace a trace"
+trace (ETrace _)     = evalError "Cannot trace a trace"
 trace t =
    evalError $ "Cannot trace: " ++ show t
 
@@ -219,7 +218,7 @@ traceCall (v1@(VClosure k env0), t1) (v2, t2)
     = do let envf  = bindEnv env0 (funName k) v1
              envfx = bindEnv envf (funArg  k) v2
          (v,t) <- withEnv envfx (trace' (funBody k))
-         return (v, Call t1 t2 (funLabel k)
+         return (v, TCall t1 t2 (funLabel k)
                          (Rec (funName k) (funArg k) t Nothing))
 traceCall _ _ = evalError "traceCall: cannot call non-VClosure values"
 
@@ -227,17 +226,17 @@ traceMatch :: (Value, Trace) -> Match -> EvalMV (Value, Trace)
 traceMatch (VInL v, t) m
     = do let (x, e) = inL m
          (v1,t1) <- withBinder x v (trace' e)
-         return (v1, CaseL t x t1)
+         return (v1, TCaseL t x t1)
 traceMatch (VInR v, t) m
     = do let (x, e) = inR m
          (v2,t2) <- withBinder x v (trace' e)
-         return (v2, CaseR t x t2)
+         return (v2, TCaseR t x t2)
 traceMatch _ _ =
     evalError "traceMatch: scrutinee does not reduce to a constructor"
 
 traceIf :: (Value, Trace) -> Exp -> Exp -> EvalMV (Value, Trace)
 traceIf (VBool True , t) e1 e2 = do (v1,t1) <- trace' e1
-                                    return (v1, IfThen t e1 e2 t1)
+                                    return (v1, TIfThen t e1 e2 t1)
 traceIf (VBool False, t) e1 e2 = do (v2,t2) <- trace' e2
-                                    return (v2, IfElse t e1 e2 t2)
+                                    return (v2, TIfElse t e1 e2 t2)
 traceIf _ _ _ = evalError "traceIf: condition is not a VBool value"

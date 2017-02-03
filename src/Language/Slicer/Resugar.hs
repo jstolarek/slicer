@@ -1,11 +1,8 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, TupleSections, ViewPatterns #-}
 
--- We temporarily silence orphan instances warnings.  There seems to be no good
--- place for these instances.  In fact this modle needs a complete rewrite to
--- separate resugaring from pretty-printing.  This refactoring will most likely
--- solve the problem with orphan instances because we will no longer need a
--- context to perform pretty printing
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+-- We temporarily silence all warnings in this module.  It is in such a sorry
+-- state that it is not worth bothering keeping it warning-free.
+{-# OPTIONS_GHC -fno-warn-orphans -w #-}
 
 module Language.Slicer.Resugar where
 
@@ -99,16 +96,16 @@ instance PP (A.TyCtx, Env Value) where
 instance Container Exp where
    -- Ignore trace operations for now.
    container (ELet _ _ _)      = True
-   container (If _ _ _)        = True
+   container (EIf _ _ _)       = True
    container (EOp _ _)         = False
    container (EPair _ _)       = True
    container (EFst _)          = False
    container (ESnd _)          = False
-   container (Case _ _)        = True
+   container (ECase _ _)       = True
    container (EInL _)          = False
    container (EInR _)          = False
    container (EFun _)          = True
-   container (App _ _)         = False
+   container (EApp _ _)        = False
    container (ERoll _ _)       = False
    container (EUnroll _ _)     = False
    container _                 = error "Unsupported Exp container"
@@ -133,7 +130,7 @@ instance PP (A.TyCtx, Exp) where
             pp_partial' e2 e2'
          (EUnit, EUnit) -> text strUnitVal
          (EBool b, EBool (eq b -> True)) -> text (show b)
-         (If e e1 e2, If e' e1' e2') ->
+         (EIf e e1 e2, EIf e' e1' e2') ->
             text strIf <+> pp_partial' e e'
                 $$ text strThen <+> pp_partial' e1 e1'
                 $$ text strElse <+> pp_partial' e2 e2'
@@ -149,14 +146,14 @@ instance PP (A.TyCtx, Exp) where
          (ESnd e, ESnd e') -> text strSnd <+> pp_partial' e e'
          (EInL e, EInL e') -> text strInL <+> pp_partial' e e'
          (EInR e, EInR e') -> text strInR <+> pp_partial' e e'
-         (Case (EUnroll (Just tv) e) (Match (x1, e1) (x2, e2)),
-          Case (EUnroll (eq (Just tv) -> True) e') (Match (eq x1 -> True, e1') (eq x2 -> True, e2'))) ->
+         (ECase (EUnroll (Just tv) e) (Match (x1, e1) (x2, e2)),
+          ECase (EUnroll (eq (Just tv) -> True) e') (Match (eq x1 -> True, e1') (eq x2 -> True, e2'))) ->
             let [c1, c2] = A.getConstrs tyCtx tv in
             text strCase <+> pp_partial' e e' <+> text strOf $$
             pp_partial_caseClause c1 x1 e1 e1' $$
             pp_partial_caseClause c2 x2 e2 e2'
          (EFun _, EFun _) -> pp_partial_multiFun expr expr'
-         (App _ _, App _ _) -> pp_partial_multiApp expr expr'
+         (EApp _ _, EApp _ _) -> pp_partial_multiApp expr expr'
          -- Explicit rolls (unassociated with desugared constructors) are not supported.
          -- Use the inL/inR as the 'parent' for influencing parenthesisation (compatible with
          -- how a constructor should behave).
@@ -207,9 +204,9 @@ instance PP (A.TyCtx, Exp) where
             where
                -- Returns the "leaf" function and a list of arguments.
                multiApp :: Exp -> Exp -> ((Exp, Exp), [(Exp, Exp)])
-               multiApp (App e1 e2) (App e1' e2') =
+               multiApp (EApp e1 e2) (EApp e1' e2') =
                   case (e1, e1') of
-                     (App _ _, App _ _) -> second (flip (++) [(e2, e2')]) $ multiApp e1 e1'
+                     (EApp _ _, EApp _ _) -> second (flip (++) [(e2, e2')]) $ multiApp e1 e1'
                      _ -> ((e1, e1'), [(e2, e2')])
                multiApp _ _ =
                    error "Pretty-printing error: incorrect multiApp arguments"
