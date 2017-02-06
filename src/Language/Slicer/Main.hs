@@ -20,7 +20,7 @@ import           System.Console.Haskeline
 import           System.Directory         ( getHomeDirectory        )
 import           System.Environment       ( getArgs                 )
 import           System.FilePath          ( joinPath                )
-import           System.IO                ( hPutStrLn, stderr       )
+import           System.IO
 
 -- | Command line flags
 data Flag = Repl deriving Eq
@@ -60,6 +60,7 @@ haskelineSettings = do
 compileAndRun :: FilePath -> IO ()
 compileAndRun arg = do
   putStrLn $ "Running " ++ arg
+  hFlush stdout -- otherwise errors get printed before "Running"
   code   <- readFile arg
   result <- runSlMIO $ parse_desugar_eval code
   case result of

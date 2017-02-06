@@ -122,12 +122,16 @@ desugarM (A.Case e m)
                                     show dataty)
 desugarM (A.Fun k) = desugarFun k
 desugarM (A.App e1 e2) =
-    do (e1', FunTy ty1 ty2) <- desugarM e1
-       (e2', ty1'         ) <- desugarM e2
-       if ty1 == ty1'
-       then return (EApp e1' e2', ty2)
+    do (e1', ty1) <- desugarM e1
+       unless (isFunTy ty1) $
+              typeError ("Function application error. Expected a function type "
+                         ++ "but got type " ++ show ty1)
+       let FunTy ty1' ty2' = ty1
+       (e2', ty2) <- desugarM e2
+       if ty1' == ty2
+       then return (EApp e1' e2', ty2')
        else typeError ("Mismatched types in application.  Function expects " ++
-                        show ty1 ++ " but argument has type " ++ show ty1')
+                        show ty1' ++ " but argument has type " ++ show ty2)
 desugarM (A.Trace e)
     = do (e', ty) <- desugarM e
          return (ETrace e', TraceTy ty)
