@@ -15,7 +15,7 @@ module Language.Slicer.Core
             , TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy
+    , isRefTy, isFunTy
 
     , Pattern(extract)
 
@@ -56,6 +56,10 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
 isRefTy :: Type -> Bool
 isRefTy (RefTy _) = True
 isRefTy _         = False
+
+isFunTy :: Type -> Bool
+isFunTy (FunTy _ _) = True
+isFunTy _           = False
 
 instance UpperSemiLattice Type where
     bot = HoleTy

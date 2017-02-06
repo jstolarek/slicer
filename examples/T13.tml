@@ -1,0 +1,10 @@
+-- Note the missing sequencing operator between calls to visualize.
+-- This is parsed as an application and should be gracefully rejected
+-- as a type error, not cause pattren matching failure
+--
+-- See #13
+data intlist = Nil | Cons int * intlist
+
+visualize("T13.pdf", Cons (1, (Cons (2, Cons (3, Nil)))))
+visualizeDiff("T13-diff.pdf", Cons (1, (Cons (_:int, Cons (3, Nil))))
+                           , Cons (1, (Cons (2, Cons (_:int, Nil)))))
