@@ -1,325 +1,268 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, TupleSections, ViewPatterns #-}
+module Language.Slicer.Resugar
+    ( resugar, resugarValue
+    )  where
 
--- We temporarily silence all warnings in this module.  It is in such a sorry
--- state that it is not worth bothering keeping it warning-free.
-{-# OPTIONS_GHC -fno-warn-orphans -w #-}
-
-module Language.Slicer.Resugar where
-
-import qualified Language.Slicer.Absyn as A
+import           Language.Slicer.Absyn ( Con, TyDecl(..), TyCtx
+                                       , getTyDeclByName )
 import           Language.Slicer.Core
 import           Language.Slicer.Env
-import           Language.Slicer.Parser -- for constants
+import           Language.Slicer.Error
+import           Language.Slicer.Monad
+import           Language.Slicer.Monad.Desugar
+import           Language.Slicer.Primitives
 import           Language.Slicer.PrettyPrinting
-import           Language.Slicer.UpperSemiLattice
 
-import           Control.Arrow hiding ((<+>))
-import           Control.Exception
-import qualified Data.Map as Map
 import           Text.PrettyPrint
 
--- Old stuff we're not using.
+data RExp = RVar Var | RLet Var RExp RExp
+          | RUnit
+          | RBool Bool | RIf RExp RExp RExp
+          | RInt Int | ROp Primitive [RExp]
+          | RString String
+          | RPair RExp RExp | RFst RExp | RSnd RExp
+          | RCon Con RExp | RCase RExp RMatch
+          | RFun RCode | RApp RExp RExp
+          -- References
+          | RRef | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
+          | RTrace RExp
+          -- holes
+          | RHole
+            deriving (Eq,Show,Ord)
 
-forLaTeX :: Bool
-forLaTeX = False
+data RCode = RRec Var [Var] RExp -- name, args, body
+             deriving (Eq,Show,Ord)
 
--- Not the best name, but will do for now.
-class (PP a, PP (A.TyCtx, a)) => Container a where
-   -- Whether I am a "container" (see below for meaning). Only defined for non-terminals.
-   container :: a -> Bool
-   -- Whether to parenthesise me if I'm contained by something other than a container.
-   parenth :: a -> Bool
+data RMatch = RMatch [ ( Con, Maybe Var, RExp ) ]
+              deriving (Eq,Show,Ord)
 
-   partial_parensOpt :: A.TyCtx -> a -> a -> a -> Doc
-   partial_parensOpt tyCtx e e1 e1' =
-      let doc = pp_partial (tyCtx, e1) (tyCtx, e1') in
-      if not (container e) && parenth e1
-         then parens doc
-         else doc
+resugar :: TyCtx -> Exp -> SlM RExp
+resugar decls expr = runDesugarM decls emptyEnv (resugarM expr)
 
-indent :: Int
-indent = 2
+resugarValue :: TyCtx -> Value -> SlM RExp
+resugarValue decls val = runDesugarM decls emptyEnv (resugarValueM val)
 
--- Plan is to migrate my old prettyprinting code over and dump James' implementation in Traces.hs.
--- For now, we use James' impl, and just add these extra cases.
--- Also, ideally we would factor this into two parts: resugaring back into the sugared syntax, and
--- then prettyprinting from the sugared syntax.
+resugarM :: Exp -> DesugarM RExp
+resugarM (EVar v) = return (RVar v)
+resugarM (ELet v e1 e2) = do e1' <- resugarM e1
+                             e2' <- resugarM e2
+                             return (RLet v e1' e2')
+resugarM  EUnit = return RUnit
+resugarM (EBool   b) = return (RBool   b)
+resugarM (EInt    i) = return (RInt    i)
+resugarM (EString s) = return (RString s)
+resugarM (EOp f args) = do args' <- mapM resugarM args
+                           return (ROp f args')
+resugarM (EPair e1 e2) = do e1' <- resugarM e1
+                            e2' <- resugarM e2
+                            return (RPair e1' e2')
+resugarM (EFst e) = do e' <- resugarM e
+                       return (RFst e')
+resugarM (ESnd e) = do e' <- resugarM e
+                       return (RSnd e')
+resugarM (EIf c e1 e2) = do c'  <- resugarM c
+                            e1' <- resugarM e1
+                            e2' <- resugarM e2
+                            return (RIf c' e1' e2')
+resugarM (ECase (EUnroll (Just dataty) e) m)
+    = do e' <- resugarM e
+         m' <- resugarMatch dataty m
+         return (RCase e' m')
+resugarM (ECase e _)
+    = resugarError ("Case scrutinee not wrapped in unroll, can't resugar "
+                    ++ show e)
+resugarM (ERoll (Just dataty) (EInL e))
+    = do e' <- resugarM e
+         decls <- getDecls
+         case getTyDeclByName decls dataty of
+           Just (TyDecl _ [(con,_),_]) -> return (RCon con e')
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+resugarM (ERoll (Just dataty) (EInR e))
+    = do e' <- resugarM e
+         decls <- getDecls
+         case getTyDeclByName decls dataty of
+           Just (TyDecl _ [_,(con,_)]) -> return (RCon con e')
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+-- Functions in Core are single-argument.  Need to traverse body to reconstruct
+-- multi-argument function
+resugarM (EFun code@(Rec name' _ _ _))
+    = do let (args, body) = resugarMultiFun code
+         body' <- resugarM body
+         return (RFun (RRec name' (reverse args) body'))
+resugarM (EApp e1 e2)  = do e1' <- resugarM e1
+                            e2' <- resugarM e2
+                            return (RApp e1' e2')
+resugarM EHole      = return RHole
+resugarM (ETrace e) = do e' <- resugarM e
+                         return (RTrace e')
+resugarM (ERef _)   = return RRef
+resugarM (EDeref e) = do e' <- resugarM e
+                         return (RDeref e')
+resugarM (EAssign e1 e2) = do e1' <- resugarM e1
+                              e2' <- resugarM e2
+                              return (RAssign e1' e2')
+resugarM (ESeq e1 e2) = do e1' <- resugarM e1
+                           e2' <- resugarM e2
+                           return (RSeq e1' e2')
+-- These should never happen in a well-formed program
+resugarM (EInL e)
+    = resugarError ("Left data constructor not wrapped in roll, can't resugar "
+                    ++ show e)
+resugarM (EInR e)
+    = resugarError ("Right data constructor not wrapped in roll, can't resugar "
+                    ++ show e)
+resugarM (ERoll _ e)
+    = resugarError ("Non-constructor expression wrapped in a roll, can't resugar "
+                    ++ show e)
+resugarM (EUnroll _ e)
+    = resugarError ("Unroll outside of case scrutinee, can't resugar "
+                    ++ show e)
+-- This should never happen but it seems that GHC exhaustiveness checker does
+-- not recognize that
+--resugarM e = error ("Impossible happened during resugaring: " ++ show e)
 
--- Wrap in textcolor, if LaTeX enabled.
-colorise :: String -> Doc -> Doc
-colorise col d =
-   if forLaTeX
-   then zeroWidthText ("\\textcolor{" ++ col ++ "}{") <> d <> zeroWidthText "}"
-   else d
+resugarMatch :: TyVar -> Match -> DesugarM RMatch
+resugarMatch dataty (Match (v1, e1) (v2, e2))
+    = do decls <- getDecls
+         e1' <- resugarM e1
+         e2' <- resugarM e2
+         case getTyDeclByName decls dataty of
+           Just (TyDecl _ [(con1, _), (con2, _)]) ->
+               return (RMatch [ (con1, v1, e1'), (con2, v2, e2') ] )
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 
-coloriseIf :: Bool -> String -> Doc -> Doc
-coloriseIf b col = if b then colorise col else id
-
--- Underline, if LaTeX enabled.
-underline :: Doc -> Doc
-underline d =
-   if forLaTeX
-   then zeroWidthText ("\\ul{") <> d <> zeroWidthText "}"
-   else d
+resugarMultiFun :: Code Exp -> ([Var], Exp)
+resugarMultiFun = go []
+    where go :: [Var] -> Code Exp -> ([Var], Exp)
+          go args (Rec _ arg (EFun code) _) = go (arg:args) code
+          go args (Rec _ arg body        _) = (arg:args, body)
 
 
-instance PP (A.TyCtx, Value) where
-   pp x = pp_partial x x
-   pp_partial (tyCtx, VStar) (eq tyCtx -> True, VStar) = colorise "Gray" $ text $ "{$\\Diamond$}"
-   pp_partial (tyCtx, VClosure k env) (eq tyCtx -> True, VClosure k' env') =
-      pp_partial (tyCtx, (env, EFun k)) (tyCtx, (env', EFun k'))
-   pp_partial (tyCtx, VStoreLoc _) (eq tyCtx -> True, VStoreLoc _) =
-      text "<ref>"
-   pp_partial (tyCtx, v) (eq tyCtx -> True, v') =
-      pp_partial (tyCtx, val2exp v) (tyCtx, val2exp v')
-   pp_partial _ _ = error "Pretty-printing error: (TyCtx, Value)"
+resugarValueM :: Value -> DesugarM RExp
+resugarValueM VHole = return RHole
+resugarValueM VUnit = return RUnit
+resugarValueM (VBool b) = return (RBool b)
+resugarValueM (VInt i)  = return (RInt i)
+resugarValueM (VString s) = return (RString s)
+resugarValueM (VPair v1 v2)
+    = do e1 <- resugarValueM v1
+         e2 <- resugarValueM v2
+         return (RPair e1 e2)
+resugarValueM (VRoll (Just dataty) (VInL v))
+    = do e <- resugarValueM v
+         decls <- getDecls
+         case getTyDeclByName decls dataty of
+           Just (TyDecl _ [(con,_),_]) -> return (RCon con e)
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+resugarValueM (VRoll (Just dataty) (VInR v))
+    = do e <- resugarValueM v
+         decls <- getDecls
+         case getTyDeclByName decls dataty of
+           Just (TyDecl _ [_,(con,_)]) -> return (RCon con e)
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+resugarValueM (VClosure v _) = resugarM (EFun v)
+resugarValueM (VStoreLoc _)  = return RRef
+resugarValueM (VExp v _)     = resugarM v
+resugarValueM (VTrace v _ _)
+    = do e <- resugarValueM v
+         return (RTrace e)
+resugarValueM (VInL v)
+    = resugarError ("Left data value not wrapped in roll, can't resugar "
+                    ++ show v)
+resugarValueM (VInR v)
+    = resugarError ("Right data value not wrapped in roll, can't resugar "
+                    ++ show v)
+resugarValueM (VRoll _ v)
+    = resugarError ("Non-constructor value wrapped in a roll, can't resugar "
+                    ++ show v)
+resugarValueM VStar
+    = resugarError ("Don't know how to desugar stars. " ++
+                    "Where did you get this value from?" )
 
-instance (Eq a, PP (A.TyCtx, a)) => PP (A.TyCtx, (Env Value, a)) where
-   pp (tyCtx, (rho, e)) = pp_partial (tyCtx, (rho, e)) (tyCtx, (rho, e))
-   pp_partial (tyCtx, ((== emptyEnv) -> True, e)) (eq tyCtx -> True, ((== emptyEnv) -> True, e')) =
-      pp_partial (tyCtx, e) (tyCtx, e')
-   pp_partial (tyCtx, (_rho, e)) (eq tyCtx -> True, (_rho', e')) =
-      {-vcat [text strWith, nest indent $ pp_partial (tyCtx, rho) (tyCtx, rho') <+> text strIn] $$ -}
-      pp_partial (tyCtx, e) (tyCtx, e')
-   pp_partial _ _ = error "Pretty-printing error: (TyCtx, (Env Value, a))"
+instance PP RExp where
+    pp e = pp_partial e e
 
-instance PP (A.TyCtx, Env Value) where
-   pp (tyCtx, env) = pp_partial (tyCtx, env) (tyCtx, env)
-   pp_partial (tyCtx, (== emptyEnv) -> True) (eq tyCtx -> True, (== emptyEnv) -> True) = empty
-   pp_partial (tyCtx, Env rho) (eq tyCtx -> True, Env rho') =
-      assert (Map.keys rho == Map.keys rho') $
-      vcat $ punctuate comma $
-             map (uncurry $ pp_partial_binding tyCtx) $
-                 zipWith (\(x, v) (_, v') -> (x, Just (v, v'))) (Map.assocs rho) (Map.assocs rho')
-   pp_partial _ _ = error "Pretty-printing error: (TyCtx, Env Value)"
+    pp_partial RHole RHole = text "_"
+    pp_partial RHole e     = sb (pp e)
+    pp_partial RUnit RUnit = text "()"
+    pp_partial (RInt    i) (RInt    i') | i == i' = int i
+    pp_partial (RString s) (RString s') | s == s' = text (show s)
+    pp_partial (RVar    x) (RVar    x') | x == x' = pp x
+    pp_partial (RLet x e1 e2) (RLet x' e1' e2')
+        | x == x'
+        = text "let" <+> pp x <+> equals <+> pp_partial e1 e1' $$
+          text "in" <+> pp_partial e2 e2'
+    pp_partial (RBool b) (RBool b')
+        | b == b'
+        = if b then text "true" else text "false"
+    pp_partial (RIf e e1 e2) (RIf e' e1' e2')
+        = text "if" <+> pp_partial e e'
+                $$ text "then" <+> pp_partial e1 e1'
+                $$ text "else" <+> pp_partial e2 e2'
+    pp_partial (ROp f es) (ROp f' es')
+        | f == f'
+        = case (isInfixOp f, es, es') of
+            (True, [e1, e2], [e1', e2']) ->
+                partial_parensOpt e1 e1' <+> pp f <+>
+                partial_parensOpt e2 e2'
+            _ -> pp f <> parens (hcat (punctuate comma
+                                                (zipWith pp_partial es es')))
+    pp_partial (RPair e1 e2) (RPair e1' e2')
+        = parens (pp_partial e1 e1' <> comma <+> pp_partial e2 e2')
+    pp_partial (RFst e) (RFst e') = text "fst" <+> partial_parensOpt e e'
+    pp_partial (RSnd e) (RSnd e') = text "snd" <+> partial_parensOpt e e'
+    -- Special case to handle nullary constructors
+    pp_partial (RCon c RUnit) (RCon c' RUnit)
+        | c == c'
+        = text (show c)
+    pp_partial (RCon c e) (RCon c' e')
+        | c == c'
+        = text (show c) <+> partial_parensOpt e e'
+    pp_partial (RCase e m) (RCase e' m')
+        = text "case" <+> pp_partial e e' <+> text "of" $$
+          nest 2 ( pp_partial m m')
+    pp_partial (RFun k) (RFun k') = pp_partial k k'
+    pp_partial (RApp e1 e2) (RApp e1' e2')
+        = sep [ pp_partial e1 e1', pp_partial e2 e2' ]
+    pp_partial RRef RRef
+        = text "<ref>"
+    pp_partial (RDeref e) (RDeref e')
+        = text "!" <> partial_parensOpt e e'
+    pp_partial (RAssign e1 e2) (RAssign e1' e2')
+        = pp_partial e1 e1' <+> text ":=" <+> pp_partial e2 e2'
+    pp_partial (RSeq e1 e2) (RSeq e1' e2')
+        = pp_partial e1 e1' <+> text ";;" <+> pp_partial e2 e2'
+    pp_partial (RTrace e) (RTrace e')
+        = text "trace" <+> partial_parensOpt e e'
+    pp_partial e e' = error ("Error pretty-printing resugared expression: e is "
+                             ++ show e ++ " and e' is " ++ show e')
 
-instance Container Exp where
-   -- Ignore trace operations for now.
-   container (ELet _ _ _)      = True
-   container (EIf _ _ _)       = True
-   container (EOp _ _)         = False
-   container (EPair _ _)       = True
-   container (EFst _)          = False
-   container (ESnd _)          = False
-   container (ECase _ _)       = True
-   container (EInL _)          = False
-   container (EInR _)          = False
-   container (EFun _)          = True
-   container (EApp _ _)        = False
-   container (ERoll _ _)       = False
-   container (EUnroll _ _)     = False
-   container _                 = error "Unsupported Exp container"
+instance PP RMatch where
+    pp_partial (RMatch ms) (RMatch ms') =
+        vcat (punctuate semi (zipWith pp_match ms ms'))
+        where pp_match (con, var, expr) (_, var', expr')
+                   = text (show con) <+> pp_partial var var' <+> text "->" <+>
+                     pp_partial expr expr'
 
-   parenth EHole       = False
-   parenth (EBool _)   = False
-   parenth (EInt _)    = False
-   parenth EUnit       = False
-   parenth (EPair _ _) = False
-   parenth (EVar _)    = False
-   parenth _           = True
+instance PP RCode where
+    pp_partial (RRec n args body) (RRec n' args' body')
+        | n == n' && args == args'
+        = text "fun" <+> pp n <+> sep (map pp args) <+> text "=>" <+>
+          nest 2 (pp_partial body body')
+    pp_partial v v' = error ("Error pretty-printing RCode: v is " ++ show v ++
+                             " and v' is " ++ show v')
 
-instance PP (A.TyCtx, Exp) where
-   pp (tyCtx, e) = pp_partial (tyCtx, e) (tyCtx, e)
-   pp_partial (tyCtx, expr) (eq tyCtx -> True, expr') =
-      let pp_partial' = partial_parensOpt tyCtx expr in -- doesn't matter if we use expr or expr' as the parent
-      case (expr, expr') of
-         (EVar x, EVar (eq x -> True)) -> text $ show x
-         (ELet x e1 e2, ELet (eq x -> True) e1' e2') ->
-            sep [text strLet <+> pp_partial_binding tyCtx x Nothing,
-                 nest indent $ text "=" <+> pp_partial' e1 e1' <+> text strIn] $$
-            pp_partial' e2 e2'
-         (EUnit, EUnit) -> text strUnitVal
-         (EBool b, EBool (eq b -> True)) -> text (show b)
-         (EIf e e1 e2, EIf e' e1' e2') ->
-            text strIf <+> pp_partial' e e'
-                $$ text strThen <+> pp_partial' e1 e1'
-                $$ text strElse <+> pp_partial' e2 e2'
-         (EInt n, EInt (eq n -> True)) -> text (show n)
-         -- Only support binary ops for now. Deal with other cases as they arise.
-         (EOp f l1, EOp (eq f -> True) l2) ->
-             case (l1, l2) of
-               ([e1,e2], [e1',e2']) -> pp_partial' e1 e1' <+> pp f <+> pp_partial' e2 e2'
-               _ -> error "Resugaring of unary operators not supported"
-         (EPair e1 e2, EPair e1' e2') ->
-            parens $ sep [pp_partial' e1 e1' <> text ",", pp_partial' e2 e2']
-         (EFst e, EFst e') -> text strFst <+> pp_partial' e e'
-         (ESnd e, ESnd e') -> text strSnd <+> pp_partial' e e'
-         (EInL e, EInL e') -> text strInL <+> pp_partial' e e'
-         (EInR e, EInR e') -> text strInR <+> pp_partial' e e'
-         (ECase (EUnroll (Just tv) e) (Match (x1, e1) (x2, e2)),
-          ECase (EUnroll (eq (Just tv) -> True) e') (Match (eq x1 -> True, e1') (eq x2 -> True, e2'))) ->
-            let [c1, c2] = A.getConstrs tyCtx tv in
-            text strCase <+> pp_partial' e e' <+> text strOf $$
-            pp_partial_caseClause c1 x1 e1 e1' $$
-            pp_partial_caseClause c2 x2 e2 e2'
-         (EFun _, EFun _) -> pp_partial_multiFun expr expr'
-         (EApp _ _, EApp _ _) -> pp_partial_multiApp expr expr'
-         -- Explicit rolls (unassociated with desugared constructors) are not supported.
-         -- Use the inL/inR as the 'parent' for influencing parenthesisation (compatible with
-         -- how a constructor should behave).
-         (ERoll (Just tv) (EInL e), ERoll (eq (Just tv) -> True) (EInL e')) ->
-            pp_partial_constr tyCtx (EInL e) (A.getConstrs tyCtx tv !! 0) e e'
-         (ERoll (Just tv) (EInR e), ERoll (eq (Just tv) -> True) (EInR e')) ->
-            pp_partial_constr tyCtx (EInR e) (A.getConstrs tyCtx tv !! 1) e e'
-         -- Explicit unrolls (unassociated with desugared scrutinees) also not unsupported.
-         (EHole, EHole) -> colorise "Gray" hole
-         t -> error $ show t
+parenth :: RExp -> Bool
+parenth RHole         = False
+parenth (RBool _)     = False
+parenth (RInt _)      = False
+parenth (RString _)   = False
+parenth RUnit         = False
+parenth (RPair _ _)   = False
+parenth (RVar _)      = False
+parenth (RDeref _)    = False
+parenth _             = True
 
-      where
-         hole :: Doc
-         hole = if forLaTeX
-                then text "{$\\square$}"
-                else text "_"
-         -- This breaks if the body calls any of the functions other than the outermost
-         -- recursively, but I guess that's very rare. (You'll end up with a function
-         -- being mentioned whose syntax isn't visible.) Really we should only treat "anonymous"
-         -- functions in this way, but this will do for now.
-         pp_partial_multiFun :: Exp -> Exp -> Doc
-         pp_partial_multiFun fun@(EFun (Rec f _ _ _))
-                             fun'@(EFun (Rec (eq f -> True) _ _ _)) =
-            let
-               (xs, (e1, e1')) = multiFun fun fun' in
-               sep [
-                  text strFun <+> pp_partial_binding tyCtx f Nothing
-                              <+> (hsep $ map (parens . flip (pp_partial_binding tyCtx) Nothing) xs)
-                              <+> text strFunBodySep,
-                  nest indent $ partial_parensOpt tyCtx fun e1 e1' -- doesn't matter whether we use fun or fun'
-               ]
-            where
-               multiFun :: Exp -> Exp -> ([Var], (Exp, Exp))
-               multiFun (EFun (Rec _ x body _)) (EFun (Rec _ (eq x -> True) body' _)) =
-                  case (body, body') of
-                     (EFun _, EFun _) -> first (x :) $ multiFun body body'
-                     _ -> ([x], (body, body'))
-               multiFun _ _ =
-                   error "Pretty-printing error: incorrect multiFun arguments"
-         pp_partial_multiFun _ _ =
-                   error "Pretty-printing error: incorrect pp_partial_multiFun arguments"
-
-         pp_partial_multiApp :: Exp -> Exp -> Doc
-         pp_partial_multiApp exp_e exp_e' =
-            let ((e1, e1'), es) = multiApp exp_e exp_e' in
-               sep $ partial_parensOpt tyCtx exp_e e1 e1' :
-                       (map (nest indent . (uncurry $ partial_parensOpt tyCtx exp_e)) es)
-            where
-               -- Returns the "leaf" function and a list of arguments.
-               multiApp :: Exp -> Exp -> ((Exp, Exp), [(Exp, Exp)])
-               multiApp (EApp e1 e2) (EApp e1' e2') =
-                  case (e1, e1') of
-                     (EApp _ _, EApp _ _) -> second (flip (++) [(e2, e2')]) $ multiApp e1 e1'
-                     _ -> ((e1, e1'), [(e2, e2')])
-               multiApp _ _ =
-                   error "Pretty-printing error: incorrect multiApp arguments"
-
-         pp_partial_caseClause :: A.Con -> Var -> Exp -> Exp -> Doc
-         pp_partial_caseClause c x exp_e exp_e' =
-            let varOpt = if x == bot then empty else pp_partial_binding tyCtx x Nothing in
-               nest indent (sep [
-                  (text $ show c) <+> varOpt <+> text strCaseClauseSep,
-                  nest indent $ pp_partial (tyCtx, exp_e) (tyCtx, exp_e')
-               ])
-
-   pp_partial _ _ = error "Pretty-printing error: (TyCtx, Exp)"
-
-pp_partial_binding :: A.TyCtx -> Var -> Maybe (Value, Value) -> Doc
-pp_partial_binding tyCtx x v_opt =
-   let var = underline (pp x) in
-   case v_opt of
-      Just (v, v') -> var <> (text "." <> pp_partial (tyCtx, v) (tyCtx, v'))
-      Nothing -> var
-
-pp_partial_constr :: Container a => A.TyCtx -> a -> A.Con -> a -> a -> Doc
-pp_partial_constr tyCtx parent c e e' =
-   let arg =
-         if (fst $ A.constrmap tyCtx Map.! c) == A.UnitTy
-         then empty
-         else nest indent $ partial_parensOpt tyCtx parent e e' in
-   sep [text $ show c, arg]
-
--- Assert that y == x. For use as a view pattern.
-eq :: (Eq a, Show a) => a -> a -> Bool
-eq x y = if x == y then True else error $ "Found " ++ show y ++ ", expected "++ show x
-
--- DEAD CODE: This code was commented out from PP Exp instance after a separate
--- data type for traces was created.  This code is here temporarily until this
--- whole module gets rewritten.
-
-{-
-instance Container Trace where
-   container (Exp e)          = container e
-   container (CaseL _ _ _ _)  = True
-   container (CaseR _ _ _ _)  = True
-   container (IfThen _ _ _ _) = True
-   container (IfElse _ _ _ _) = True
-   container (Call _ _ _ _)   = True
-
-   parenth _ = True
-
-instance PP (A.TyCtx, Trace) where
-   pp (tyCtx, e) = pp_partial (tyCtx, e) (tyCtx, e)
-   pp_partial (tyCtx, expr) (eq tyCtx -> True, expr') =
-      let pp_partial' = partial_parensOpt tyCtx expr in -- doesn't matter if we use expr or expr' as the parent
-      case (expr, expr') of
-         (IfThen e _ e2 t1, IfThen e' _ e2' t1') ->
-            text strIf <+> pp_partial' e e'
-                $$ text strThen <+> pp_partial' t1 t1'
-                $$ text strElse <+> pp_partial' e2 e2'
-         (IfElse e e1 _ t2, IfElse e' e1' _ t2') ->
-            text strIf <+> pp_partial' e e'
-                $$ text strThen <+> pp_partial' e1 e1'
-                $$ text strElse <+> pp_partial' t2 t2'
-         (CaseL (Unroll (Just tv) t) (Match (x1, _) _) _ t1,
-          CaseL (Unroll (eq (Just tv) -> True) t') (Match (eq x1 -> True, _) _) _ t1') ->
-            let [c1, _] = A.getConstrs tyCtx tv in
-            text strCase <+> pp_partial' t t' <+> text strOf <+> pp_partial_ctrPattern c1 x1 $$
-            (nest indent $ pp_partial' t1 t1')
-         (CaseR (Unroll (Just tv) t) (Match _ (x2, _)) _ t2,
-          CaseR (Unroll (eq (Just tv) -> True) t') (Match _ (eq x2 -> True, _)) _ t2') ->
-            let [_, c2] = A.getConstrs tyCtx tv in
-            text strCase <+> pp_partial' t t' <+> text strOf <+> pp_partial_ctrPattern c2 x2 $$
-            (nest indent $ pp_partial' t2 t2')
-         (Call _ _ _ _, Call _ _ _ _) ->
-            pp_partial_multiCall expr expr'
-
-      where
-
-         -- TODO: factor out commonality with pp_partial_caseClause.
-         pp_partial_ctrPattern :: A.Con -> Var -> Doc
-         pp_partial_ctrPattern c x =
-            let varOpt = if x == bot then empty else pp_partial_binding tyCtx x Nothing in
-               colorise "Mulberry" (text $ show c) <+> varOpt <+> text strCaseClauseSep
-
-         pp_partial_multiCall :: Trace -> Trace -> Doc
-         pp_partial_multiCall t@(Call t1 t2 _ (Rec _ x t3 _))
-                              (Call t1' t2' _ (Rec _ (eq x -> True) t3' _)) =
-            let ((t1_, t1_'), ts) = multiCall t1 t1' in
-               sep [
-
-                  colorise "RoyalBlue" $ partial_parensOpt tyCtx t t1_ t1_',
-                  nest indent $ vcat $ map pp_partial_call $ ts ++ [((x, (t2, t2')), (t3, t3'))]
-               ]
-            where
-               pp_partial_call :: ((Var, (Exp, Exp)), (Exp, Exp)) -> Doc
-               pp_partial_call ((exp_x, (exp_t2, exp_t2')), (exp_t3, exp_t3')) =
-                  sep $
-                     [ sep [ pp_partial_binding tyCtx exp_x Nothing
-                         , nest indent $ text "=" <+>
-                           partial_parensOpt tyCtx t exp_t2 exp_t2'
-                         ]
-                     ] ++ body
-                  where
-                     body = case (exp_t3, exp_t3') of
-                        (Fun _, Fun _) -> []
-                        -- Gratuitous indentation hack :-/
-                        _ -> [nest (-indent) $ text strFunBodySep <+>
-                                               partial_parensOpt tyCtx t t3 t3']
-         pp_partial_multiCall _ _ =
-             error "Pretty-printing error: incorrect multiCall arguments"
-
-         multiCall :: Trace -> Trace -> ((Exp, Exp), [((Var, (Exp, Exp)), (Exp, Exp))])
-         multiCall t t' =
-            case (t, t') of
-               (Call t1 t2 _ (Rec _ x t3 _), Call t1' t2' _ (Rec _ (eq x -> True) t3' _)) ->
-                  second (flip (++) [((x, (t2, t2')), (t3, t3'))]) $ multiCall t1 t1'
-               _ -> ((t, t'), [])
--}
+partial_parensOpt :: RExp -> RExp -> Doc
+partial_parensOpt e1 e1' =
+   let doc = pp_partial e1 e1' in
+   if parenth e1 then parens doc else doc

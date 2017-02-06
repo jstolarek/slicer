@@ -1,7 +1,2 @@
 Running ../../examples/sort-bug-2.tml
-val it = Cons
-  (12,
-   Cons
-     (12,
-      Cons
-        (12, Cons (12, Cons (18, Cons (23, Cons (23, Cons (23, Nil)))))))) : intlist
+val it = Cons (12, Cons (12, Cons (12, Cons (12, Cons (18, Cons (23, Cons (23, Cons (23, Nil)))))))) : intlist

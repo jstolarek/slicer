@@ -6,7 +6,7 @@ module Language.Slicer.Monad.Eval
     , emptyEvalState, addBinding
 
     -- * Variable environment
-    , getEnv, withEnv, withBinder
+    , getEnv, withEnv, withBinder, maybeWithBinder
 
     -- * References
     , newRef, getRef, updateRef
@@ -111,6 +111,11 @@ withBinder :: Var -> env -> EvalM env value -> EvalM env value
 withBinder var val thing = do
   env    <- getEnv
   withEnv (bindEnv env var val) thing
+
+-- | Run monadic evaluation, maybe with extra binder in scope
+maybeWithBinder :: Maybe Var -> env -> EvalM env value -> EvalM env value
+maybeWithBinder (Just var) val thing = withBinder var val thing
+maybeWithBinder Nothing    _   thing = thing
 
 -- | Run monadic evaluation inside a given environment
 withEnv :: Env env -> EvalM env value -> EvalM env value

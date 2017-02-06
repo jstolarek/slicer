@@ -102,10 +102,10 @@ evalCall _ _ = evalError "evalCall: cannot call non-VClosure values"
 evalMatch :: Value -> Match -> EvalMV Value
 evalMatch (VInL v) m
     = let (x, e) = inL m
-      in withBinder x v (evalM' e)
+      in maybeWithBinder x v (evalM' e)
 evalMatch (VInR v) m
     = let (x, e) = inR m
-      in withBinder x v (evalM' e)
+      in maybeWithBinder x v (evalM' e)
 evalMatch _ _
     = evalError "evalMatch: scrutinee does not reduce to a constructor"
 
@@ -225,11 +225,11 @@ traceCall _ _ = evalError "traceCall: cannot call non-VClosure values"
 traceMatch :: (Value, Trace) -> Match -> EvalMV (Value, Trace)
 traceMatch (VInL v, t) m
     = do let (x, e) = inL m
-         (v1,t1) <- withBinder x v (trace' e)
+         (v1,t1) <- maybeWithBinder x v (trace' e)
          return (v1, TCaseL t x t1)
 traceMatch (VInR v, t) m
     = do let (x, e) = inR m
-         (v2,t2) <- withBinder x v (trace' e)
+         (v2,t2) <- maybeWithBinder x v (trace' e)
          return (v2, TCaseR t x t2)
 traceMatch _ _ =
     evalError "traceMatch: scrutinee does not reduce to a constructor"

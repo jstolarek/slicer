@@ -1,4 +1,4 @@
 Running ../../examples/reverse.tml
 Profile {unProfile = fromList [((reverse,reverse),100),((reverse,append),5050),((_root,reverse),1)]}
 Profile {unProfile = fromList [((_root,fastreverse),1),((fastreverse,r),101)]}
-val it = True : bool
+val it = true : bool

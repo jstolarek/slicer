@@ -69,14 +69,14 @@ bslice p2 (TIfElse t e1 e2 t2)
       in (TIfElse t' e1 e2 t2', rho `lub` rho2)
 bslice p1 (TCaseL t x t1)
     = let (t1',rho1) = bslice p1 t1
-          p          = lookupEnv' rho1 x
-          rho1'      = unbindEnv rho1 x
+          p          = maybeLookupEnv' rho1 x
+          rho1'      = maybeUnbindEnv rho1 x
           (t',rho)   = bslice (VInL p) t
       in (TCaseL t' x t1', rho `lub` rho1')
 bslice p2 (TCaseR t x t2)
     = let (t2',rho2) = bslice p2 t2
-          p          = lookupEnv' rho2 x
-          rho2'      = unbindEnv rho2 x
+          p          = maybeLookupEnv' rho2 x
+          rho2'      = maybeUnbindEnv rho2 x
           (t',rho)   = bslice (VInR p) t
       in (TCaseR t' x t2', rho `lub` rho2')
 bslice p (TCall t1 t2 k t)
@@ -161,14 +161,14 @@ pslice p2 (TIfElse t _ _ t2)
       in (EIf e EHole e2, rho `lub` rho2)
 pslice p1 (TCaseL t x t1)
     = let (e1, rho1) = pslice p1 t1
-          p          = lookupEnv' rho1 x
-          rho1'      = unbindEnv rho1 x
+          p          = maybeLookupEnv' rho1 x
+          rho1'      = maybeUnbindEnv rho1 x
           (e, rho)   = pslice (VInL p) t
       in (ECase e (Match (x,e1) (bot,bot)), rho `lub` rho1')
 pslice p2 (TCaseR t x t2)
     = let (e2, rho2) = pslice p2 t2
-          p          = lookupEnv' rho2 x
-          rho2'      = unbindEnv rho2 x
+          p          = maybeLookupEnv' rho2 x
+          rho2'      = maybeUnbindEnv rho2 x
           (e, rho)   = pslice (VInR p) t
       in (ECase e (Match (bot,bot) (x,e2)), rho `lub` rho2')
 pslice p (TCall t1 t2 _ t)
