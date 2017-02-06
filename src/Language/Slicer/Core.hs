@@ -24,12 +24,10 @@ module Language.Slicer.Core
     , isCommonOp, isIntBinOp, isIntRelOp, isBoolRelOp, isBoolUnOp
 
       -- * Lables
-    , Lab, mkL
+    , Lab( unL ), mkL
 
       -- * Free variables
     , FVs(..)
-
-    , val2exp
     ) where
 
 
@@ -39,6 +37,7 @@ import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
 import           Data.Map as Map ( Map, fromList, mapWithKey, keys, member )
+import           Data.Maybe
 import           Data.List       ( union, delete )
 import qualified Data.Hashable as H ( hash )
 import           Text.PrettyPrint
@@ -148,8 +147,8 @@ data Syntax a = Var Var
               | Unit
               | CBool Bool
               | CInt Int
-              | Op Primitive [a]
               | CString String
+              | Op Primitive [a]
               | Pair a a | Fst a | Snd a
               | InL a | InR a
               | Fun (Code Exp)
@@ -158,7 +157,6 @@ data Syntax a = Var Var
               -- References
               | Ref a  | Deref a | Assign a a | Seq a a
                 deriving (Show, Eq, Ord)
-
 
 data Exp = Exp (Syntax Exp)
          | EIf Exp Exp Exp
@@ -231,8 +229,8 @@ pattern ESeq t1 t2 = Exp (Seq t1 t2)
 data Trace = TExp (Syntax Trace)
            | TIfThen Trace Exp Exp Trace
            | TIfElse Trace Exp Exp Trace
-           | TCaseL Trace Var Trace
-           | TCaseR Trace Var Trace
+           | TCaseL Trace (Maybe Var) Trace
+           | TCaseR Trace (Maybe Var) Trace
            | TCall Trace Trace (Maybe Lab) (Code Trace)
              deriving (Show, Eq, Ord)
 
@@ -302,8 +300,8 @@ data Code a = Rec { funName  :: Var
                   , funLabel :: Maybe Lab}
                   deriving (Show, Eq, Ord)
 
-data Match = Match { inL :: (Var, Exp)
-                   , inR :: (Var, Exp) }
+data Match = Match { inL :: (Maybe Var, Exp)
+                   , inR :: (Maybe Var, Exp) }
                    deriving (Show, Eq, Ord)
 
 data Value = VBool Bool | VInt Int | VUnit | VString String
@@ -318,162 +316,6 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord)
-
-instance PP Value where
-    pp v = pp_partial v v
-
-    pp_partial  VHole VHole                   = sb (text "_")
-    pp_partial  VHole v                       = sb (pp v)
-    pp_partial  VUnit VUnit                   = text "()"
-    pp_partial (VBool b     ) (VBool b')      | b == b'
-                                              = text (if b then "true" else "false")
-    pp_partial (VInt i      ) (VInt i')       | i == i' = int i
-    pp_partial (VString s   ) (VString s')    | s == s' = text (show s)
-    pp_partial (VPair v1 v2 ) (VPair v1' v2') = parens (pp_partial v1 v1' <> comma <>
-                                                        pp_partial v2 v2')
-    pp_partial (VInL v      ) (VInL v')       = text "inl"  <> parens (pp_partial v v')
-    pp_partial (VInR v      ) (VInR v')       = text "inr"  <> parens (pp_partial v v')
-    pp_partial (VRoll _ v   ) (VRoll _ v')    = text "roll" <> parens (pp_partial v v')
-    pp_partial (VStoreLoc _ ) (VStoreLoc _ )  = text "<ref>"
-    pp_partial (VClosure _ _) (VClosure _ _)  = text "<fun>"
-    pp_partial (VTrace _ _ _) (VTrace _ _ _)  = text "<trace>"
-    pp_partial v v' = error ("Error pretty-printing Value: v is " ++ show v ++
-                             " and v' is " ++ show v')
-
--- convert first-order value-patterns to expressions
-val2exp :: Value -> Exp
-val2exp VHole          = Exp Hole
-val2exp VUnit          = Exp Unit
-val2exp (VBool b     ) = Exp (CBool b)
-val2exp (VInt i      ) = Exp (CInt i)
-val2exp (VString s   ) = Exp (CString s)
-val2exp (VPair v1 v2 ) = Exp (Pair (val2exp v1) (val2exp v2))
-val2exp (VInL v      ) = Exp (InL  (val2exp v))
-val2exp (VInR v      ) = Exp (InR  (val2exp v))
-val2exp (VRoll tv v  ) = Exp (Roll tv (val2exp v))
-val2exp (VExp v _    ) = v
--- We could potentially also convert VClosure to a value be turning an
--- environment into a series of "let"s.  This raises the problem however of how
--- to maintain the original order of declarations
-val2exp _              = error "Cannot convert value to expression"
-
-instance PP Lab where
-    pp (L x _) = text x
-    pp_partial l l' | l == l' = pp l
-    pp_partial l l' = error ("Error pretty-printing Lab: l is " ++ show l ++
-                             " and l' is " ++ show l')
-
-instance (PP a, Show a) => PP (Syntax a) where
-    pp e = pp_partial e e
-
-    pp_partial Hole Hole = sb (text "_")
-    pp_partial Hole e    = sb (pp e)
-    pp_partial Unit Unit = text "()"
-    pp_partial (CInt    i) (CInt    i') | i == i' = int i
-    pp_partial (CString s) (CString s') | s == s' = text (show s)
-    pp_partial (Var     x) (Var     x') | x == x' = pp x
-    pp_partial (Let x e1 e2) (Let x' e1' e2')
-        | x == x'
-        = text "let" <+> pp x <+> equals <+> pp_partial e1 e1' $$
-          text "in" <+> pp_partial e2 e2'
-    pp_partial (CBool b) (CBool b')
-        | b == b'
-        = if b then text "true" else text "false"
-    pp_partial (Op f es) (Op f' es')
-        | f == f'
-        = pp f <> parens (hcat (punctuate comma (map (\(e,e') -> pp_partial e e')
-                                                     (zip es es'))))
-    pp_partial (Pair e1 e2) (Pair e1' e2')
-        = parens (pp_partial e1 e1' <> comma <> pp_partial e2 e2')
-    pp_partial (Fst e) (Fst e') = text "fst" <> parens(pp_partial e e')
-    pp_partial (Snd e) (Snd e') = text "snd" <> parens(pp_partial e e')
-    pp_partial (InL e) (InL e') = text "inl" <> parens(pp_partial e e')
-    pp_partial (InR e) (InR e') = text "inr" <> parens(pp_partial e e')
-    pp_partial (Fun k)  (Fun k') = pp_partial k k'
-    pp_partial (Roll tv e) (Roll tv' e')
-        | tv == tv'
-        = text "roll" <> parens (pp_partial e e')
-    pp_partial (Unroll a e) (Unroll a' e')
-        | a == a'
-        = text "unroll" <> parens (pp_partial e e')
-    pp_partial (Ref e) (Ref e')
-        = text "ref" <+> parens (pp_partial e e')
-    pp_partial (Deref e) (Deref e')
-        = text "!" <> parens (pp_partial e e')
-    pp_partial (Assign e1 e2) (Assign e1' e2')
-        = pp_partial e1 e1' <+> text ":=" <+> pp_partial e2 e2'
-    pp_partial (Seq e1 e2) (Seq e1' e2')
-        = pp_partial e1 e1' <+> text ";" <+> pp_partial e2 e2'
-    pp_partial e e' = error ("Error pretty-printing Syntax: e is " ++ show e ++
-                             " and e' is " ++ show e')
-
-instance PP Exp where
-    pp e = pp_partial e e
-
-    pp_partial (Exp e) (Exp e') = pp_partial e e'
-    pp_partial (EIf e e1 e2) (EIf e' e1' e2')
-        = text "if" <+> pp_partial e e'
-                $$ text "then" <+> pp_partial e1 e1'
-                $$ text "else" <+> pp_partial e2 e2'
-    pp_partial (ECase e m) (ECase e' m')
-        = text "case" <+> pp_partial e e' $$ (nest 2 ( pp_partial m m'))
-    pp_partial (EApp e1 e2) (EApp e1' e2')
-        = parens (sep [pp_partial e1 e1',pp_partial e2 e2'])
-    pp_partial (ETrace e) (ETrace e')
-        = text "trace" <> parens (pp_partial e e')
-    pp_partial e e' = error ("Error pretty-printing Exp: e is " ++ show e ++
-                             " and e' is " ++ show e')
-
-instance PP Match where
-    pp m = pp_partial m m
-    pp_partial (Match (x, e1) (y, e2)) (Match (x', e1') (y', e2'))
-        | x == x' && y == y'
-        -- Omit 'braces' because we use these as an escape character inside
-        -- fancyvrb.
-        = ((text "inl" <> parens (pp x) <> text "." <> pp_partial e1 e1') <>
-           semi $$
-           (text "inr" <> parens (pp y) <> text "." <> pp_partial e2 e2'))
-    pp_partial v v' = error ("Error pretty-printing Match: v is " ++ show v ++
-                             " and v' is " ++ show v')
-
-instance (PP a, Show a) => PP (Code a) where
-    pp k = pp_partial k k
-    pp_partial (Rec f x e Nothing) (Rec f' x' e' Nothing)
-        | f == f' && x == x'
-        = text "fun" <+> pp f <> parens (pp x) <> text "." $$
-               nest 2 (pp_partial e e')
-    pp_partial (Rec f x _ (Just l)) (Rec f' x' _ (Just l'))
-        | f == f' && x == x' && l == l'
-        = text (unL l)
-    pp_partial v v' = error ("Error pretty-printing Code: v is " ++ show v ++
-                             " and v' is " ++ show v')
-
-instance PP Trace where
-    pp e = pp_partial e e
-
-    pp_partial (TExp e) (TExp e') = pp_partial e e'
-    pp_partial (TIfThen t _ _ t1) (TIfThen t' _ _ t1')
-        = text "IF" <+> pp_partial t t'
-          $$ text "THEN" <+> nest 2 (brackets (pp_partial t1 t1'))
-    pp_partial (TIfElse t _ _ t2) (TIfElse t' _ _ t2')
-        = text "IF" <+> pp_partial t t'
-          <+> text "ELSE" <+> nest 2 (brackets (pp_partial t2 t2'))
-    pp_partial (TCaseL t x t1) (TCaseL t' x' t1')
-        | x == x'
-        = text "CASE" <+> pp_partial t t' $$
-               nest 2 (brackets (text "inl" <> parens (pp x) <> text "." <>
-                                      pp_partial t1 t1'))
-    pp_partial (TCaseR t x t2) (TCaseR t' x' t2')
-        | x == x'
-        = text "CASE" <+> pp_partial t t' $$
-               nest 2 (brackets( text "inr" <> parens (pp x) <> text "." <>
-                                      pp_partial t2 t2'))
-    pp_partial (TCall t1 t2 _ t) (TCall t1' t2' _ t') =
-        text "CALL" <> parens (pp_partial t1 t1' $$
-                               nest 2 (pp_partial t2 t2')) $$
-                       nest 2 ( brackets (pp_partial t t'))
-    pp_partial e e' = error ("Error pretty-printing Trace: e is " ++ show e ++
-                             " and e' is " ++ show e')
 
 class Valuable a where
     to_val :: a -> Value
@@ -549,8 +391,14 @@ instance FVs Exp where
     fvs (Exp e)        = fvs e
 
 instance FVs Match where
-    fvs (Match (x, e1) (y, e2))
-        = (delete x (fvs e1)) `union` (delete y (fvs e2))
+    fvs (Match (x, e1) (y, e2)) =
+        let f1 = if isJust x
+                 then delete (fromJust x) (fvs e1)
+                 else fvs e1
+            f2 = if isJust y
+                 then delete (fromJust y) (fvs e2)
+                 else fvs e2
+        in f1 `union` f2
 
 instance FVs a => FVs (Code a) where
     fvs k = let vs = fvs (funBody k)
@@ -560,8 +408,12 @@ instance FVs a => FVs (Code a) where
 instance FVs Trace where
     fvs (TIfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
     fvs (TIfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
-    fvs (TCaseL t v t1)      = fvs t `union` (delete v (fvs t1))
-    fvs (TCaseR t v t2)      = fvs t `union` (delete v (fvs t2))
+    fvs (TCaseL t v t1)      = fvs t `union` if isJust v
+                                             then (delete (fromJust v) (fvs t1))
+                                             else fvs t1
+    fvs (TCaseR t v t2)      = fvs t `union` if isJust v
+                                             then (delete (fromJust v) (fvs t2))
+                                             else fvs t2
     fvs (TCall t1 t2 _ t)    = fvs t1 `union` fvs t2 `union` fvs t
     fvs (TExp e)             = fvs e
 

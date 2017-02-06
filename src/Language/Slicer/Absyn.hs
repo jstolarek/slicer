@@ -5,7 +5,7 @@ module Language.Slicer.Absyn
       Code(..), Con(..), Exp(..), Match(..), Type(..), Ctx
 
       -- * Type declarations
-    , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName, getConstrs
+    , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName
 
       -- * Type context
     , TyCtx(..), emptyTyCtx, nullTyCtx, unionTyCtx
@@ -14,7 +14,6 @@ module Language.Slicer.Absyn
 import           Language.Slicer.Env
 import           Language.Slicer.Primitives
 
-import           Data.Maybe
 import qualified Data.Map as Map
 
 newtype Con = C String deriving (Eq, Ord)
@@ -29,7 +28,7 @@ data Code = Rec { funName  :: Var
                 , funLabel :: Maybe String}
            deriving (Show, Eq, Ord)
 
-data Match = Match (Map.Map Con (Var, Exp))
+data Match = Match (Map.Map Con (Maybe Var, Exp))
            deriving (Show, Eq, Ord)
 
 -- Synonym for a recursive type of the form rec alpha.tau1 + tau2 and its
@@ -70,10 +69,6 @@ getTyDeclByCon decls k = do (tys,ty) <- Map.lookup k (constrmap decls)
                             return (decl,tys)
 getTyDeclByName :: TyCtx -> TyVar -> Maybe TyDecl
 getTyDeclByName decls a = Map.lookup a (tydecls decls)
-
--- Convenient shorthand.
-getConstrs :: TyCtx -> TyVar -> [Con]
-getConstrs tyCtx = map fst . constrs . fromJust . getTyDeclByName tyCtx
 
 data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Unit

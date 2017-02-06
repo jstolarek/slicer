@@ -11,7 +11,7 @@ import           Language.Slicer.Eval
 import           Language.Slicer.Monad
 import           Language.Slicer.PrettyPrinting ( pp                )
 import           Language.Slicer.Repl
-import           Language.Slicer.Resugar () -- PP instances only
+import           Language.Slicer.Resugar
 import           Language.Slicer.Parser         ( parseIn           )
 
 import           Control.Monad.Trans      ( lift                    )
@@ -62,10 +62,13 @@ compileAndRun arg = do
   putStrLn $ "Running " ++ arg
   hFlush stdout -- otherwise errors get printed before "Running"
   code   <- readFile arg
-  result <- runSlMIO $ parse_desugar_eval code
+  result <- runSlMIO $ do
+                      (val, ty, ctx) <- parse_desugar_eval code
+                      res <- liftSlM (resugarValue ctx val)
+                      return (res, ty)
   case result of
-    Right (v, ty, tyctx) -> putStrLn $ "val it = " ++ show (pp (tyctx, v)) ++
-                                       " : "       ++ show (pp ty)
+    Right (v, ty) -> putStrLn $ "val it = " ++ show (pp v ) ++
+                                " : "       ++ show (pp ty)
     Left err -> hPutStrLn stderr (show err)
 
 -- | Start an interactive loop

@@ -16,7 +16,6 @@ import           Language.Slicer.Env
 import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Primitives
-import           Language.Slicer.UpperSemiLattice
 
 import           Prelude hiding ( exp     )
 import           Control.Monad  ( liftM   )
@@ -114,7 +113,7 @@ keyword = reserved token_
 
 -- variables start with lower case or underscore
 var_ :: CharParser st Var
-var_ = V `liftM` identifier token_
+var_ = (V . Just) `liftM` identifier token_
 
 -- constructors start with upper case
 constr :: CharParser st Con
@@ -323,9 +322,9 @@ case_ = do
 
 matches :: Parser Match
 matches = (Match . Map.fromList) `liftM` semiSep token_ match
-    where match :: Parser (Con,(Var,Exp)) =
+    where match :: Parser (Con, (Maybe Var, Exp)) =
                    do c  <- constr
-                      vs <- option bot var_
+                      vs <- option Nothing (Just `liftM` var_)
                       reservedOp token_ strCaseClauseSep
                       e <- exp
                       return (c, (vs, e))

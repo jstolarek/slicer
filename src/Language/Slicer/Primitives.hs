@@ -1,6 +1,6 @@
 module Language.Slicer.Primitives
     ( -- * Built-in primitive operators and functions
-      Primitive(..)
+      Primitive(..), isInfixOp
     ) where
 
 import           Language.Slicer.PrettyPrinting
@@ -55,3 +55,23 @@ instance PP Primitive where
     pp_partial op op' | op == op' = pp op
     pp_partial op op' = error ("Error pretty-printing Op: op is " ++ show op ++
                                " and op' is " ++ show op')
+
+isInfixOp :: Primitive -> Bool
+isInfixOp OpPlus  = True
+isInfixOp OpMinus = True
+isInfixOp OpTimes = True
+isInfixOp OpDiv   = True
+isInfixOp OpMod   = True
+-- Integer and boolean comparisons
+isInfixOp OpEq    = True
+isInfixOp OpNeq   = True
+-- Integer comparisons
+isInfixOp OpLt    = True
+isInfixOp OpGt    = True
+isInfixOp OpLeq   = True
+isInfixOp OpGeq   = True
+-- Logical operators
+isInfixOp OpAnd   = True
+isInfixOp OpOr    = True
+-- Logical negation and builtin functions
+isInfixOp _       = False

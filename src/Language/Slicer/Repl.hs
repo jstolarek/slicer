@@ -16,7 +16,7 @@ import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Eval hiding ( addBinding  )
 import qualified Language.Slicer.Monad.Eval as E   ( addBinding  )
 import           Language.Slicer.PrettyPrinting
-import           Language.Slicer.Resugar           () -- PP instances only
+import           Language.Slicer.Resugar
 import           Language.Slicer.Parser            ( parseRepl   )
 
 import           Control.Exception                 ( assert      )
@@ -105,14 +105,15 @@ parseAndEvalLine line = do
            dsgres <- runSlMIO $ do
                           (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
                           (val, st)   <- run evalS dexpr
-                          return (val, ty, st)
+                          res <- liftSlM (resugarValue tyCtx val)
+                          return (val, res, ty, st)
            case dsgres of
-             Right (val, ty, st) ->
+             Right (val, res, ty, st) ->
                  do setEvalState st
                      -- See Note [Handling let bindings]
                     when (isLetBinding expr)
                              (val `seq` addBinding (getVar expr) val ty)
-                    return (It $ "val it = " ++ show (pp (tyCtx,val)) ++
+                    return (It $ "val it = " ++ show (pp res) ++
                                  " : "       ++ show (pp ty))
              Left err -> return (Error err)
 

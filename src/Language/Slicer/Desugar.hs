@@ -211,8 +211,8 @@ desugarMatch [(inl, ty1), (inr, ty2)] e (A.Match m) =
                                           show inr ++ " but none found.")
        let Just (x1, e1) = con1
            Just (x2, e2) = con2
-       (e1', ty1') <- withBinder x1 (desugarTy ty1) (desugarM e1)
-       (e2', ty2') <- withBinder x2 (desugarTy ty2) (desugarM e2)
+       (e1', ty1') <- maybeWithBinder x1 (desugarTy ty1) (desugarM e1)
+       (e2', ty2') <- maybeWithBinder x2 (desugarTy ty2) (desugarM e2)
        if ty1' == ty2'
        then return (ECase e (Match (x1, e1') (x2, e2')), ty1')
        else typeError ("Type mismatch in case expression: " ++ show ty1' ++

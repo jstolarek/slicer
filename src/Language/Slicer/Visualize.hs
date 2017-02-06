@@ -54,7 +54,7 @@ class Visualizable a where
     -- See Note [Single trace visualization]
     graphDiff :: a -> a -> GraphM Int
 
-instance (Visualizable a, Show a, PP a) => Visualizable (Syntax a) where
+instance (Visualizable a, Show a) => Visualizable (Syntax a) where
     graphDiff Hole Hole       = hole
     graphDiff t    Hole       = withColor leftColor  (graphDiff t t)
     graphDiff Hole t          = withColor rightColor (graphDiff t t)
@@ -113,7 +113,7 @@ instance (Visualizable a, Show a, PP a) => Visualizable (Syntax a) where
     graphDiff (Unroll _ t) (Unroll _ t') = graphDiff t t'
     graphDiff e e' =
         evalError ("Cannot visualize Syntax with different structure. e is "
-                   ++ show (pp e) ++ " and e' is " ++ show (pp e'))
+                   ++ show e ++ " and e' is " ++ show e')
 
 instance Visualizable Exp where
     graphDiff EHole EHole      = hole
@@ -121,14 +121,14 @@ instance Visualizable Exp where
     graphDiff EHole t          = withColor rightColor (graphDiff t t)
     graphDiff (Exp e) (Exp e') = graphDiff e e'
     graphDiff (EApp e1 e2) (EApp e1' e2') = do
-      i <- node ("app")
+      i <- node "app"
       k <- graphDiff e1 e1'
       edge i k
       j <- graphDiff e2 e2'
       edge i j
       return i
     graphDiff (EIf c e1 e2) (EIf c' e1' e2') = do
-      i <- node ("if:")
+      i <- node "if"
       l <- graphDiff c c'
       edge i l
       k <- graphDiff e1 e1'
@@ -137,7 +137,7 @@ instance Visualizable Exp where
       edge i j
       return i
     graphDiff (ECase e m) (ECase e' m') = do
-      i <- node ("case")
+      i <- node "case"
       l <- graphDiff e e'
       edge i l
       k <- graphDiff (snd (inL m)) (snd (inL m'))
@@ -152,7 +152,7 @@ instance Visualizable Exp where
       return i
     graphDiff e e' =
         evalError ("Cannot visualize Exps with different structure. e is "
-                   ++ show (pp e) ++ " and e' is " ++ show (pp e'))
+                   ++ show e ++ " and e' is " ++ show e')
 
 instance Visualizable Trace where
     graphDiff THole THole = hole
@@ -198,7 +198,7 @@ instance Visualizable Trace where
            return i
     graphDiff t t' =
         evalError ("Cannot visualize Traces with different structure. t is "
-                   ++ show (pp t) ++ " and t' is " ++ show (pp t'))
+                   ++ show t ++ " and t' is " ++ show t')
 
 instance Visualizable Value where
     graphDiff VHole VHole = hole
@@ -250,7 +250,7 @@ instance Visualizable Value where
         = graphDiff t t'
     graphDiff v v' =
         evalError ("Cannot visualize Values with different structure. v is "
-                   ++ show (pp v) ++ " and v' is " ++ show (pp v'))
+                   ++ show v ++ " and v' is " ++ show v')
 
 -- | Default attributes used for drawing graphs
 graphAttrs :: [GlobalAttributes]
