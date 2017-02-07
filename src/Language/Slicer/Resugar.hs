@@ -245,9 +245,9 @@ instance PP RMatch where
                      pp_partial expr expr'
 
 instance PP RCode where
-    pp_partial (RRec n args body) (RRec n' args' body')
-        | n == n' && args == args'
-        = text "fun" <+> pp n <+> sep (map pp args) <+> text "=>" <+>
+    pp_partial (RRec name args body) (RRec name' args' body')
+        | name == name' && args == args'
+        = text "fun" <+> pp name <+> sep (map pp args) <+> text "=>" <+>
           nest 2 (pp_partial body body')
     pp_partial v v' = error ("Error pretty-printing RCode: v is " ++ show v ++
                              " and v' is " ++ show v')
