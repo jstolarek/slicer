@@ -5,7 +5,7 @@ module Language.Slicer.Absyn
       Code(..), Con(..), Exp(..), Match(..), Type(..), Ctx
 
       -- * Type declarations
-    , TyDecl(..), addTyDecl, getTyDeclByCon, getTyDeclByName
+    , TyDecl(..), conL, conR, constrs, addTyDecl, getTyDeclByCon, getTyDeclByName
 
       -- * Type context
     , TyCtx(..), emptyTyCtx, nullTyCtx, unionTyCtx
@@ -35,8 +35,18 @@ data Match = Match (Map.Map Con (Maybe Var, Exp))
 -- constructors.
 data TyDecl = TyDecl
     { name    :: TyVar
-    , constrs :: [(Con, Type)]
+    , constrL :: (Con, Type)
+    , constrR :: (Con, Type)
     } deriving (Show, Eq, Ord)
+
+conL :: TyDecl -> Con
+conL = fst . constrL
+
+conR :: TyDecl -> Con
+conR = fst . constrR
+
+constrs :: TyDecl -> (Con, Con)
+constrs (TyDecl _ (con1, _) (con2, _)) = (con1, con2)
 
 data TyCtx = TyCtx
     { tydecls   :: Map.Map TyVar TyDecl
@@ -54,12 +64,11 @@ nullTyCtx :: TyCtx -> Bool
 nullTyCtx (TyCtx tydecls constrmap) = Map.null tydecls && Map.null constrmap
 
 addTyDecl :: TyCtx -> TyDecl -> TyCtx
-addTyDecl (TyCtx tydecls constrmap) (decl@(TyDecl name constrs)) =
+addTyDecl (TyCtx tydecls constrmap) (decl@(TyDecl name lCon rCon)) =
     let tydecls' = Map.insert name decl tydecls
         constrmap' = foldl (\cmap (k,tys) -> Map.insert k (tys,name) cmap)
-                            constrmap constrs
+                            constrmap [lCon, rCon]
     in TyCtx tydecls' constrmap'
-
 
 -- get the declaration that defines the given constructor
 -- assumes we don't reuse ctor names

@@ -366,7 +366,7 @@ typeDef = do
    -- Assume all datatypes are binary for now :-/
    (con1, ty1) <- constrDef
    (con2, ty2) <- symbol token_ "|" >> constrDef
-   let decl = TyDecl alpha [(con1, ty1), (con2, ty2)]
+   let decl = TyDecl alpha (con1, ty1) (con2, ty2)
    updateState (\(tyctx, mode) -> (addTyDecl tyctx decl, mode))
    return (alpha, decl) -- TODO: generalize
    where

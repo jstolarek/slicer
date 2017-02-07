@@ -52,10 +52,10 @@ lookupOp op tys =
                   show (map pp tys))
 
 --todo: handle general sums/datatypes
-inject :: [(A.Con, A.Type)] -> A.Con -> Exp -> DesugarM Exp
-inject [(inl, _), (_  , _)] k e | k == inl = return (EInL e)
-inject [(_  , _), (inr, _)] k e | k == inr = return (EInR e)
-inject _ _ _ = desugarError "Non binary sums not yet implemented"
+inject :: (A.Con, A.Con) -> A.Con -> Exp -> DesugarM Exp
+inject (inl, _) k e | k == inl = return (EInL e)
+inject (_, inr) k e | k == inr = return (EInR e)
+inject _ _ _ = desugarError "No matching constructor"
 
 
 -- simple version that just fails if term is not well-typed
@@ -104,9 +104,9 @@ desugarM (A.Con k e)
     = do (e', ty) <- desugarM e
          decls    <- getDecls
          case A.getTyDeclByCon decls k of
-           Just (A.TyDecl dataty cons, ty') ->
+           Just (decl@(A.TyDecl dataty _ _), ty') ->
               if ty == desugarTy ty'
-              then do aval <- inject cons k e'
+              then do aval <- inject (A.constrs decl) k e'
                       return (ERoll (Just dataty) aval, TyVar dataty)
               else typeError ("Ill-typed argument "  ++ show ty ++
                               " to constructor "     ++ show k  ++
@@ -116,7 +116,7 @@ desugarM (A.Case e m)
     = do (e', TyVar dataty) <- desugarM e
          decls              <- getDecls
          case (A.getTyDeclByName decls dataty) of
-           Just decl -> desugarMatch (A.constrs decl)
+           Just decl -> desugarMatch (A.constrL decl) (A.constrR decl)
                                      (EUnroll (Just dataty) e') m
            Nothing -> desugarError ("Undeclared datatype in case: " ++
                                     show dataty)
@@ -200,9 +200,9 @@ desugarFun (A.Rec f args rty e lbl)
                          " but function body has type " ++ show rty')
 
 -- todo: generalize to handle arbitrary datatypes
-desugarMatch :: [(A.Con, A.Type)] -> Exp -> A.Match
+desugarMatch :: (A.Con, A.Type) -> (A.Con, A.Type) -> Exp -> A.Match
              -> DesugarM (Exp, Type)
-desugarMatch [(inl, ty1), (inr, ty2)] e (A.Match m) =
+desugarMatch (inl, ty1) (inr, ty2) e (A.Match m) =
     do let con1 = M.lookup inl m
        let con2 = M.lookup inr m
        when (isNothing con1) (typeError $ "Expected match on constructor " ++
@@ -217,4 +217,4 @@ desugarMatch [(inl, ty1), (inr, ty2)] e (A.Match m) =
        then return (ECase e (Match (x1, e1') (x2, e2')), ty1')
        else typeError ("Type mismatch in case expression: " ++ show ty1' ++
                        " does not match " ++ show ty2' )
-desugarMatch _ _ _ = desugarError "desugarMatch: data type is not binary"
+--desugarMatch _ _ _ = desugarError "desugarMatch: data type is not binary"
