@@ -63,20 +63,20 @@ resugarM (EIf c e1 e2) = do c'  <- resugarM c
                             e1' <- resugarM e1
                             e2' <- resugarM e2
                             return (RIf c' e1' e2')
-resugarM (ECase (EUnroll (Just dataty) e) m)
+resugarM (ECase (EUnroll dataty e) m)
     = do e' <- resugarM e
          m' <- resugarMatch dataty m
          return (RCase e' m')
 resugarM (ECase e _)
     = resugarError ("Case scrutinee not wrapped in unroll, can't resugar "
                     ++ show e)
-resugarM (ERoll (Just dataty) (EInL e))
+resugarM (ERoll dataty (EInL e))
     = do e' <- resugarM e
          decls <- getDecls
          case getTyDeclByName decls dataty of
            Just decl -> return (RCon (conL decl) e')
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
-resugarM (ERoll (Just dataty) (EInR e))
+resugarM (ERoll dataty (EInR e))
     = do e' <- resugarM e
          decls <- getDecls
          case getTyDeclByName decls dataty of
@@ -148,13 +148,13 @@ resugarValueM (VPair v1 v2)
     = do e1 <- resugarValueM v1
          e2 <- resugarValueM v2
          return (RPair e1 e2)
-resugarValueM (VRoll (Just dataty) (VInL v))
+resugarValueM (VRoll dataty (VInL v))
     = do e <- resugarValueM v
          decls <- getDecls
          case getTyDeclByName decls dataty of
            Just decl -> return (RCon (conL decl) e)
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
-resugarValueM (VRoll (Just dataty) (VInR v))
+resugarValueM (VRoll dataty (VInR v))
     = do e <- resugarValueM v
          decls <- getDecls
          case getTyDeclByName decls dataty of
