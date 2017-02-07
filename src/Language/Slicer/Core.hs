@@ -152,7 +152,7 @@ data Syntax a = Var Var
               | Pair a a | Fst a | Snd a
               | InL a | InR a
               | Fun (Code Exp)
-              | Roll (Maybe TyVar) a | Unroll (Maybe TyVar) a
+              | Roll TyVar a | Unroll TyVar a
               | Hole
               -- References
               | Ref a  | Deref a | Assign a a | Seq a a
@@ -205,10 +205,10 @@ pattern EInR t = Exp (InR t)
 pattern EFun :: Code Exp -> Exp
 pattern EFun code = Exp (Fun code)
 
-pattern ERoll :: Maybe TyVar -> Exp -> Exp
+pattern ERoll :: TyVar -> Exp -> Exp
 pattern ERoll tv t = Exp (Roll tv t)
 
-pattern EUnroll :: Maybe TyVar -> Exp -> Exp
+pattern EUnroll :: TyVar -> Exp -> Exp
 pattern EUnroll tv t = Exp (Unroll tv t)
 
 pattern EHole :: Exp
@@ -273,10 +273,10 @@ pattern TInR t = TExp (InR t)
 pattern TFun :: Code Exp -> Trace
 pattern TFun code = TExp (Fun code)
 
-pattern TRoll :: Maybe TyVar -> Trace -> Trace
+pattern TRoll :: TyVar -> Trace -> Trace
 pattern TRoll tv t = TExp (Roll tv t)
 
-pattern TUnroll :: Maybe TyVar -> Trace -> Trace
+pattern TUnroll :: TyVar -> Trace -> Trace
 pattern TUnroll tv t = TExp (Unroll tv t)
 
 pattern THole :: Trace
@@ -307,7 +307,7 @@ data Match = Match { inL :: (Maybe Var, Exp)
 data Value = VBool Bool | VInt Int | VUnit | VString String
            | VPair Value Value
            | VInL Value | VInR Value
-           | VRoll (Maybe TyVar) Value
+           | VRoll TyVar Value
            | VClosure (Code Exp) (Env Value)
            | VHole | VStar
            | VExp Exp (Env Value)

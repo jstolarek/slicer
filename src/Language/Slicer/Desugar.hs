@@ -107,7 +107,7 @@ desugarM (A.Con k e)
            Just (decl@(A.TyDecl dataty _ _), ty') ->
               if ty == desugarTy ty'
               then do aval <- inject (A.constrs decl) k e'
-                      return (ERoll (Just dataty) aval, TyVar dataty)
+                      return (ERoll dataty aval, TyVar dataty)
               else typeError ("Ill-typed argument "  ++ show ty ++
                               " to constructor "     ++ show k  ++
                               " which expects type " ++ show ty')
@@ -117,7 +117,7 @@ desugarM (A.Case e m)
          decls              <- getDecls
          case (A.getTyDeclByName decls dataty) of
            Just decl -> desugarMatch (A.constrL decl) (A.constrR decl)
-                                     (EUnroll (Just dataty) e') m
+                                     (EUnroll dataty e') m
            Nothing -> desugarError ("Undeclared datatype in case: " ++
                                     show dataty)
 desugarM (A.Fun k) = desugarFun k
