@@ -2,8 +2,8 @@ module Language.Slicer.Resugar
     ( resugar, resugarValue
     )  where
 
-import           Language.Slicer.Absyn ( Con, TyDecl(..), TyCtx
-                                       , getTyDeclByName )
+import           Language.Slicer.Absyn ( Con, TyCtx, getTyDeclByName
+                                       , conL, conR )
 import           Language.Slicer.Core
 import           Language.Slicer.Env
 import           Language.Slicer.Error
@@ -74,13 +74,13 @@ resugarM (ERoll (Just dataty) (EInL e))
     = do e' <- resugarM e
          decls <- getDecls
          case getTyDeclByName decls dataty of
-           Just (TyDecl _ [(con,_),_]) -> return (RCon con e')
+           Just decl -> return (RCon (conL decl) e')
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 resugarM (ERoll (Just dataty) (EInR e))
     = do e' <- resugarM e
          decls <- getDecls
          case getTyDeclByName decls dataty of
-           Just (TyDecl _ [_,(con,_)]) -> return (RCon con e')
+           Just decl -> return (RCon (conR decl) e')
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 -- Functions in Core are single-argument.  Need to traverse body to reconstruct
 -- multi-argument function
@@ -118,7 +118,7 @@ resugarM (EUnroll _ e)
                     ++ show e)
 -- This should never happen but it seems that GHC exhaustiveness checker does
 -- not recognize that
---resugarM e = error ("Impossible happened during resugaring: " ++ show e)
+resugarM e = error ("Impossible happened during resugaring: " ++ show e)
 
 resugarMatch :: TyVar -> Match -> DesugarM RMatch
 resugarMatch dataty (Match (v1, e1) (v2, e2))
@@ -126,8 +126,9 @@ resugarMatch dataty (Match (v1, e1) (v2, e2))
          e1' <- resugarM e1
          e2' <- resugarM e2
          case getTyDeclByName decls dataty of
-           Just (TyDecl _ [(con1, _), (con2, _)]) ->
-               return (RMatch [ (con1, v1, e1'), (con2, v2, e2') ] )
+           Just decl ->
+               return (RMatch [ ((conL decl), v1, e1')
+                              , ((conR decl), v2, e2') ] )
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 
 resugarMultiFun :: Code Exp -> ([Var], Exp)
@@ -151,13 +152,13 @@ resugarValueM (VRoll (Just dataty) (VInL v))
     = do e <- resugarValueM v
          decls <- getDecls
          case getTyDeclByName decls dataty of
-           Just (TyDecl _ [(con,_),_]) -> return (RCon con e)
+           Just decl -> return (RCon (conL decl) e)
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 resugarValueM (VRoll (Just dataty) (VInR v))
     = do e <- resugarValueM v
          decls <- getDecls
          case getTyDeclByName decls dataty of
-           Just (TyDecl _ [_,(con,_)]) -> return (RCon con e)
+           Just decl -> return (RCon (conR decl) e)
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 resugarValueM (VClosure v _) = resugarM (EFun v)
 resugarValueM (VStoreLoc _)  = return RRef
