@@ -34,9 +34,9 @@ data Match = Match (Map.Map Con (Maybe Var, Exp))
 -- Synonym for a recursive type of the form rec alpha.tau1 + tau2 and its
 -- constructors.
 data TyDecl = TyDecl
-    { name    :: TyVar
-    , constrL :: (Con, Type)
-    , constrR :: (Con, Type)
+    { dataName :: TyVar
+    , constrL  :: (Con, Type)
+    , constrR  :: (Con, Type)
     } deriving (Show, Eq, Ord)
 
 conL :: TyDecl -> Con
