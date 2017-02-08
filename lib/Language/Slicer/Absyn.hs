@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Slicer.Absyn
@@ -14,9 +16,11 @@ module Language.Slicer.Absyn
 import           Language.Slicer.Env
 import           Language.Slicer.Primitives
 
+import           Control.DeepSeq ( NFData  )
 import qualified Data.Map as Map
+import           GHC.Generics    ( Generic )
 
-newtype Con = C String deriving (Eq, Ord)
+newtype Con = C String deriving (Eq, Ord, Generic, NFData)
 
 instance Show Con where
     show (C s) = s
@@ -37,7 +41,7 @@ data TyDecl = TyDecl
     { dataName :: TyVar
     , constrL  :: (Con, Type)
     , constrR  :: (Con, Type)
-    } deriving (Show, Eq, Ord)
+    } deriving (Show, Eq, Ord, Generic, NFData)
 
 conL :: TyDecl -> Con
 conL = fst . constrL
@@ -50,8 +54,8 @@ constrs (TyDecl _ (con1, _) (con2, _)) = (con1, con2)
 
 data TyCtx = TyCtx
     { tydecls   :: Map.Map TyVar TyDecl
-    , constrmap :: Map.Map Con (Type,TyVar)
-    } deriving (Show, Eq, Ord)
+    , constrmap :: Map.Map Con (Type, TyVar)
+    } deriving (Show, Eq, Ord, Generic, NFData)
 
 emptyTyCtx :: TyCtx
 emptyTyCtx = TyCtx Map.empty Map.empty
@@ -76,6 +80,7 @@ getTyDeclByCon :: TyCtx -> Con -> Maybe (TyDecl, Type)
 getTyDeclByCon decls k = do (tys,ty) <- Map.lookup k (constrmap decls)
                             decl <- getTyDeclByName decls ty
                             return (decl,tys)
+
 getTyDeclByName :: TyCtx -> TyVar -> Maybe TyDecl
 getTyDeclByName decls a = Map.lookup a (tydecls decls)
 
@@ -93,7 +98,7 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Trace Exp
          -- holes
          | Hole Type
-           deriving (Eq,Show,Ord)
+           deriving (Show, Eq, Ord)
 
 data Type = IntTy | BoolTy | UnitTy | StringTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
@@ -102,6 +107,6 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | RefTy Type
           -- Trace types
           | TraceTy Type
-            deriving (Eq,Ord,Show)
+            deriving (Show, Eq, Ord, Generic, NFData)
 
 type Ctx = Env Type

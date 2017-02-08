@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
+
 module Language.Slicer.Resugar
-    ( resugar, resugarValue
+    ( RExp, resugar, resugarValue
     )  where
 
 import           Language.Slicer.Absyn ( Con, TyCtx, getTyDeclByName
@@ -12,6 +15,8 @@ import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
 import           Language.Slicer.PrettyPrinting
 
+import           Control.DeepSeq ( NFData  )
+import           GHC.Generics    ( Generic )
 import           Text.PrettyPrint
 
 -- See GitHub ticket #10 and pull request #20 for discussion and thoughts on
@@ -30,13 +35,13 @@ data RExp = RVar Var | RLet Var RExp RExp
           | RTrace RExp
           -- holes
           | RHole
-            deriving (Eq,Show,Ord)
+            deriving (Show, Eq, Ord, Generic, NFData)
 
 data RCode = RRec Var [Var] RExp -- name, args, body
-             deriving (Eq,Show,Ord)
+             deriving (Show, Eq, Ord, Generic, NFData)
 
 data RMatch = RMatch [ ( Con, Maybe Var, RExp ) ]
-              deriving (Eq,Show,Ord)
+              deriving (Show, Eq, Ord, Generic, NFData)
 
 resugar :: TyCtx -> Exp -> SlM RExp
 resugar decls expr = runDesugarM decls emptyEnv (resugarM expr)

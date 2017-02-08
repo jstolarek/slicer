@@ -8,3 +8,6 @@ dist
 *.actual
 *.pdf
 *.tix
+
+# Files generated when running benchmarks
+report.html

@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
+
 module Language.Slicer.Primitives
     ( -- * Built-in primitive operators and functions
       Primitive(..), isInfixOp
@@ -5,6 +8,8 @@ module Language.Slicer.Primitives
 
 import           Language.Slicer.PrettyPrinting
 
+import           Control.DeepSeq ( NFData  )
+import           GHC.Generics    ( Generic )
 import           Text.PrettyPrint
 
 data Primitive
@@ -19,7 +24,7 @@ data Primitive
     -- Builtin functions
     | PrimProfile | PrimProfileDiff | PrimPSlice | PrimSlice
     | PrimTreeSize | PrimVal | PrimVisualize | PrimVisualizeDiff
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic, NFData)
 
 instance Show Primitive where
     -- Arithmetic operators

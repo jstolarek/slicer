@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -36,10 +38,12 @@ import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
-import           Data.Map as Map ( Map, fromList, mapWithKey, keys, member )
+import           Control.DeepSeq    ( NFData                                  )
+import           Data.Map as Map    ( Map, fromList, mapWithKey, keys, member )
 import           Data.Maybe
-import           Data.List       ( union, delete, (\\) )
-import qualified Data.Hashable as H ( hash )
+import           Data.List          ( union, delete, (\\)                     )
+import qualified Data.Hashable as H ( hash                                    )
+import           GHC.Generics       ( Generic                                 )
 import           Text.PrettyPrint
 
 data Type = IntTy | BoolTy | UnitTy | StringTy
@@ -50,7 +54,7 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | RefTy Type
           -- Trace types
           | TraceTy Type
-            deriving (Eq,Ord,Show)
+            deriving (Show, Eq, Ord, Generic, NFData)
 
 isRefTy :: Type -> Bool
 isRefTy (RefTy _) = True
@@ -127,6 +131,7 @@ type Ctx = Env Type
 
 data Lab = L { unL  :: String
              , hash :: Int }
+           deriving (Generic, NFData)
 
 instance Eq Lab where
     l1 == l2 = hash l1 == hash l2
@@ -156,7 +161,7 @@ data Syntax a = Var Var
               | Hole
               -- References
               | Ref a  | Deref a | Assign a a | Seq a a
-                deriving (Show, Eq, Ord)
+                deriving (Show, Eq, Ord, Generic, NFData)
 
 data Exp = Exp (Syntax Exp)
          | EIf Exp Exp Exp
@@ -164,7 +169,7 @@ data Exp = Exp (Syntax Exp)
          | EApp Exp Exp
            -- run-time tracing
          | ETrace Exp
-           deriving (Show, Eq, Ord)
+           deriving (Show, Eq, Ord, Generic, NFData)
 
 pattern EVar :: Var -> Exp
 pattern EVar v = Exp (Var v)
@@ -232,7 +237,7 @@ data Trace = TExp (Syntax Trace)
            | TCaseL Trace (Maybe Var) Trace
            | TCaseR Trace (Maybe Var) Trace
            | TCall Trace Trace (Maybe Lab) (Code Trace)
-             deriving (Show, Eq, Ord)
+             deriving (Show, Eq, Ord, Generic, NFData)
 
 pattern TVar :: Var -> Trace
 pattern TVar v = TExp (Var v)
@@ -298,11 +303,11 @@ data Code a = Rec { funName  :: Var
                   , funArg   :: Var
                   , funBody  :: a
                   , funLabel :: Maybe Lab}
-                  deriving (Show, Eq, Ord)
+                  deriving (Show, Eq, Ord, Generic, NFData)
 
 data Match = Match { inL :: (Maybe Var, Exp)
                    , inR :: (Maybe Var, Exp) }
-                   deriving (Show, Eq, Ord)
+                   deriving (Show, Eq, Ord, Generic, NFData)
 
 data Value = VBool Bool | VInt Int | VUnit | VString String
            | VPair Value Value
@@ -315,7 +320,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VStoreLoc Int
            -- run-time traces
            | VTrace Value Trace (Env Value)
-           deriving (Show, Eq, Ord)
+           deriving (Show, Eq, Ord, Generic, NFData)
 
 class Valuable a where
     to_val :: a -> Value

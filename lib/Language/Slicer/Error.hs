@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Language.Slicer.Error
@@ -5,25 +7,26 @@ module Language.Slicer.Error
       SlicerError, parseError, desugarError, resugarError, evalError, typeError
     ) where
 
+import           Control.DeepSeq               ( NFData     )
 import           Control.Monad.Except
-import           Text.ParserCombinators.Parsec ( ParseError )
+import           GHC.Generics                  ( Generic    )
 
 -- | Error types that the program can raise
-data SlicerError = ParseError ParseError
+data SlicerError = ParseError   String
                  | DesugarError String
                  | ResugarError String
                  | TypeError String
                  | EvalError String
-                   deriving (Eq)
+                   deriving (Eq, Generic, NFData)
 
 instance Show SlicerError where
-    show (ParseError   msg) = "Syntax error: " ++ show msg
+    show (ParseError   msg) = "Syntax error: " ++ msg
     show (EvalError    msg) = "Evaluation error: " ++ msg
     show (DesugarError msg) = "Desugaring error: " ++ msg
     show (ResugarError msg) = "Resugaring error: " ++ msg
     show (TypeError    msg) = "Type error: " ++ msg
 
-parseError :: MonadError SlicerError m => ParseError -> m a
+parseError :: MonadError SlicerError m => String -> m a
 parseError msg = throwError (ParseError msg)
 
 desugarError :: MonadError SlicerError m => String -> m a

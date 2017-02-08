@@ -3,23 +3,14 @@ module Main
       main
     ) where
 
-import           Language.Slicer.Absyn          ( emptyTyCtx, TyCtx )
-import           Language.Slicer.Core           ( Value, Type       )
-import           Language.Slicer.Desugar
-import           Language.Slicer.Env
-import           Language.Slicer.Eval
-import           Language.Slicer.Monad
-import           Language.Slicer.PrettyPrinting ( pp                )
-import           Language.Slicer.Repl
-import           Language.Slicer.Resugar
-import           Language.Slicer.Parser         ( parseIn           )
+import           Language.Slicer.API
 
-import           Control.Monad.Trans      ( lift                    )
+import           Control.Monad.Trans            ( lift              )
 import           System.Console.GetOpt
 import           System.Console.Haskeline
-import           System.Directory         ( getHomeDirectory        )
-import           System.Environment       ( getArgs                 )
-import           System.FilePath          ( joinPath                )
+import           System.Directory               ( getHomeDirectory  )
+import           System.Environment             ( getArgs           )
+import           System.FilePath                ( joinPath          )
 import           System.IO
 
 -- | Command line flags
@@ -33,14 +24,6 @@ options =
 -- | Is REPL mode enabled via command line flags?
 isReplEnabled :: [Flag] -> Bool
 isReplEnabled f = Repl `elem` f
-
--- | Parse a program and evaluate it.  Return value and its type
-parse_desugar_eval :: String -> SlMIO (Value, Type, TyCtx)
-parse_desugar_eval s = do
-    (tyctx, e) <- liftSlM $ parseIn s emptyTyCtx
-    (e', ty)   <- liftSlM $ desugar tyctx emptyEnv e
-    v          <- eval emptyEnv e'
-    return (v, ty, tyctx)
 
 -- | Catch C^ interrupts when running the REPL
 noesc :: MonadException m => InputT m a -> InputT m a
@@ -62,13 +45,10 @@ compileAndRun arg = do
   putStrLn $ "Running " ++ arg
   hFlush stdout -- otherwise errors get printed before "Running"
   code   <- readFile arg
-  result <- runSlMIO $ do
-                      (val, ty, ctx) <- parse_desugar_eval code
-                      res <- liftSlM (resugarValue ctx val)
-                      return (res, ty)
+  result <- runSlMIO (parseDesugarEval code)
   case result of
-    Right (v, ty) -> putStrLn $ "val it = " ++ show (pp v ) ++
-                                " : "       ++ show (pp ty)
+    Right (_, res, ty, _) -> putStrLn $ "val it = " ++ show (pp res) ++
+                                        " : "       ++ show (pp ty )
     Left err -> hPutStrLn stderr (show err)
 
 -- | Start an interactive loop
