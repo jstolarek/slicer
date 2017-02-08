@@ -14,6 +14,9 @@ import           Language.Slicer.PrettyPrinting
 
 import           Text.PrettyPrint
 
+-- See GitHub ticket #10 and pull request #20 for discussion and thoughts on
+-- possible improvements to the resugaring mechanism
+
 data RExp = RVar Var | RLet Var RExp RExp
           | RUnit
           | RBool Bool | RIf RExp RExp RExp
