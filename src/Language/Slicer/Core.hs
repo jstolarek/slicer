@@ -38,7 +38,7 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Data.Map as Map ( Map, fromList, mapWithKey, keys, member )
 import           Data.Maybe
-import           Data.List       ( union, delete )
+import           Data.List       ( union, delete, (\\) )
 import qualified Data.Hashable as H ( hash )
 import           Text.PrettyPrint
 
@@ -392,13 +392,7 @@ instance FVs Exp where
 
 instance FVs Match where
     fvs (Match (x, e1) (y, e2)) =
-        let f1 = if isJust x
-                 then delete (fromJust x) (fvs e1)
-                 else fvs e1
-            f2 = if isJust y
-                 then delete (fromJust y) (fvs e2)
-                 else fvs e2
-        in f1 `union` f2
+        (maybeToList x \\ fvs e1) `union` (maybeToList y \\ fvs e2)
 
 instance FVs a => FVs (Code a) where
     fvs k = let vs = fvs (funBody k)
@@ -408,12 +402,8 @@ instance FVs a => FVs (Code a) where
 instance FVs Trace where
     fvs (TIfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
     fvs (TIfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
-    fvs (TCaseL t v t1)      = fvs t `union` if isJust v
-                                             then (delete (fromJust v) (fvs t1))
-                                             else fvs t1
-    fvs (TCaseR t v t2)      = fvs t `union` if isJust v
-                                             then (delete (fromJust v) (fvs t2))
-                                             else fvs t2
+    fvs (TCaseL t v t1)      = fvs t `union` (maybeToList v \\ fvs t1)
+    fvs (TCaseR t v t2)      = fvs t `union` (maybeToList v \\ fvs t2)
     fvs (TCall t1 t2 _ t)    = fvs t1 `union` fvs t2 `union` fvs t
     fvs (TExp e)             = fvs e
 
