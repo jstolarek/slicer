@@ -217,4 +217,3 @@ desugarMatch (inl, ty1) (inr, ty2) e (A.Match m) =
        then return (ECase e (Match (x1, e1') (x2, e2')), ty1')
        else typeError ("Type mismatch in case expression: " ++ show ty1' ++
                        " does not match " ++ show ty2' )
---desugarMatch _ _ _ = desugarError "desugarMatch: data type is not binary"
