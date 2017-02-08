@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
+
 module Language.Slicer.Env
     ( -- * Variables and type variables
       Var(..), TyVar(..)
@@ -13,11 +16,13 @@ module Language.Slicer.Env
 import           Language.Slicer.UpperSemiLattice
 import           Language.Slicer.PrettyPrinting
 
+import           Control.DeepSeq ( NFData  )
 import qualified Data.Map as Map
+import           GHC.Generics    ( Generic )
 import           Text.PrettyPrint
 
 newtype Var = V (Maybe String)
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic, NFData)
 
 instance Show Var where
     showsPrec _ (V (Just x)) = showString x
@@ -53,7 +58,7 @@ instance PP (Maybe Var) where
     pp_partial (Just v) (Just v') = pp_partial v v'
 
 newtype TyVar = TV String
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic, NFData)
 
 instance Show TyVar where
     showsPrec _ (TV x) = showString x
@@ -66,7 +71,7 @@ instance PP TyVar where
                              " and v' is " ++ show v')
 
 newtype Env a = Env (Map.Map Var a)
-    deriving (Eq,Show,Ord,Foldable,Traversable)
+    deriving (Show, Eq, Ord, Foldable, Traversable, Generic, NFData)
 
 instance (PP a) => PP (Env a) where
     pp_partial (Env env) (Env env') =

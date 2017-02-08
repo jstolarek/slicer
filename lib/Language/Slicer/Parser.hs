@@ -41,14 +41,14 @@ parseIn :: String -> TyCtx -> SlM (TyCtx, Exp)
 parseIn source tyctx =
    case runParser program (tyctx, Compiler) "" source of
       Right ((tyctx', _), e) -> return (tyctx', e)
-      Left err               -> parseError err
+      Left err               -> parseError (show err)
 
 -- Parse a repl line in a type context and the empty variable context.
 parseRepl :: String -> TyCtx -> SlM (TyCtx, Maybe Exp)
 parseRepl line tyctx =
     case runParser repl (tyctx, Repl) "" line of
       Right ((tyctx', _), e) -> return (tyctx', e)
-      Left err               -> parseError err
+      Left err               -> parseError (show err)
 
 isCompilerMode :: Parser Bool
 isCompilerMode = do

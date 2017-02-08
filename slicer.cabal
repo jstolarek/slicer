@@ -17,8 +17,31 @@ source-repository this
   type:     git
   location: https://github.com/jstolarek/slicer.git
 
-executable slicer
-  main-is:          Language/Slicer/Main.hs
+library
+  hs-source-dirs:   lib
+  exposed-modules:  Language.Slicer.API
+  other-modules:    Language.Slicer.Absyn
+                    Language.Slicer.Core
+                    Language.Slicer.Desugar
+                    Language.Slicer.Env
+                    Language.Slicer.Error
+                    Language.Slicer.Eval
+                    Language.Slicer.Monad
+                    Language.Slicer.Monad.Desugar
+                    Language.Slicer.Monad.Eval
+                    Language.Slicer.Monad.Repl
+                    Language.Slicer.Monad.Visualize
+                    Language.Slicer.Parser
+                    Language.Slicer.PrettyPrinting
+                    Language.Slicer.Primitives
+                    Language.Slicer.Profile
+                    Language.Slicer.Repl
+                    Language.Slicer.Run
+                    Language.Slicer.Resugar
+                    Language.Slicer.Slice
+                    Language.Slicer.TraceTree
+                    Language.Slicer.UpperSemiLattice
+                    Language.Slicer.Visualize
   build-depends:    base       >= 4.8 && < 4.10,
                     containers >= 0.5 && < 0.6,
                     deepseq    >= 1.4 && < 1.5,
@@ -31,13 +54,24 @@ executable slicer
                     parsec     >= 3.1 && < 3.2,
                     pretty     >= 1.1 && < 1.2,
                     text       >= 1.2
+  ghc-options:      -Wall
+  default-language: Haskell2010
+
+executable slicer
   hs-source-dirs:   src
+  main-is:          Language/Slicer/Main.hs
+  build-depends:    base       >= 4.8 && < 4.10,
+                    directory  >= 1.2.6.2,
+                    filepath   >= 1.4 && < 1.5,
+                    haskeline  >= 0.7.2.3,
+                    mtl        >= 2.2.1,
+                    slicer     >= 0.1.0.0
   ghc-options:      -Wall
   default-language: Haskell2010
 
 test-suite slicer-test-suite
+  hs-source-dirs:   tests
   type:             exitcode-stdio-1.0
-  hs-source-dirs:   src, tests
   ghc-options:      -Wall
   default-language: Haskell2010
   main-is:          SlicerTestSuite.hs
@@ -47,3 +81,17 @@ test-suite slicer-test-suite
                     process      >= 1.4,
                     tasty        >= 0.11,
                     tasty-golden >= 2.3
+
+benchmark slicer-benchmark-suite
+  hs-source-dirs:   bench
+  type:             exitcode-stdio-1.0
+  main-is:          SlicerBenchmarkSuite.hs
+  build-depends:    base       >= 4.8 && < 4.10,
+                    criterion  >= 1.1.4.0,
+                    deepseq    >= 1.4 && < 1.5,
+                    filepath   >= 1.4 && < 1.5,
+                    process      >= 1.4,
+                    slicer     >= 0.1.0.0
+  ghc-options:      -Wall
+                    -O2
+  default-language: Haskell2010
