@@ -10,11 +10,11 @@ import           Language.Slicer.Env
 import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Repl
-import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Parser            ( parseRepl   )
 
 import           Control.Exception                 ( assert      )
 import           Control.Monad                     ( when        )
+import           Text.PrettyPrint.HughesPJClass
 
 -- | Possible results of parsing and evaluating user input
 data ParseResult = OK               -- ^ Success without reply
@@ -44,8 +44,8 @@ parseAndEvalLine line = do
                      -- See Note [Handling let bindings]
                     when (isLetBinding expr)
                              (val `seq` addBinding (getVar expr) val ty)
-                    return (It $ "val it = " ++ show (pp res) ++
-                                 " : "       ++ show (pp ty))
+                    return (It $ "val it = " ++ show (pPrint res) ++
+                                 " : "       ++ show (pPrint ty))
              Left err -> return (Error err)
 
 -- Note [Handling let bindings]

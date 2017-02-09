@@ -12,7 +12,6 @@ import           Language.Slicer.Core
 import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Visualize
-import           Language.Slicer.PrettyPrinting
 
 import           Control.Monad.Except ( liftIO )
 import           Data.GraphViz
@@ -58,7 +57,7 @@ instance (Visualizable a, Show a) => Visualizable (Syntax a) where
     graphDiff Hole Hole       = hole
     graphDiff t    Hole       = withColor leftColor  (graphDiff t t)
     graphDiff Hole t          = withColor rightColor (graphDiff t t)
-    graphDiff (Var x) (Var _) = node (show (pp x))
+    graphDiff (Var x) (Var _) = node (show x)
     graphDiff Unit Unit       = node "()"
     graphDiff (CBool b) (CBool b')
         | b == b' = node (if b then "true" else "false")
@@ -78,7 +77,7 @@ instance (Visualizable a, Show a) => Visualizable (Syntax a) where
         graphDiff funBody funBody'
     graphDiff (Op f ts) (Op f' ts')
         | f == f' =
-        do i <- node (show (pp f))
+        do i <- node (show f)
            idxs <- mapM (uncurry graphDiff) (reverse (zip ts ts'))
            mapM_ (edge i) idxs
            return i

@@ -34,7 +34,6 @@ module Language.Slicer.Core
 
 
 import           Language.Slicer.Env
-import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
@@ -44,7 +43,7 @@ import           Data.Maybe
 import           Data.List          ( union, delete, (\\)                     )
 import qualified Data.Hashable as H ( hash                                    )
 import           GHC.Generics       ( Generic                                 )
-import           Text.PrettyPrint
+import           Text.PrettyPrint.HughesPJClass
 
 data Type = IntTy | BoolTy | UnitTy | StringTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
@@ -102,30 +101,22 @@ instance UpperSemiLattice Type where
     lub a b = error $ "UpperSemiLattice Type: error taking lub of " ++
                       show a ++ " and " ++ show b
 
-instance PP Type where
-    pp v = pp_partial v v
-
-    pp_partial BoolTy   BoolTy   = text "bool"
-    pp_partial IntTy    IntTy    = text "int"
-    pp_partial StringTy StringTy = text "string"
-    pp_partial UnitTy   UnitTy   = text "unit"
-    pp_partial HoleTy   HoleTy   = sb (text "_")
-    pp_partial HoleTy   v        = sb (pp v)
-    pp_partial (SumTy ty1 ty2) (SumTy ty1' ty2') =
-        parens (pp_partial ty1 ty1' <+> text "+" <+> pp_partial ty2 ty2')
-    pp_partial (PairTy ty1 ty2) (PairTy ty1' ty2') =
-        parens (pp_partial ty1 ty1' <+> text "*" <+> pp_partial ty2 ty2')
-    pp_partial (FunTy ty1 ty2) (FunTy ty1' ty2') =
-        parens (pp_partial ty1 ty1' <+> text "->" <+> pp_partial ty2 ty2')
-    pp_partial (TyVar v) (TyVar v') = pp_partial v v'
-    pp_partial (RecTy a ty) (RecTy a' ty')
-        | a == a' = text "rec" <+> pp a <+> text "." <+> pp_partial ty ty'
-    pp_partial (RefTy ty) (RefTy ty')
-        = text "ref" <> parens (pp_partial ty ty')
-    pp_partial (TraceTy ty) (TraceTy ty')
-        = text "trace" <> parens (pp_partial ty ty')
-    pp_partial v v' = error ("Error pretty-printing Type: v is " ++ show v ++
-                             " and v' is " ++ show v')
+instance Pretty Type where
+    pPrint BoolTy   = text "bool"
+    pPrint IntTy    = text "int"
+    pPrint StringTy = text "string"
+    pPrint UnitTy   = text "unit"
+    pPrint HoleTy   = text "_"
+    pPrint (SumTy ty1 ty2) =
+        parens (pPrint ty1 <+> text "+" <+> pPrint ty2)
+    pPrint (PairTy ty1 ty2) =
+        parens (pPrint ty1 <+> text "*" <+> pPrint ty2 )
+    pPrint (FunTy ty1 ty2) =
+        parens (pPrint ty1 <+> text "->" <+> pPrint ty2)
+    pPrint (TyVar v) = pPrint v
+    pPrint (RecTy a ty) = text "rec" <+> pPrint a <+> text "." <+> pPrint ty
+    pPrint (RefTy ty)   = text "ref" <> parens (pPrint ty)
+    pPrint (TraceTy ty) = text "trace" <> parens (pPrint ty)
 
 type Ctx = Env Type
 
@@ -324,42 +315,15 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
 
 class Valuable a where
     to_val :: a -> Value
-    from_val :: Value -> a
 
 instance Valuable Int where
     to_val i = VInt i
-    from_val (VInt i) = i
-    from_val _ = error "Cannot convert to an Int value"
 
 instance Valuable Bool where
     to_val b = VBool b
-    from_val (VBool b) = b
-    from_val _ = error "Cannot convert to an Bool value"
 
 instance Valuable () where
     to_val () = VUnit
-    from_val VUnit = ()
-    from_val _ = error "Cannot convert to a () value"
-
--- JSTOLAREK: these instances are not used
-instance (Valuable a, Valuable b) => Valuable (a,b) where
-    to_val (a, b) = VPair (to_val a) (to_val b)
-    from_val (VPair a b) = (from_val a, from_val b)
-    from_val _ = error "Cannot convert to a pait value"
-
-instance (Valuable a, Valuable b) => Valuable (Either a b) where
-    to_val (Left a )  = VInL (to_val a)
-    to_val (Right b) = VInR (to_val b)
-    from_val (VInL a) = from_val a
-    from_val (VInR b) = from_val b
-    from_val _ = error "Cannot convert to an Either value"
-
-instance Valuable a => Valuable (Maybe a) where
-    to_val Nothing = VInL VUnit
-    to_val (Just a) = VInR (to_val a)
-    from_val (VInL VUnit) = Nothing
-    from_val (VInR a) = from_val a
-    from_val _ = error "Cannot convert to a Maybe value"
 
 -- fvsK.  Calculates free vars of closure.
 -- TODO: use ordered sets

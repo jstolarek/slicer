@@ -6,11 +6,9 @@ module Language.Slicer.Primitives
       Primitive(..), isInfixOp
     ) where
 
-import           Language.Slicer.PrettyPrinting
-
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
-import           Text.PrettyPrint
+import           Text.PrettyPrint.HughesPJClass
 
 data Primitive
     -- Arithmetic operators
@@ -55,11 +53,8 @@ instance Show Primitive where
     show PrimVisualize     = "visualize"
     show PrimVisualizeDiff = "visualizeDiff"
 
-instance PP Primitive where
-    pp op = text (show op)
-    pp_partial op op' | op == op' = pp op
-    pp_partial op op' = error ("Error pretty-printing Op: op is " ++ show op ++
-                               " and op' is " ++ show op')
+instance Pretty Primitive where
+    pPrint op = text (show op)
 
 isInfixOp :: Primitive -> Bool
 isInfixOp OpPlus  = True

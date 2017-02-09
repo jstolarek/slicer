@@ -9,7 +9,6 @@ import           Language.Slicer.Env
 import           Language.Slicer.Error
 import           Language.Slicer.Monad ( SlM )
 import           Language.Slicer.Monad.Desugar
-import           Language.Slicer.PrettyPrinting
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
@@ -49,7 +48,7 @@ lookupOp PrimPSlice [ty@(TraceTy ty1), ty2] =
                     " does not match " ++ show ty2)
 lookupOp op tys =
     desugarError ("Unknown op " ++ show op ++ " at types " ++
-                  show (map pp tys))
+                  show tys)
 
 --todo: handle general sums/datatypes
 inject :: (A.Con, A.Con) -> A.Con -> Exp -> DesugarM Exp

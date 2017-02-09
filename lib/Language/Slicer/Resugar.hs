@@ -13,11 +13,10 @@ import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
-import           Language.Slicer.PrettyPrinting
 
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
-import           Text.PrettyPrint
+import           Text.PrettyPrint.HughesPJClass
 
 -- See GitHub ticket #10 and pull request #20 for discussion and thoughts on
 -- possible improvements to the resugaring mechanism
@@ -187,91 +186,65 @@ resugarValueM VStar
     = resugarError ("Don't know how to desugar stars. " ++
                     "Where did you get this value from?" )
 
-instance PP RExp where
-    pp e = pp_partial e e
-
-    pp_partial RHole RHole = text "_"
-    pp_partial RHole e     = sb (pp e)
-    pp_partial RUnit RUnit = text "()"
-    pp_partial (RInt    i) (RInt    i') | i == i' = int i
-    pp_partial (RString s) (RString s') | s == s' = text (show s)
-    pp_partial (RVar    x) (RVar    x') | x == x' = pp x
-    pp_partial (RLet x e1 e2) (RLet x' e1' e2')
-        | x == x'
-        = text "let" <+> pp x <+> equals <+> pp_partial e1 e1' $$
-          text "in" <+> pp_partial e2 e2'
-    pp_partial (RBool b) (RBool b')
-        | b == b'
-        = if b then text "true" else text "false"
-    pp_partial (RIf e e1 e2) (RIf e' e1' e2')
-        = text "if" <+> pp_partial e e'
-                $$ text "then" <+> pp_partial e1 e1'
-                $$ text "else" <+> pp_partial e2 e2'
-    pp_partial (ROp f es) (ROp f' es')
-        | f == f'
-        = case (isInfixOp f, es, es') of
-            (True, [e1, e2], [e1', e2']) ->
-                partial_parensOpt e1 e1' <+> pp f <+>
-                partial_parensOpt e2 e2'
-            _ -> pp f <> parens (hcat (punctuate comma
-                                                (zipWith pp_partial es es')))
-    pp_partial (RPair e1 e2) (RPair e1' e2')
-        = parens (pp_partial e1 e1' <> comma <+> pp_partial e2 e2')
-    pp_partial (RFst e) (RFst e') = text "fst" <+> partial_parensOpt e e'
-    pp_partial (RSnd e) (RSnd e') = text "snd" <+> partial_parensOpt e e'
+instance Pretty RExp where
+    pPrint RHole       = text "_"
+    pPrint RUnit       = text "()"
+    pPrint (RInt    i) = int i
+    pPrint (RString s) = text (show s)
+    pPrint (RBool b)   = if b then text "true" else text "false"
+    pPrint (RVar    x) = pPrint x
+    pPrint (RLet x e1 e2)
+        = text "let" <+> pPrint x <+> equals <+> pPrint e1 $$
+          text "in" <+> pPrint e2
+    pPrint (RIf e e1 e2)
+        = text "if" <+> pPrint e
+                $$ text "then" <+> pPrint e1
+                $$ text "else" <+> pPrint e2
+    pPrint (ROp f es)
+        = case (isInfixOp f, es) of
+            (True, [e1, e2]) ->
+                partial_parensOpt e1  <+> pPrint f <+>
+                partial_parensOpt e2
+            _ -> pPrint f <> parens (hcat (punctuate comma (map pPrint es)))
+    pPrint (RPair e1 e2)   = parens (pPrint e1 <> comma <+> pPrint e2)
+    pPrint (RFst e)        = text "fst" <+> partial_parensOpt e
+    pPrint (RSnd e)        = text "snd" <+> partial_parensOpt e
     -- Special case to handle nullary constructors
-    pp_partial (RCon c RUnit) (RCon c' RUnit)
-        | c == c'
-        = text (show c)
-    pp_partial (RCon c e) (RCon c' e')
-        | c == c'
-        = text (show c) <+> partial_parensOpt e e'
-    pp_partial (RCase e m) (RCase e' m')
-        = text "case" <+> pp_partial e e' <+> text "of" $$
-          nest 2 ( pp_partial m m')
-    pp_partial (RFun k) (RFun k') = pp_partial k k'
-    pp_partial (RApp e1 e2) (RApp e1' e2')
-        = sep [ pp_partial e1 e1', pp_partial e2 e2' ]
-    pp_partial RRef RRef
-        = text "<ref>"
-    pp_partial (RDeref e) (RDeref e')
-        = text "!" <> partial_parensOpt e e'
-    pp_partial (RAssign e1 e2) (RAssign e1' e2')
-        = pp_partial e1 e1' <+> text ":=" <+> pp_partial e2 e2'
-    pp_partial (RSeq e1 e2) (RSeq e1' e2')
-        = pp_partial e1 e1' <+> text ";;" <+> pp_partial e2 e2'
-    pp_partial (RTrace e) (RTrace e')
-        = text "trace" <+> partial_parensOpt e e'
-    pp_partial e e' = error ("Error pretty-printing resugared expression: e is "
-                             ++ show e ++ " and e' is " ++ show e')
+    pPrint (RCon c RUnit)  = text (show c)
+    pPrint (RCon c e)      = text (show c) <+> partial_parensOpt e
+    pPrint (RCase e m)     = text "case" <+> pPrint e <+> text "of" $$
+                             nest 2 (pPrint m)
+    pPrint (RFun k)        = pPrint k
+    pPrint (RApp e1 e2)    = sep [ pPrint e1, pPrint e2 ]
+    pPrint RRef            = text "<ref>"
+    pPrint (RDeref e)      = text "!" <> partial_parensOpt e
+    pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
+    pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2
+    pPrint (RTrace e)      = text "trace" <+> partial_parensOpt e
 
-instance PP RMatch where
-    pp_partial (RMatch ms) (RMatch ms') =
-        vcat (punctuate semi (zipWith pp_match ms ms'))
-        where pp_match (con, var, expr) (_, var', expr')
-                   = text (show con) <+> pp_partial var var' <+> text "->" <+>
-                     pp_partial expr expr'
+instance Pretty RMatch where
+    pPrint (RMatch ms) = vcat (punctuate semi (map pp_match ms))
+        where pp_match (con, var, expr)
+                  = text (show con) <+> pPrint var <+> text "->" <+>
+                       pPrint expr
 
-instance PP RCode where
-    pp_partial (RRec name args body) (RRec name' args' body')
-        | name == name' && args == args'
-        = text "fun" <+> pp name <+> sep (map pp args) <+> text "=>" <+>
-          nest 2 (pp_partial body body')
-    pp_partial v v' = error ("Error pretty-printing RCode: v is " ++ show v ++
-                             " and v' is " ++ show v')
+instance Pretty RCode where
+    pPrint (RRec name args body)
+        = text "fun" <+> pPrint name <+> sep (map pPrint args) <+> text "=>" <+>
+          nest 2 (pPrint body)
 
 parenth :: RExp -> Bool
-parenth RHole         = False
-parenth (RBool _)     = False
-parenth (RInt _)      = False
-parenth (RString _)   = False
-parenth RUnit         = False
-parenth (RPair _ _)   = False
-parenth (RVar _)      = False
-parenth (RDeref _)    = False
-parenth _             = True
+parenth RHole       = False
+parenth (RBool _)   = False
+parenth (RInt _)    = False
+parenth (RString _) = False
+parenth RUnit       = False
+parenth (RPair _ _) = False
+parenth (RVar _)    = False
+parenth (RDeref _)  = False
+parenth _           = True
 
-partial_parensOpt :: RExp -> RExp -> Doc
-partial_parensOpt e1 e1' =
-   let doc = pp_partial e1 e1' in
-   if parenth e1 then parens doc else doc
+partial_parensOpt :: RExp -> Doc
+partial_parensOpt e
+    = let doc = pPrint e in
+      if parenth e then parens doc else doc
