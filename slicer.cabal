@@ -19,23 +19,20 @@ source-repository this
 
 library
   hs-source-dirs:   lib
-  exposed-modules:  Language.Slicer.API
-  other-modules:    Language.Slicer.Absyn
+  exposed-modules:  Language.Slicer.Run
+                    Language.Slicer.Absyn
                     Language.Slicer.Core
-                    Language.Slicer.Desugar
                     Language.Slicer.Env
+                    Language.Slicer.Monad.Eval
+                    Language.Slicer.Desugar
                     Language.Slicer.Error
                     Language.Slicer.Eval
                     Language.Slicer.Monad
                     Language.Slicer.Monad.Desugar
-                    Language.Slicer.Monad.Eval
-                    Language.Slicer.Monad.Repl
                     Language.Slicer.Monad.Visualize
                     Language.Slicer.Parser
                     Language.Slicer.Primitives
                     Language.Slicer.Profile
-                    Language.Slicer.Repl
-                    Language.Slicer.Run
                     Language.Slicer.Resugar
                     Language.Slicer.Slice
                     Language.Slicer.TraceTree
