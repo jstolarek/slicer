@@ -7,11 +7,7 @@ module Language.Slicer.API
 
     -- * Parsing result
     , ParseResult(..)
-
-    -- * Pretty-printing
-    , pp
     ) where
 
 import           Language.Slicer.Repl
 import           Language.Slicer.Run
-import           Language.Slicer.PrettyPrinting

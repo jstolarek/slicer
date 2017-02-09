@@ -12,6 +12,7 @@ import           System.Directory               ( getHomeDirectory  )
 import           System.Environment             ( getArgs           )
 import           System.FilePath                ( joinPath          )
 import           System.IO
+import           Text.PrettyPrint.HughesPJClass
 
 -- | Command line flags
 data Flag = Repl deriving Eq
@@ -47,8 +48,8 @@ compileAndRun arg = do
   code   <- readFile arg
   result <- runSlMIO (parseDesugarEval code)
   case result of
-    Right (_, res, ty, _) -> putStrLn $ "val it = " ++ show (pp res) ++
-                                        " : "       ++ show (pp ty )
+    Right (_, res, ty, _) -> putStrLn $ "val it = " ++ show (pPrint res) ++
+                                        " : "       ++ show (pPrint ty )
     Left err -> hPutStrLn stderr (show err)
 
 -- | Start an interactive loop

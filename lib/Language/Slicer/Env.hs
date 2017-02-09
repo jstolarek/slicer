@@ -14,19 +14,18 @@ module Language.Slicer.Env
     ) where
 
 import           Language.Slicer.UpperSemiLattice
-import           Language.Slicer.PrettyPrinting
 
 import           Control.DeepSeq ( NFData  )
 import qualified Data.Map as Map
 import           GHC.Generics    ( Generic )
-import           Text.PrettyPrint
+import           Text.PrettyPrint.HughesPJClass
 
 newtype Var = V (Maybe String)
     deriving (Eq, Ord, Generic, NFData)
 
 instance Show Var where
     showsPrec _ (V (Just x)) = showString x
-    showsPrec _ (V Nothing ) = showString ""
+    showsPrec _ (V Nothing ) = showString "_"
 
 instance UpperSemiLattice Var where
     bot = V Nothing
@@ -40,22 +39,15 @@ instance UpperSemiLattice Var where
     leq (V Nothing) _  = True
     leq v           v' = v == v'
 
-instance PP Var where
-    pp (V (Just x)) = text x
-    pp (V Nothing ) = text "_"
-    pp_partial (V Nothing) v = pp v
-    pp_partial v (V Nothing) = pp v
-    pp_partial v v' | v == v' = pp v
-    pp_partial v v' = error ("Error pretty-printing Var: v is " ++ show v ++
-                             " and v' is " ++ show v')
+instance Pretty Var where
+    pPrint (V (Just x)) = text x
+    pPrint (V Nothing ) = text "_"
 
-instance PP (Maybe Var) where
-    pp (Just v) = pp v
-    pp Nothing  = empty
-    pp_partial Nothing  Nothing   = empty
-    pp_partial (Just v) Nothing   = pp v
-    pp_partial Nothing  (Just v)  = pp v
-    pp_partial (Just v) (Just v') = pp_partial v v'
+-- This instance is overlapping the default Pretty (Maybe a) instance provided
+-- by the pretty library.  Pragma required to resolve instances correctly.
+instance {-# OVERLAPPING #-} Pretty (Maybe Var) where
+    pPrint (Just v) = pPrint v
+    pPrint Nothing  = empty
 
 newtype TyVar = TV String
     deriving (Eq, Ord, Generic, NFData)
@@ -63,25 +55,16 @@ newtype TyVar = TV String
 instance Show TyVar where
     showsPrec _ (TV x) = showString x
 
-instance PP TyVar where
-    pp (TV x) = text x
-    pp_partial (TV "_") v  = sb (pp v)
-    pp_partial v v' | v == v' = pp v
-    pp_partial v v' = error ("Error pretty-printing TyVar: v is " ++ show v ++
-                             " and v' is " ++ show v')
+instance Pretty TyVar where
+    pPrint (TV x) = text x
 
 newtype Env a = Env (Map.Map Var a)
     deriving (Show, Eq, Ord, Foldable, Traversable, Generic, NFData)
 
-instance (PP a) => PP (Env a) where
-    pp_partial (Env env) (Env env') =
-         brackets (hcat (punctuate comma (map ppp (Map.keys env'))))
-            where ppp x =
-                      case (Map.lookup x env, Map.lookup x env') of
-                        (Nothing , Just a)  -> pp x <+> text "->" <+> sb (pp a)
-                        (Just a  , Just a') ->
-                             pp x <+> text "->" <+> pp_partial a a'
-                        _ -> error "Error pretty-printing Env"
+instance (Pretty a) => Pretty (Env a) where
+    pPrint (Env env) =
+        brackets (hcat (punctuate comma (map pp (Map.toList env))))
+            where pp (key, value) = pPrint key <+> text "->" <+> pPrint value
 
 instance Functor Env where
     fmap f (Env env) = Env (fmap f env)
