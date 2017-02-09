@@ -3,7 +3,8 @@ module Main
       main
     ) where
 
-import           Language.Slicer.API
+import           Language.Slicer.Run
+import           Language.Slicer.Repl
 
 import           Control.Monad.Trans            ( lift              )
 import           System.Console.GetOpt
