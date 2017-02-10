@@ -60,8 +60,9 @@ isCompilerMode = do
 -- data type
 strAssign, strBool, strCase, strCaseClauseSep, strData, strDeref, strElse,
       strFalse, strFst, strFun, strFunBodySep, strHole, strIf, strIn, strInL,
-      strInR, strInt, strLet, strOf, strRef, strRoll, strSeq, strSnd, strString,
-      strThen, strTrace, strTrue, strUnit, strUnitVal, strUnroll :: String
+      strInR, strInt, strLet, strOf, strRaise, strRef, strRoll, strSeq, strSnd,
+      strString, strThen, strTrace, strTrue, strTry, strUnit, strUnitVal,
+      strUnroll, strWith :: String
 strAssign        = ":="
 strBool          = "bool"
 strCase          = "case"
@@ -81,6 +82,7 @@ strInR           = "inr"
 strInt           = "int"
 strLet           = "let"
 strOf            = "of"
+strRaise         = "raise"
 strRef           = "ref"
 strRoll          = "roll"
 strSeq           = ";;"
@@ -89,16 +91,20 @@ strString        = "string"
 strThen          = "then"
 strTrace         = "trace"
 strTrue          = "true"
+strTry           = "try"
 strUnit          = "unit"
 strUnitVal       = "()"
 strUnroll        = "unroll"
+strWith          = "with"
+
 
 -- We don't allow explicit rolls, unrolls, inls or inrs in the concrete syntax,
 -- but we still reserve them as keywords.
 keywords :: [String]
 keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
-           , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRef
-           , strRoll, strSnd, strThen, strTrace, strTrue, strUnit, strUnroll
+           , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRaise
+           , strRef, strRoll, strSnd, strThen, strTrace, strTrue, strTry
+           , strUnit, strUnroll, strWith
            ] ++ map show
            [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualizeDiff
            , PrimProfile, PrimProfileDiff, PrimTreeSize
@@ -215,7 +221,9 @@ simpleExp =
    traceval_ <|> visualize <|> visualize2 <|>
    profile_ <|> profileDiff_ <|> treesize_ <|>
    -- references
-   ref_
+   ref_ <|>
+   -- exceptions
+   tryWith_ <|> raise_
 
 unaryOp :: Primitive -> Parser (Exp -> Exp)
 unaryOp op =
@@ -344,6 +352,21 @@ assign_ = reservedOp token_ strAssign >> return Assign
 -- Sequencing operator
 seq_ :: Parser (Exp -> Exp -> Exp)
 seq_ = reservedOp token_ strSeq >> return Seq
+
+-- Raise exception
+raise_ :: Parser Exp
+raise_ = keyword strRaise >> exp >>= return . Raise
+
+-- Try-with block
+tryWith_ :: Parser Exp
+tryWith_ = do
+  body    <- keyword strTry  >> exp
+  (x, ty) <- keyword strWith >> parenthesise (do x  <- var_
+                                                 ty <- typeAnnotation
+                                                 return (x, ty))
+  reservedOp token_ strFunBodySep
+  handler <- exp
+  return (Catch body x ty handler)
 
 -- Comments.  See Note [Comments hack]
 comments :: Parser String

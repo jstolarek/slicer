@@ -1,9 +1,11 @@
+{-# LANGUAGE DeriveAnyClass   #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Slicer.Monad.Eval
     ( -- * Evaluation monad
       EvalM, EvalState(..), runEvalM, evalEvalM, liftEvalM
-    , emptyEvalState, addBinding
+    , emptyEvalState, getEvalState, setEvalState, getStore, setStore, addBinding
 
     -- * Variable environment
     , getEnv, withEnv, withBinder, maybeWithBinder
@@ -17,9 +19,11 @@ import           Language.Slicer.Env
 import           Language.Slicer.Error
 import           Language.Slicer.Monad
 
+import           Control.DeepSeq               ( NFData     )
 import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import qualified Data.IntMap as M
+import           GHC.Generics                  ( Generic    )
 
 -- | Monad for evaluation.  Stacks several monads:
 --
@@ -39,7 +43,7 @@ data EvalState a = EvalState
     { envS     :: Env a      -- ^ Environment ρ, stores variable values
     , refCount :: Int        -- ^ Reference counter
     , refs     :: M.IntMap a -- ^ Reference store
-    }
+    } deriving (Eq, Ord, Generic, NFData)
 
 -- | Run the evaluation monad with a supplied state.  Return result and final
 -- state inside an error monad.
@@ -54,6 +58,26 @@ evalEvalM st m = evalStateT m (addEmptyStore st)
 -- | Construct empty EvalState
 emptyEvalState :: EvalState a
 emptyEvalState = EvalState emptyEnv 0 M.empty
+
+-- | Get current evaluation state
+getEvalState :: EvalM env (EvalState env)
+getEvalState = get
+
+-- | Set evaluation state
+setEvalState :: EvalState env -> EvalM env ()
+setEvalState = put
+
+-- | Get current reference store
+getStore :: EvalM env (M.IntMap env)
+getStore = do
+  EvalState { refs } <- get
+  return refs
+
+-- | Set reference store
+setStore :: M.IntMap env -> EvalM env ()
+setStore store = do
+    env <- getEnv
+    put (EvalState env (M.size store) store)
 
 -- | Constructs evaluation state containing a given environment and an empty
 -- reference store

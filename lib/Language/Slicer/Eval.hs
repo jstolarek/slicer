@@ -81,6 +81,20 @@ evalM (EAssign e1 e2) = do e1' <- evalM' e1
                            return VUnit
 evalM (ESeq e1 e2)    = do VUnit <- evalM' e1
                            evalM' e2
+-- Exceptions.  See Note [Evaluation of exceptions]
+evalM (ERaise e)      = do v <- evalM' e
+                           st <- getStore
+                           raise v st
+evalM (ECatch e x h)  = do st  <- getEvalState
+                           res <- runSlMIO (run st e)
+                           case res of
+                             Right (v, st') ->
+                                 do setEvalState st'
+                                    return v
+                             Left (Exception v st') ->
+                                 do setStore st'
+                                    withBinder x v (evalM' h)
+                             Left err -> rethrow err
 -- This will never happen because the above matches cover all cases.  But the
 -- pattern exhaustiveness checker doesn't see that because we're using pattern
 -- synonym.  See GHC bug #8779.  Hopefully GHC 8.2 will ship a fix.
@@ -91,6 +105,29 @@ evalM _ = error "Impossible happened in evalM"
 evalM' :: Exp -> EvalMV Value
 evalM' e = do v <- evalM e
               v `seq` return v
+
+-- Note [Evaluation of exceptions]
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+-- Evaluation of exceptions piggybacks on the fact, that our evaluation monad is
+-- also an error monad.
+
+-- When evaluating a "raise" construct we simply throw an exception.  Note that
+-- thrown exception also carries the reference store so that changes made to the
+-- store before the exception was thrown are not lost.
+--
+-- When evaluating the try-with block we run and fully unwrap the monadic
+-- computations inside the block.  If the block did not raise an error we set
+-- its return state as the current state and return normally.  If an exception
+-- was raised by the program we restore the reference store passed in the
+-- exception and evaluate the handler.  If interpreter raised evaluation error
+-- we rethrow error so that it can be handled somewhere at the top level.
+--
+-- The upside of this approach is that the code responsible for evaluating
+-- exceptions is fully enclosed inside two cases of `evalM`.  The downside is
+-- that we conflate language exceptions and interpreter errors into one
+-- representation, which is not very elegant conceptually.
+
 
 evalCall :: Value -> Value -> EvalMV Value
 evalCall v1@(VClosure k env0) v2 =

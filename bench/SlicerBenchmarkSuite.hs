@@ -41,6 +41,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
     , "curried-pointwise-sum"
     , "curried-pointwise-sum-two"
     , "example"
+    , "exceptions"
     , "filter"
     , "foo"
     , "map-increment-closed"
