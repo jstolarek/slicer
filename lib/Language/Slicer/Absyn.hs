@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveAnyClass   #-}
-{-# LANGUAGE DeriveGeneric    #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Language.Slicer.Absyn
     ( -- * Abstract syntax
@@ -94,6 +95,8 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Fun Code | App Exp Exp
          -- References
          | Ref Exp  | Deref Exp | Assign Exp Exp | Seq Exp Exp
+         -- Exceptions
+         | Raise Exp | Catch Exp Var Type Exp
          -- run-time tracing
          | Trace Exp
          -- holes
@@ -105,8 +108,28 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | TyVar TyVar
           -- References
           | RefTy Type
+          -- Exception type
+          | ExnTy
           -- Trace types
           | TraceTy Type
-            deriving (Show, Eq, Ord, Generic, NFData)
+            deriving (Show, Generic, NFData)
+
+-- We need a hand-written instance of Eq, because ExnTy is equal to every type
+instance Eq Type where
+    ExnTy        == _              = True
+    _            == ExnTy          = True
+    IntTy        == IntTy          = True
+    BoolTy       == BoolTy         = True
+    UnitTy       == UnitTy         = True
+    StringTy     == StringTy       = True
+    PairTy t1 t2 == PairTy t1' t2' = t1 == t1' && t2 == t2'
+    SumTy  t1 t2 == SumTy  t1' t2' = t1 == t1' && t2 == t2'
+    FunTy  t1 t2 == FunTy  t1' t2' = t1 == t1' && t2 == t2'
+    TyVar t      == TyVar t'       = t == t'
+    RefTy t      == RefTy t'       = t == t'
+    TraceTy t    == TraceTy t'     = t == t'
+    _            == _              = False
+
+deriving instance Ord Type
 
 type Ctx = Env Type

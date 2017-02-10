@@ -6,10 +6,11 @@ module Language.Slicer.Monad.Repl
     ) where
 
 import           Language.Slicer.Absyn
-import qualified Language.Slicer.Core as C         ( Value, Type )
+import qualified Language.Slicer.Core as C         ( Value, Type              )
 import           Language.Slicer.Env
-import           Language.Slicer.Monad.Eval hiding ( addBinding  )
-import qualified Language.Slicer.Monad.Eval as E   ( addBinding  )
+import           Language.Slicer.Monad.Eval hiding ( addBinding, getEvalState
+                                                   , setEvalState             )
+import qualified Language.Slicer.Monad.Eval as E   ( addBinding               )
 
 import           Control.Monad.State.Strict
 

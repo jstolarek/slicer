@@ -4,11 +4,15 @@
 
 module Language.Slicer.Error
     ( -- * Raising errors
-      SlicerError, parseError, desugarError, resugarError, evalError, typeError
+      SlicerError(..), parseError, desugarError, resugarError, evalError
+    , typeError, raise, rethrow
     ) where
+
+import           Language.Slicer.Core
 
 import           Control.DeepSeq               ( NFData     )
 import           Control.Monad.Except
+import qualified Data.IntMap as M
 import           GHC.Generics                  ( Generic    )
 
 -- | Error types that the program can raise
@@ -17,6 +21,7 @@ data SlicerError = ParseError   String
                  | ResugarError String
                  | TypeError String
                  | EvalError String
+                 | Exception Value (M.IntMap Value)
                    deriving (Eq, Generic, NFData)
 
 instance Show SlicerError where
@@ -25,6 +30,7 @@ instance Show SlicerError where
     show (DesugarError msg) = "Desugaring error: " ++ msg
     show (ResugarError msg) = "Resugaring error: " ++ msg
     show (TypeError    msg) = "Type error: " ++ msg
+    show (Exception    v _) = "Uncaught exception: " ++ show v
 
 parseError :: MonadError SlicerError m => String -> m a
 parseError msg = throwError (ParseError msg)
@@ -40,3 +46,9 @@ typeError msg = throwError (TypeError msg)
 
 evalError :: MonadError SlicerError m => String -> m a
 evalError msg = throwError (EvalError msg)
+
+raise :: MonadError SlicerError m => Value -> M.IntMap Value -> m a
+raise val st = throwError (Exception val st)
+
+rethrow :: MonadError SlicerError m => SlicerError -> m a
+rethrow = throwError

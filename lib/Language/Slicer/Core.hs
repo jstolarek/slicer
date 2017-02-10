@@ -1,9 +1,10 @@
-{-# LANGUAGE DeriveAnyClass   #-}
-{-# LANGUAGE DeriveGeneric    #-}
+{-# LANGUAGE DeriveAnyClass         #-}
+{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE PatternSynonyms        #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
 module Language.Slicer.Core
@@ -11,13 +12,13 @@ module Language.Slicer.Core
       Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ERef, EDeref, EAssign, ESeq
-         , .. )
+         , ERaise, ECatch, .. )
     , Trace ( TVar, TLet, TUnit, TBool, TInt, TOp, TString, TPair, TFst, TSnd
             , TInL, TInR, TFun, TRoll, TUnroll, THole, TRef, TDeref, TAssign
             , TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy, isFunTy
+    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
 
     , Pattern(extract)
 
@@ -51,17 +52,79 @@ data Type = IntTy | BoolTy | UnitTy | StringTy
           | HoleTy
           -- Reference type
           | RefTy Type
+          -- Exception type
+          | ExnTy
           -- Trace types
           | TraceTy Type
-            deriving (Show, Eq, Ord, Generic, NFData)
+            deriving (Show, Generic, NFData)
 
+-- We need a hand-written instance of Eq, because ExnTy is equal to every type
+instance Eq Type where
+    ExnTy        == _              = True
+    _            == ExnTy          = True
+    IntTy        == IntTy          = True
+    BoolTy       == BoolTy         = True
+    UnitTy       == UnitTy         = True
+    StringTy     == StringTy       = True
+    PairTy t1 t2 == PairTy t1' t2' = t1 == t1' && t2 == t2'
+    SumTy  t1 t2 == SumTy  t1' t2' = t1 == t1' && t2 == t2'
+    FunTy  t1 t2 == FunTy  t1' t2' = t1 == t1' && t2 == t2'
+    RecTy  t1 t2 == RecTy  t1' t2' = t1 == t1' && t2 == t2'
+    TyVar t      == TyVar t'       = t == t'
+    RefTy t      == RefTy t'       = t == t'
+    TraceTy t    == TraceTy t'     = t == t'
+    _            == _              = False
+
+deriving instance Ord Type
+
+-- | Is reference type?
 isRefTy :: Type -> Bool
 isRefTy (RefTy _) = True
+isRefTy ExnTy     = True
 isRefTy _         = False
 
+-- | Is function type?
 isFunTy :: Type -> Bool
 isFunTy (FunTy _ _) = True
+isFunTy ExnTy       = True
 isFunTy _           = False
+
+-- | Is conditional type?
+isCondTy :: Type -> Bool
+isCondTy BoolTy = True
+isCondTy ExnTy  = True
+isCondTy _      = False
+
+-- | Is pair type?
+isPairTy :: Type -> Bool
+isPairTy (PairTy _ _) = True
+isPairTy ExnTy        = True
+isPairTy _            = False
+
+-- | Is exception type?
+isExnTy :: Type -> Bool
+isExnTy ExnTy = True
+isExnTy _     = False
+
+-- | Get first type field of a type, but propagare exception type
+fstTy :: Type -> Type
+fstTy  ExnTy       = ExnTy
+fstTy (PairTy t _) = t
+fstTy (SumTy  t _) = t
+fstTy (FunTy  t _) = t
+fstTy (RefTy  t  ) = t
+fstTy (TraceTy t ) = t
+fstTy _  =
+    error "Impossible happened: type does not have a first component"
+
+-- | Get second type field of a type, but propagare exception type
+sndTy :: Type -> Type
+sndTy  ExnTy = ExnTy
+sndTy (PairTy _ t) = t
+sndTy (SumTy _ t) = t
+sndTy (FunTy _ t) = t
+sndTy _  =
+    error "Impossible happened: type does not have a second component"
 
 instance UpperSemiLattice Type where
     bot = HoleTy
@@ -71,6 +134,7 @@ instance UpperSemiLattice Type where
     leq  BoolTy           BoolTy            = True
     leq  UnitTy           UnitTy            = True
     leq  StringTy         StringTy          = True
+    leq  ExnTy            ExnTy             = True
     leq (PairTy ty1 ty2) (PairTy ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
     leq (SumTy  ty1 ty2) (SumTy  ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
     leq (FunTy  ty1 ty2) (FunTy  ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
@@ -86,6 +150,7 @@ instance UpperSemiLattice Type where
     lub BoolTy   BoolTy   = BoolTy
     lub UnitTy   UnitTy   = UnitTy
     lub StringTy StringTy = StringTy
+    lub ExnTy    ExnTy    = ExnTy
     lub (TyVar a)    (TyVar b)      | a == b  = TyVar a
     lub (RecTy a ty) (RecTy a' ty') | a == a' = RecTy a  (ty `lub` ty')
     lub (PairTy ty1 ty2) (PairTy ty1' ty2')
@@ -107,6 +172,7 @@ instance Pretty Type where
     pPrint StringTy = text "string"
     pPrint UnitTy   = text "unit"
     pPrint HoleTy   = text "_"
+    pPrint ExnTy    = text "<exn>"
     pPrint (SumTy ty1 ty2) =
         parens (pPrint ty1 <+> text "+" <+> pPrint ty2)
     pPrint (PairTy ty1 ty2) =
@@ -152,6 +218,8 @@ data Syntax a = Var Var
               | Hole
               -- References
               | Ref a  | Deref a | Assign a a | Seq a a
+              -- Exceptions
+              | Raise a | Catch a Var a
                 deriving (Show, Eq, Ord, Generic, NFData)
 
 data Exp = Exp (Syntax Exp)
@@ -221,6 +289,12 @@ pattern EAssign t1 t2 = Exp (Assign t1 t2)
 
 pattern ESeq :: Exp -> Exp -> Exp
 pattern ESeq t1 t2 = Exp (Seq t1 t2)
+
+pattern ERaise :: Exp -> Exp
+pattern ERaise e = Exp (Raise e)
+
+pattern ECatch :: Exp -> Var -> Exp -> Exp
+pattern ECatch e1 v e2 = Exp (Catch e1 v e2)
 
 data Trace = TExp (Syntax Trace)
            | TIfThen Trace Exp Exp Trace
@@ -351,6 +425,8 @@ instance FVs a => FVs (Syntax a) where
     fvs (Assign e1 e2) = fvs e1 `union` fvs e2
     fvs (Seq    e1 e2) = fvs e1 `union` fvs e2
     fvs  Hole          = []
+    fvs (Raise e)      = fvs e
+    fvs (Catch e x e1) = fvs e `union` (delete x (fvs e1))
 
 instance FVs Exp where
     fvs (EIf e1 e2 e3) = fvs e1 `union` fvs e2 `union` fvs e3

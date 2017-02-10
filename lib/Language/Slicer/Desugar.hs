@@ -14,22 +14,27 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Control.Monad.Except
 import qualified Data.Map as M
-import           Data.Maybe ( isNothing )
+import           Data.Maybe
+import           Text.PrettyPrint.HughesPJClass
 
 desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp, Type)
 desugar decls gamma expr = runDesugarM decls gamma (desugarM expr)
 
 -- Assuming that op name + argument types determines the op result type.
 lookupOp :: Primitive -> [Type] -> DesugarM Type
--- built-in operators, closely corresponds to evalOp
-lookupOp op [IntTy   , IntTy   ] | isCommonOp  op = return BoolTy
-lookupOp op [BoolTy  , BoolTy  ] | isCommonOp  op = return BoolTy
-lookupOp op [StringTy, StringTy] | isCommonOp  op = return BoolTy
-lookupOp op [IntTy   , IntTy   ] | isIntBinOp  op = return IntTy
-lookupOp op [IntTy   , IntTy   ] | isIntRelOp  op = return BoolTy
-lookupOp op [BoolTy  , BoolTy  ] | isBoolRelOp op = return BoolTy
-lookupOp op [BoolTy  ]           | isBoolUnOp  op = return BoolTy
--- built-in primitives
+-- built-in operators, closely corresponds to evalOp.  Note that we test types
+-- of argument using == rather than a direct pattern match, because == for types
+-- takes exception type into account (in other words we admit exceptions as
+-- arguments to primitive operators)
+lookupOp op tys | tys == [IntTy   , IntTy   ] && isCommonOp  op = return BoolTy
+lookupOp op tys | tys == [BoolTy  , BoolTy  ] && isCommonOp  op = return BoolTy
+lookupOp op tys | tys == [StringTy, StringTy] && isCommonOp  op = return BoolTy
+lookupOp op tys | tys == [IntTy   , IntTy   ] && isIntBinOp  op = return IntTy
+lookupOp op tys | tys == [IntTy   , IntTy   ] && isIntRelOp  op = return BoolTy
+lookupOp op tys | tys == [BoolTy  , BoolTy  ] && isBoolRelOp op = return BoolTy
+lookupOp op tys | tys == [BoolTy  ]           && isBoolUnOp  op = return BoolTy
+-- built-in primitives.  No exceptions allowed here, thus we use direct pattern
+-- matching on arguments.
 lookupOp PrimVal           [TraceTy ty] = return ty
 lookupOp PrimTreeSize      [TraceTy _ ] = return IntTy
 lookupOp PrimProfile       [TraceTy _ ] = return UnitTy
@@ -74,9 +79,10 @@ desugarM (A.Let x e1 e2)
 desugarM (A.LetR _ e1) = desugarM e1
 desugarM (A.Unit) = return (EUnit, UnitTy)
 desugarM (A.If e e1 e2)
-    = do (e' , BoolTy) <- desugarM e
-         (e1', ty1   ) <- desugarM e1
-         (e2', ty2   ) <- desugarM e2
+    = do (e' , ty ) <- desugarM e
+         unless (isCondTy ty) $ typeError ("If condition is not a boolean type")
+         (e1', ty1) <- desugarM e1
+         (e2', ty2) <- desugarM e2
          if ty1 == ty2
          then return (EIf e' e1' e2', ty1)
          else typeError ("Types of branches do not match :" ++
@@ -91,14 +97,14 @@ desugarM (A.Pair e1 e2)
          return (EPair e1' e2', PairTy ty1 ty2)
 desugarM (A.Fst e)
     = do (e1', ty) <- desugarM e
-         case ty of
-           PairTy ty1 _ -> return (EFst e1', ty1)
-           _ -> typeError ("Expected pair type but got " ++ show ty)
+         if isPairTy ty
+         then return (EFst e1', fstTy ty)
+         else typeError ("Expected pair type but got " ++ show ty)
 desugarM (A.Snd e)
     = do (e1', ty) <- desugarM e
-         case ty of
-           PairTy _ ty2 -> return (ESnd e1', ty2)
-           _ -> typeError ("Expected pair type but got " ++  show ty)
+         if isPairTy ty
+         then return (ESnd e1', sndTy ty)
+         else typeError ("Expected pair type but got " ++  show ty)
 desugarM (A.Con k e)
     = do (e', ty) <- desugarM e
          decls    <- getDecls
@@ -112,8 +118,11 @@ desugarM (A.Con k e)
                               " which expects type " ++ show ty')
            Nothing -> desugarError ("Undeclared constructor: " ++ show k)
 desugarM (A.Case e m)
-    = do (e', TyVar dataty) <- desugarM e
-         decls              <- getDecls
+    = do (e', t) <- desugarM e
+         when (isExnTy t) $
+              desugarError "Case scrutinee cannot throw exceptions"
+         let (TyVar dataty) = t
+         decls   <- getDecls
          case (A.getTyDeclByName decls dataty) of
            Just decl -> desugarMatch (A.constrL decl) (A.constrR decl)
                                      (EUnroll dataty e') m
@@ -125,12 +134,12 @@ desugarM (A.App e1 e2) =
        unless (isFunTy ty1) $
               typeError ("Function application error. Expected a function type "
                          ++ "but got type " ++ show ty1)
-       let FunTy ty1' ty2' = ty1
        (e2', ty2) <- desugarM e2
-       if ty1' == ty2
-       then return (EApp e1' e2', ty2')
-       else typeError ("Mismatched types in application.  Function expects " ++
-                        show ty1' ++ " but argument has type " ++ show ty2)
+       if fstTy ty1 == ty2
+       then return (EApp e1' e2', sndTy ty1)
+       else typeError
+                ("Mismatched types in application.  Function expects "
+               ++ show (fstTy ty1) ++ " but argument has type " ++ show ty2)
 desugarM (A.Trace e)
     = do (e', ty) <- desugarM e
          return (ETrace e', TraceTy ty)
@@ -144,15 +153,14 @@ desugarM (A.Deref e)
          unless (isRefTy ty) $
                 desugarError ("Dereferenced expression (" ++ show e ++
                              ") does not have a reference type")
-         let (RefTy ty') = ty
-         return (EDeref e', ty')
+         return (EDeref e', fstTy ty)
 desugarM (A.Assign e1 e2)
     = do (e1', t1) <- desugarM e1
          unless (isRefTy t1) $
                 typeError ("Expression does not have reference type: " ++
                            show e1)
          (e2', t2) <- desugarM e2
-         let (RefTy t1') = t1
+         let t1' = fstTy t1
          unless (t1' == t2) $ typeError ("Cannot assign expression of type: "
                                     ++ show t2  ++ " to reference of type "
                                     ++ show t1' ++ ". Offending expression is: "
@@ -165,12 +173,33 @@ desugarM (A.Seq e1 e2)
                                     ++ " but it shold have unit type.")
          (e2', t2) <- desugarM e2
          return (ESeq e1' e2', t2)
+-- Exceptions
+desugarM (A.Raise e)
+    = do (e', t) <- desugarM e
+         pushExnType t
+         return (ERaise e', ExnTy)
+desugarM (A.Catch e x xTy h)
+    = do (e', ty1) <- desugarM e
+         let xTy' = desugarTy xTy
+         xTy'' <- popExnType
+         when (isJust xTy'' && fromJust xTy'' /= xTy') $
+              typeError ("Raised exception type " ++
+                           show (pPrint (fromJust xTy'')) ++
+                         " does not match type " ++ show (pPrint xTy') ++
+                         " declared in \"with\" clause.")
+         (h', ty2) <- withBinder x xTy' (desugarM h)
+         unless (ty1 == ty2) $
+                typeError ("Types of \"try\" and \"with\" blocks don't match. "
+                        ++ "Try has type " ++ show ty1 ++ " but with has type "
+                        ++ show ty2)
+         return (ECatch e' x h', ty1)
 
 desugarTy :: A.Type -> Type
 desugarTy A.IntTy            = IntTy
 desugarTy A.BoolTy           = BoolTy
 desugarTy A.UnitTy           = UnitTy
 desugarTy A.StringTy         = StringTy
+desugarTy A.ExnTy            = ExnTy
 desugarTy (A.RefTy ty)       = RefTy (desugarTy ty)
 desugarTy (A.PairTy ty1 ty2) = PairTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.SumTy  ty1 ty2) = SumTy (desugarTy ty1) (desugarTy ty2)
