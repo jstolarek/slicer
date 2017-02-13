@@ -3,7 +3,6 @@
 module Language.Slicer.Monad.Desugar
     ( DesugarM, runDesugarM, getGamma, getDecls
     , withGamma, withBinder, maybeWithBinder
-    , pushExnType, popExnType
     ) where
 
 import qualified Language.Slicer.Absyn as A
@@ -47,17 +46,6 @@ getGamma = do
 -- | Get data declarations in scope
 getDecls :: DesugarM A.TyCtx
 getDecls = ask
-
-pushExnType :: Type -> DesugarM ()
-pushExnType ty = do
-  st@(DesugarState { exnType })<- get
-  when (exnType == Nothing) (put (st { exnType = Just ty }))
-
-popExnType :: DesugarM (Maybe Type)
-popExnType = do
-  st@(DesugarState { exnType }) <- get
-  put (st { exnType = Nothing })
-  return exnType
 
 getExnType :: DesugarM (Maybe Type)
 getExnType = do

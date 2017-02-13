@@ -176,18 +176,13 @@ desugarM (A.Seq e1 e2)
 -- Exceptions
 desugarM (A.Raise e)
     = do (e', t) <- desugarM e
-         pushExnType t
+         unless (t == StringTy) $
+                typeError ("Arguments to raise must have string type, but " ++
+                           "expression " ++ show t ++ " has type " ++ show t)
          return (ERaise e', ExnTy)
-desugarM (A.Catch e x xTy h)
+desugarM (A.Catch e x h)
     = do (e', ty1) <- desugarM e
-         let xTy' = desugarTy xTy
-         xTy'' <- popExnType
-         when (isJust xTy'' && fromJust xTy'' /= xTy') $
-              typeError ("Raised exception type " ++
-                           show (pPrint (fromJust xTy'')) ++
-                         " does not match type " ++ show (pPrint xTy') ++
-                         " declared in \"with\" clause.")
-         (h', ty2) <- withBinder x xTy' (desugarM h)
+         (h', ty2) <- withBinder x StringTy (desugarM h)
          unless (ty1 == ty2) $
                 typeError ("Types of \"try\" and \"with\" blocks don't match. "
                         ++ "Try has type " ++ show ty1 ++ " but with has type "

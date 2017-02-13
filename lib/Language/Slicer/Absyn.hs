@@ -96,7 +96,7 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          -- References
          | Ref Exp  | Deref Exp | Assign Exp Exp | Seq Exp Exp
          -- Exceptions
-         | Raise Exp | Catch Exp Var Type Exp
+         | Raise Exp | Catch Exp Var Exp
          -- run-time tracing
          | Trace Exp
          -- holes

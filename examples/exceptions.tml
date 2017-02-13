@@ -1,4 +1,4 @@
 let n = ref 0 in
 try
-  n:=17;;(raise (raise n));;n:=42;;(!n)
-with (x : ref int) => !x
+  n:=17;;(raise (raise "foo"));;n:=42;;(!n)
+with x => !n

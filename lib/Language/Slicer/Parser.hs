@@ -360,13 +360,11 @@ raise_ = keyword strRaise >> exp >>= return . Raise
 -- Try-with block
 tryWith_ :: Parser Exp
 tryWith_ = do
-  body    <- keyword strTry  >> exp
-  (x, ty) <- keyword strWith >> parenthesise (do x  <- var_
-                                                 ty <- typeAnnotation
-                                                 return (x, ty))
+  body <- keyword strTry  >> exp
+  x    <- keyword strWith >> var_
   reservedOp token_ strFunBodySep
   handler <- exp
-  return (Catch body x ty handler)
+  return (Catch body x handler)
 
 -- Comments.  See Note [Comments hack]
 comments :: Parser String
