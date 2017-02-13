@@ -29,13 +29,12 @@ type DesugarM = StateT DesugarState (ReaderT A.TyCtx (Except SlicerError))
 -- | State of the desugaring monad
 data DesugarState = DesugarState
     { gammaS  :: Ctx        -- ^ Context Γ.  Stores variable types.
-    , exnType :: Maybe Type -- ^ Type of raised exception
     }
 
 -- | Run desugaring monad with supplied data decarations and variables in scope
 runDesugarM :: A.TyCtx -> Ctx -> DesugarM a -> SlM a
 runDesugarM decls gamma m
-    = runReaderT (evalStateT m (DesugarState gamma Nothing)) decls
+    = runReaderT (evalStateT m (DesugarState gamma)) decls
 
 -- | Get the context
 getGamma :: DesugarM Ctx
@@ -47,17 +46,11 @@ getGamma = do
 getDecls :: DesugarM A.TyCtx
 getDecls = ask
 
-getExnType :: DesugarM (Maybe Type)
-getExnType = do
-  DesugarState { exnType } <- get
-  return exnType
-
 -- | Run monadic desugaring with extra binder in scope
 withBinder :: Var -> Type -> DesugarM a -> DesugarM a
 withBinder var ty thing = do
   gamma <- getGamma
-  exn   <- getExnType
-  lift (evalStateT thing (DesugarState (bindEnv gamma var ty) exn))
+  lift (evalStateT thing (DesugarState (bindEnv gamma var ty)))
 
 -- | Run monadic desugaring, maybe with extra binder in scope
 maybeWithBinder :: Maybe Var -> Type -> DesugarM a -> DesugarM a
@@ -67,5 +60,4 @@ maybeWithBinder Nothing _     thing = thing
 -- | Run monadic desugaring inside a given context
 withGamma :: Ctx -> DesugarM a -> DesugarM a
 withGamma ctx thing = do
-  exn   <- getExnType
-  lift (evalStateT thing (DesugarState ctx exn))
+  lift (evalStateT thing (DesugarState ctx))

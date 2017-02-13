@@ -15,7 +15,6 @@ import           Language.Slicer.UpperSemiLattice
 import           Control.Monad.Except
 import qualified Data.Map as M
 import           Data.Maybe
-import           Text.PrettyPrint.HughesPJClass
 
 desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp, Type)
 desugar decls gamma expr = runDesugarM decls gamma (desugarM expr)
