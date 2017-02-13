@@ -23,8 +23,8 @@ parseDesugarEval s = do
   (val, res, ty, _) <- desugarEval tyctx emptyEnv emptyEvalState e
   return (val, res, ty, tyctx)
 
-desugarEval :: TyCtx -> Env Type -> EvalState Value -> Exp
-            -> SlMIO (Value, RExp, Type, EvalState Value)
+desugarEval :: TyCtx -> Env Type -> EvalState -> Exp
+            -> SlMIO (Value, RExp, Type, EvalState)
 desugarEval tyCtx gamma evalS expr = do
   (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
   (val, st)   <- run evalS dexpr

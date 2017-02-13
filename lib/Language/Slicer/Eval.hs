@@ -22,16 +22,13 @@ import           Control.Monad.Except
 import           Data.Map  ( (!) )
 import           System.FilePath.Posix
 
--- All monadic computations in this module will use environment of Values
-type EvalMV = EvalM Value
-
-run :: EvalState Value -> Exp -> SlMIO (Value, EvalState Value)
+run :: EvalState -> Exp -> SlMIO (Value, EvalState)
 run env e = runEvalM env (evalM e)
 
 eval :: Env Value -> Exp -> SlMIO Value
 eval env e = evalEvalM env (evalM e)
 
-evalM :: Exp -> EvalMV Value
+evalM :: Exp -> EvalM Value
 evalM EHole           = return VHole
 evalM (EVar x)        = do env <- getEnv
                            return (lookupEnv' env x)
@@ -102,7 +99,7 @@ evalM _ = error "Impossible happened in evalM"
 
 -- | Evaluates an expression and forces the result before returning it.  Ensures
 -- strict semantics.
-evalM' :: Exp -> EvalMV Value
+evalM' :: Exp -> EvalM Value
 evalM' e = do v <- evalM e
               v `seq` return v
 
@@ -129,14 +126,14 @@ evalM' e = do v <- evalM e
 -- representation, which is not very elegant conceptually.
 
 
-evalCall :: Value -> Value -> EvalMV Value
+evalCall :: Value -> Value -> EvalM Value
 evalCall v1@(VClosure k env0) v2 =
     do let envf  = bindEnv env0 (funName k) v1
            envfx = bindEnv envf (funArg k) v2
        withEnv envfx (evalM (funBody k))
 evalCall _ _ = evalError "evalCall: cannot call non-VClosure values"
 
-evalMatch :: Value -> Match -> EvalMV Value
+evalMatch :: Value -> Match -> EvalM Value
 evalMatch (VInL v) m
     = let (x, e) = inL m
       in maybeWithBinder x v (evalM' e)
@@ -146,12 +143,12 @@ evalMatch (VInR v) m
 evalMatch _ _
     = evalError "evalMatch: scrutinee does not reduce to a constructor"
 
-evalIf :: Value -> Exp -> Exp -> EvalMV Value
+evalIf :: Value -> Exp -> Exp -> EvalM Value
 evalIf (VBool True ) e1 _  = evalM' e1
 evalIf (VBool False) _  e2 = evalM' e2
 evalIf _ _ _ = evalError "evalIf: condition is not a VBool value"
 
-evalTraceOp :: Primitive -> [Value] -> EvalMV Value
+evalTraceOp :: Primitive -> [Value] -> EvalM Value
 evalTraceOp PrimVal [VTrace v _ _] = return v
 evalTraceOp PrimSlice [VTrace v t env, p]
     | p `leq` v
@@ -200,7 +197,7 @@ evalOp _ vs                     | VStar `elem` vs = return VStar
 evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
 
 -- Tracing as described in Section 4.2 of ICFP'12 paper
-trace :: Exp -> EvalMV (Value, Trace)
+trace :: Exp -> EvalM (Value, Trace)
 trace EHole          = return (VHole, THole)
 trace (EVar x)       = do env <- getEnv
                           return (lookupEnv' env x, TVar x)
@@ -241,16 +238,16 @@ trace (ETrace _)     = evalError "Cannot trace a trace"
 trace t =
    evalError $ "Cannot trace: " ++ show t
 
-trace' :: Exp -> EvalMV (Value, Trace)
+trace' :: Exp -> EvalM (Value, Trace)
 trace' e = do (v, t) <- trace e
               v `seq` return (v, t)
 
-traceOp :: Primitive -> [(Value,Trace)] -> EvalMV (Value, Trace)
+traceOp :: Primitive -> [(Value,Trace)] -> EvalM (Value, Trace)
 traceOp f vts = do let (vs,ts) = unzip vts
                    v <- evalTraceOp f vs
                    return (v, TOp f ts)
 
-traceCall :: (Value, Trace) -> (Value, Trace) -> EvalMV (Value, Trace)
+traceCall :: (Value, Trace) -> (Value, Trace) -> EvalM (Value, Trace)
 traceCall (v1@(VClosure k env0), t1) (v2, t2)
     = do let envf  = bindEnv env0 (funName k) v1
              envfx = bindEnv envf (funArg  k) v2
@@ -259,7 +256,7 @@ traceCall (v1@(VClosure k env0), t1) (v2, t2)
                          (Rec (funName k) (funArg k) t Nothing))
 traceCall _ _ = evalError "traceCall: cannot call non-VClosure values"
 
-traceMatch :: (Value, Trace) -> Match -> EvalMV (Value, Trace)
+traceMatch :: (Value, Trace) -> Match -> EvalM (Value, Trace)
 traceMatch (VInL v, t) m
     = do let (x, e) = inL m
          (v1,t1) <- maybeWithBinder x v (trace' e)
@@ -271,7 +268,7 @@ traceMatch (VInR v, t) m
 traceMatch _ _ =
     evalError "traceMatch: scrutinee does not reduce to a constructor"
 
-traceIf :: (Value, Trace) -> Exp -> Exp -> EvalMV (Value, Trace)
+traceIf :: (Value, Trace) -> Exp -> Exp -> EvalM (Value, Trace)
 traceIf (VBool True , t) e1 e2 = do (v1,t1) <- trace' e1
                                     return (v1, TIfThen t e1 e2 t1)
 traceIf (VBool False, t) e1 e2 = do (v2,t2) <- trace' e2

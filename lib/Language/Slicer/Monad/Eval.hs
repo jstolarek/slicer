@@ -33,88 +33,87 @@ import           GHC.Generics                  ( Generic    )
 --
 --   * IO     - to perform side effects
 --
--- Note that the state is parameterized.
-type EvalM a = StateT (EvalState a) (ExceptT SlicerError IO)
+type EvalM = StateT EvalState (ExceptT SlicerError IO)
 
 -- See Note [Monad transformers bog]
 
 -- | State of the evaluation monad
-data EvalState a = EvalState
-    { envS     :: Env a      -- ^ Environment ρ, stores variable values
-    , refCount :: Int        -- ^ Reference counter
-    , refs     :: M.IntMap a -- ^ Reference store
+data EvalState = EvalState
+    { envS     :: Env Value      -- ^ Environment ρ, stores variable values
+    , refCount :: Int            -- ^ Reference counter
+    , refs     :: M.IntMap Value -- ^ Reference store
     } deriving (Eq, Ord, Generic, NFData)
 
 -- | Run the evaluation monad with a supplied state.  Return result and final
 -- state inside an error monad.
-runEvalM :: EvalState env -> EvalM env value -> SlMIO (value, EvalState env)
+runEvalM :: EvalState -> EvalM value -> SlMIO (value, EvalState)
 runEvalM st m = runStateT m st
 
 -- | Run the evaluation monad with a supplied state.  Return result inside an
 -- error monad.
-evalEvalM :: Env env -> EvalM env value -> SlMIO value
+evalEvalM :: Env Value -> EvalM value -> SlMIO value
 evalEvalM st m = evalStateT m (addEmptyStore st)
 
 -- | Construct empty EvalState
-emptyEvalState :: EvalState a
+emptyEvalState :: EvalState
 emptyEvalState = EvalState emptyEnv 0 M.empty
 
 -- | Get current evaluation state
-getEvalState :: EvalM env (EvalState env)
+getEvalState :: EvalM EvalState
 getEvalState = get
 
 -- | Set evaluation state
-setEvalState :: EvalState env -> EvalM env ()
+setEvalState :: EvalState -> EvalM ()
 setEvalState = put
 
 -- | Get current reference store
-getStore :: EvalM env (M.IntMap env)
+getStore :: EvalM (M.IntMap Value)
 getStore = do
   EvalState { refs } <- get
   return refs
 
 -- | Set reference store
-setStore :: M.IntMap env -> EvalM env ()
+setStore :: M.IntMap Value -> EvalM ()
 setStore store = do
     env <- getEnv
     put (EvalState env (M.size store) store)
 
 -- | Constructs evaluation state containing a given environment and an empty
 -- reference store
-addEmptyStore :: Env a -> EvalState a
+addEmptyStore :: Env Value -> EvalState
 addEmptyStore env = EvalState env 0 M.empty
 
 -- | Add variable binding to environment
-addBinding :: EvalState a -> Var -> a -> EvalState a
+addBinding :: EvalState -> Var -> Value -> EvalState
 addBinding st var val =
     let env = envS st
     in st { envS = updateEnv env var val }
 
 -- | Lift monadic action from SlM to EvalM.
-liftEvalM :: SlM value -> EvalM env value
+liftEvalM :: SlM value -> EvalM value
 liftEvalM slm = lift (liftSlM slm)
 
 -- | Get the environment
-getEnv :: EvalM env (Env env)
+getEnv :: EvalM (Env Value)
 getEnv = do
   EvalState { envS } <- get
   return envS
 
 -- | Set the environment
-setEnv :: Env env -> EvalM env ()
+setEnv :: Env Value -> EvalM ()
 setEnv env = do
   st <- get
   put $ st { envS = env }
 
 -- | Allocates a new reference number
-newRef :: env -> EvalM env Value
+newRef :: Value -> EvalM Value
 newRef val = do
   st@(EvalState { refCount, refs }) <- get
   let newRefs = M.insert refCount val refs
   put $ st { refCount = refCount + 1, refs = newRefs }
   return (VStoreLoc refCount)
 
-getRef :: Value -> EvalM env env
+getRef :: Value -> EvalM Value
 getRef (VStoreLoc l) = do
   EvalState { refs } <- get
   case M.lookup l refs of
@@ -122,7 +121,7 @@ getRef (VStoreLoc l) = do
     Nothing  -> evalError "Cannot read reference: not allocated"
 getRef v = evalError ("Not a reference value: " ++ show v)
 
-updateRef :: Value -> env -> EvalM env ()
+updateRef :: Value -> Value -> EvalM ()
 updateRef (VStoreLoc l) val = do
   st@(EvalState { refs }) <- get
   unless (l `M.member` refs) $ evalError "Cannot update reference: not allocated"
@@ -131,18 +130,18 @@ updateRef (VStoreLoc l) val = do
 updateRef v _ = evalError ("Not a reference value: " ++ show v)
 
 -- | Run monadic evaluation with extra binder in scope
-withBinder :: Var -> env -> EvalM env value -> EvalM env value
+withBinder :: Var -> Value -> EvalM value -> EvalM value
 withBinder var val thing = do
   env    <- getEnv
   withEnv (bindEnv env var val) thing
 
 -- | Run monadic evaluation, maybe with extra binder in scope
-maybeWithBinder :: Maybe Var -> env -> EvalM env value -> EvalM env value
+maybeWithBinder :: Maybe Var -> Value -> EvalM value -> EvalM value
 maybeWithBinder (Just var) val thing = withBinder var val thing
 maybeWithBinder Nothing    _   thing = thing
 
 -- | Run monadic evaluation inside a given environment
-withEnv :: Env env -> EvalM env value -> EvalM env value
+withEnv :: Env Value -> EvalM value -> EvalM value
 withEnv newEnv thing = do
   oldEnv <- getEnv
   setEnv newEnv

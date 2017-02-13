@@ -19,11 +19,11 @@ type ReplM = StateT ReplState IO
 
 -- | REPL state
 data ReplState = ReplState
-    { tyCtxS :: TyCtx             -- ^ Data type declarations
-    , gammaS :: Env C.Type        -- ^ Context Γ, stores variable types
-    , evalS  :: EvalState C.Value -- ^ Evaluation monad state. Contains
-                                  --   environment ρ (variable values) and
-                                  --   reference store
+    { tyCtxS :: TyCtx      -- ^ Data type declarations
+    , gammaS :: Env C.Type -- ^ Context Γ, stores variable types
+    , evalS  :: EvalState  -- ^ Evaluation monad state. Contains
+                           --   environment ρ (variable values) and
+                           --   reference store
     }
 
 -- | Empty REPL state.  Used when starting the REPL
@@ -45,12 +45,12 @@ getGamma = do
   return gammaS
 
 -- | Get environment
-getEvalState :: ReplM (EvalState C.Value)
+getEvalState :: ReplM EvalState
 getEvalState = do
   ReplState { evalS } <- get
   return evalS
 
-setEvalState :: EvalState C.Value -> ReplM ()
+setEvalState :: EvalState -> ReplM ()
 setEvalState newEvalSt = do
   replState <- get
   put $ replState { evalS = newEvalSt }
