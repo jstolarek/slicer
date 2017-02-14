@@ -11,11 +11,10 @@ module Language.Slicer.Core
     ( -- * Abstract syntax
       Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
-         , EInL, EInR, EFun, ERoll, EUnroll, EHole, ERef, EDeref, EAssign, ESeq
-         , ERaise, ECatch, .. )
+         , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
+         , .. )
     , Trace ( TVar, TLet, TUnit, TBool, TInt, TOp, TString, TPair, TFst, TSnd
-            , TInL, TInR, TFun, TRoll, TUnroll, THole, TRef, TDeref, TAssign
-            , TSeq, .. )
+            , TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
@@ -184,6 +183,9 @@ instance Pretty Type where
     pPrint (RefTy ty)   = text "ref" <> parens (pPrint ty)
     pPrint (TraceTy ty) = text "trace" <> parens (pPrint ty)
 
+-- | Internal labels used during runtime to identify store locations
+type StoreLabel = Int
+
 type Ctx = Env Type
 
 data Lab = L { unL  :: String
@@ -215,11 +217,8 @@ data Syntax a = Var Var
               | InL a | InR a
               | Fun (Code Exp)
               | Roll TyVar a | Unroll TyVar a
+              | Seq a a
               | Hole
-              -- References
-              | Ref a  | Deref a | Assign a a | Seq a a
-              -- Exceptions
-              | Raise a | Catch a Var a
                 deriving (Show, Eq, Ord, Generic, NFData)
 
 data Exp = Exp (Syntax Exp)
@@ -228,6 +227,10 @@ data Exp = Exp (Syntax Exp)
          | EApp Exp Exp
            -- run-time tracing
          | ETrace Exp
+         -- References
+         | ERef Exp | EDeref Exp | EAssign Exp Exp
+         -- Exceptions
+         | ERaise Exp | ECatch Exp Var Exp
            deriving (Show, Eq, Ord, Generic, NFData)
 
 pattern EVar :: Var -> Exp
@@ -278,30 +281,26 @@ pattern EUnroll tv t = Exp (Unroll tv t)
 pattern EHole :: Exp
 pattern EHole = Exp Hole
 
-pattern ERef :: Exp -> Exp
-pattern ERef t = Exp (Ref t)
-
-pattern EDeref :: Exp -> Exp
-pattern EDeref t = Exp (Deref t)
-
-pattern EAssign :: Exp -> Exp -> Exp
-pattern EAssign t1 t2 = Exp (Assign t1 t2)
-
 pattern ESeq :: Exp -> Exp -> Exp
-pattern ESeq t1 t2 = Exp (Seq t1 t2)
-
-pattern ERaise :: Exp -> Exp
-pattern ERaise e = Exp (Raise e)
-
-pattern ECatch :: Exp -> Var -> Exp -> Exp
-pattern ECatch e1 v e2 = Exp (Catch e1 v e2)
+pattern ESeq e1 e2 = Exp (Seq e1 e2)
 
 data Trace = TExp (Syntax Trace)
-           | TIfThen Trace Exp Exp Trace
-           | TIfElse Trace Exp Exp Trace
-           | TCaseL Trace (Maybe Var) Trace
-           | TCaseR Trace (Maybe Var) Trace
+           | TIfThen Trace Exp Exp Trace    -- ^ Take "then" branch of if
+           | TIfElse Trace Exp Exp Trace    -- ^ Take "else" branch of if
+           | TCaseL Trace (Maybe Var) Trace -- ^ Take "left constructor"
+                                            -- alternative in a case expression
+           | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
+                                            -- alternative in a case expression
            | TCall Trace Trace (Maybe Lab) (Code Trace)
+           -- References
+           | TRef StoreLabel Trace | TDeref StoreLabel Trace
+           | TAssign StoreLabel Trace Trace
+            -- Exceptions
+           | TRaise Trace             -- ^ Raise exception
+           | TTryWith Trace Var Trace -- ^ Throwing exception in a try-with
+                                      --   block
+           | TTry Trace               -- ^ Not throwing an exception in a
+                                      --   try-with block
              deriving (Show, Eq, Ord, Generic, NFData)
 
 pattern TVar :: Var -> Trace
@@ -352,17 +351,8 @@ pattern TUnroll tv t = TExp (Unroll tv t)
 pattern THole :: Trace
 pattern THole = TExp Hole
 
-pattern TRef :: Trace -> Trace
-pattern TRef t = TExp (Ref t)
-
-pattern TDeref :: Trace -> Trace
-pattern TDeref t = TExp (Deref t)
-
-pattern TAssign :: Trace -> Trace -> Trace
-pattern TAssign t1 t2 = TExp (Assign t1 t2)
-
 pattern TSeq :: Trace -> Trace -> Trace
-pattern TSeq t1 t2 = TExp (Seq t1 t2)
+pattern TSeq e1 e2 = TExp (Seq e1 e2)
 
 data Code a = Rec { funName  :: Var
                   , funArg   :: Var
@@ -382,7 +372,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VHole | VStar
            | VExp Exp (Env Value)
            -- mutable store locations
-           | VStoreLoc Int
+           | VStoreLoc StoreLabel
            -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord, Generic, NFData)
@@ -405,51 +395,56 @@ class FVs a where
     fvs :: a -> [Var]
 
 instance FVs a => FVs (Syntax a) where
-    fvs (Var x)        = [x]
-    fvs (Let x e1 e2)  = delete x (fvs e1 `union` fvs e2)
-    fvs  Unit          = []
-    fvs (Op _ exps)    = concat (Prelude.map fvs exps)
-    fvs (CBool _)      = []
-    fvs (CInt _)       = []
-    fvs (CString _)    = []
-    fvs (Pair e1 e2)   = fvs e1 `union` fvs e2
-    fvs (Fst e)        = fvs e
-    fvs (Snd e)        = fvs e
-    fvs (InL e)        = fvs e
-    fvs (InR e)        = fvs e
-    fvs (Fun k)        = fvs k
-    fvs (Roll _ e)     = fvs e
-    fvs (Unroll _ e)   = fvs e
-    fvs (Ref e)        = fvs e
-    fvs (Deref e)      = fvs e
-    fvs (Assign e1 e2) = fvs e1 `union` fvs e2
-    fvs (Seq    e1 e2) = fvs e1 `union` fvs e2
-    fvs  Hole          = []
-    fvs (Raise e)      = fvs e
-    fvs (Catch e x e1) = fvs e `union` (delete x (fvs e1))
+    fvs (Var x)       = [x]
+    fvs (Let x e1 e2) = delete x (fvs e1 `union` fvs e2)
+    fvs  Unit         = []
+    fvs (Op _ exps)   = concat (Prelude.map fvs exps)
+    fvs (CBool _)     = []
+    fvs (CInt _)      = []
+    fvs (CString _)   = []
+    fvs (Pair e1 e2)  = fvs e1 `union` fvs e2
+    fvs (Fst e)       = fvs e
+    fvs (Snd e)       = fvs e
+    fvs (InL e)       = fvs e
+    fvs (InR e)       = fvs e
+    fvs (Fun k)       = fvs k
+    fvs (Roll _ e)    = fvs e
+    fvs (Unroll _ e)  = fvs e
+    fvs (Seq e1 e2)   = fvs e1 `union` fvs e2
+    fvs  Hole         = []
 
 instance FVs Exp where
-    fvs (EIf e1 e2 e3) = fvs e1 `union` fvs e2 `union` fvs e3
-    fvs (ECase e m)    = fvs e `union` fvs m
-    fvs (EApp e1 e2)   = fvs e1 `union` fvs e2
-    fvs (ETrace e)     = fvs e
-    fvs (Exp e)        = fvs e
+    fvs (EIf e1 e2 e3)  = fvs e1 `union` fvs e2 `union` fvs e3
+    fvs (ECase e m)     = fvs e `union` fvs m
+    fvs (EApp e1 e2)    = fvs e1 `union` fvs e2
+    fvs (ETrace e)      = fvs e
+    fvs (ERaise e)      = fvs e
+    fvs (ECatch e x e1) = fvs e `union` (delete x (fvs e1))
+    fvs (ERef e)        = fvs e
+    fvs (EDeref e)      = fvs e
+    fvs (EAssign e1 e2) = fvs e1 `union` fvs e2
+    fvs (Exp e)         = fvs e
 
 instance FVs Match where
     fvs (Match (x, e1) (y, e2)) =
-        (maybeToList x \\ fvs e1) `union` (maybeToList y \\ fvs e2)
+        (fvs e1 \\ maybeToList x) `union` (fvs e2 \\ maybeToList y)
 
 instance FVs a => FVs (Code a) where
     fvs k = let vs = fvs (funBody k)
             in delete (funName k) (delete (funArg k) vs)
 
-
 instance FVs Trace where
     fvs (TIfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
     fvs (TIfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
-    fvs (TCaseL t v t1)      = fvs t `union` (maybeToList v \\ fvs t1)
-    fvs (TCaseR t v t2)      = fvs t `union` (maybeToList v \\ fvs t2)
+    fvs (TCaseL t v t1)      = fvs t `union` (fvs t1 \\ maybeToList v)
+    fvs (TCaseR t v t2)      = fvs t `union` (fvs t2 \\ maybeToList v)
     fvs (TCall t1 t2 _ t)    = fvs t1 `union` fvs t2 `union` fvs t
+    fvs (TRef _ t)           = fvs t
+    fvs (TDeref _ t)         = fvs t
+    fvs (TAssign _ t1 t2)    = fvs t1 `union` fvs t2
+    fvs (TRaise t)           = fvs t
+    fvs (TTry t)             = fvs t
+    fvs (TTryWith t1 x t2)   = fvs t1 `union` (delete x (fvs t2))
     fvs (TExp e)             = fvs e
 
 promote :: Value -> Value
@@ -506,6 +501,9 @@ instance UpperSemiLattice Value where
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
                       show a ++ " and " ++ show b
 
+-- JSTOLAREK: instances below completely ignore new constructors related to
+-- references and exceptions.  I'm leaving them out for now to make sure that
+-- their absence indeed causes an error when it should
 instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     bot                                = Hole
 
@@ -646,7 +644,7 @@ instance Pattern Value where
     match (VRoll tv p)  (VRoll tv' v) (VRoll tv'' v')
         | tv == tv' && tv' == tv''
         = match p v v'
-    -- JSTOLAREK: What about VStoreLoc?
+    match (VStoreLoc l) (VStoreLoc l') (VStoreLoc l'') = l == l' && l == l''
     match _ _ _ = False
 
     extract  VStar          v              = v
@@ -661,7 +659,7 @@ instance Pattern Value where
     extract (VInR p)       (VInR v)        = VInR (extract p v)
     extract (VRoll tv p)   (VRoll tv' v)   | tv == tv' = VRoll tv (extract p v)
     extract (VClosure _ p) (VClosure k' v) = VClosure k' (extract p v)
-    extract (VStoreLoc i ) (VStoreLoc i' ) | i == i' = VStoreLoc i
+    extract (VStoreLoc  l) (VStoreLoc  l') | l == l' = VStoreLoc l
     extract p v = error ("extract only defined if p <= v, but p is " ++
                          show p ++ " and v is " ++ show v)
 
