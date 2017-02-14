@@ -126,7 +126,6 @@ updateRef (VStoreLoc l) val = do
   st@(EvalState { refs }) <- get
   unless (l `M.member` refs) $ evalError "Cannot update reference: not allocated"
   put $ st { refs = M.insert l val refs }
-
 updateRef v _ = evalError ("Not a reference value: " ++ show v)
 
 -- | Run monadic evaluation with extra binder in scope
