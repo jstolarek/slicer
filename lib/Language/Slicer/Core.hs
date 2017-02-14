@@ -9,7 +9,7 @@
 
 module Language.Slicer.Core
     ( -- * Abstract syntax
-      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
+      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..), StoreLabel
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -297,10 +297,10 @@ data Trace = TExp (Syntax Trace)
            | TAssign StoreLabel Trace Trace
             -- Exceptions
            | TRaise Trace             -- ^ Raise exception
-           | TTryWith Trace Var Trace -- ^ Throwing exception in a try-with
-                                      --   block
            | TTry Trace               -- ^ Not throwing an exception in a
                                       --   try-with block
+           | TTryWith Trace Var Trace -- ^ Throwing exception in a try-with
+                                      --   block
              deriving (Show, Eq, Ord, Generic, NFData)
 
 pattern TVar :: Var -> Trace
@@ -318,11 +318,11 @@ pattern TBool b = TExp (CBool b)
 pattern TInt :: Int -> Trace
 pattern TInt i = TExp (CInt i)
 
-pattern TOp :: Primitive -> [Trace] -> Trace
-pattern TOp op args = TExp (Op op args)
-
 pattern TString :: String -> Trace
 pattern TString s = TExp (CString s)
+
+pattern TOp :: Primitive -> [Trace] -> Trace
+pattern TOp op args = TExp (Op op args)
 
 pattern TPair :: Trace -> Trace -> Trace
 pattern TPair t1 t2 = TExp (Pair t1 t2)

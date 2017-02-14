@@ -1,5 +1,7 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
-  UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies  #-}
+{-# LANGUAGE NamedFieldPuns          #-}
+{-# LANGUAGE MultiParamTypeClasses   #-}
+{-# LANGUAGE UndecidableInstances    #-}
 
 module Language.Slicer.Slice
     ( bslice, pslice, uneval
@@ -7,10 +9,73 @@ module Language.Slicer.Slice
 
 import           Language.Slicer.Core
 import           Language.Slicer.Env
+import           Language.Slicer.Monad.Eval
 import           Language.Slicer.UpperSemiLattice
+
+import           Control.Exception ( assert )
+import qualified Data.IntMap as M
 
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.
+
+-- | Erase side effects of a trace from store be replacing labels assigned by a
+-- trace with holes
+fwdSliceStoreEffects :: EvalState -> Trace -> EvalState
+-- relevant store assignments
+fwdSliceStoreEffects st (TRef l t)
+    = fwdSliceStoreEffects (insertStoreHole st l) t
+fwdSliceStoreEffects st (TAssign l t1 t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects (insertStoreHole st l) t1) t2
+-- boilerplate: ramining trace expressions
+fwdSliceStoreEffects st (TIfThen t1 _ _ t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TIfElse t1 _ _ t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TCaseL t1 _ t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TCaseR t1 _ t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TCall t1 t2 _ (Rec _ _ t3 _))
+    = fwdSliceStoreEffects (fwdSliceStoreEffects
+                            (fwdSliceStoreEffects st t1) t2) t3
+fwdSliceStoreEffects st (TDeref _ t)
+    = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TRaise t)
+    = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TTry t)
+    = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TTryWith t1 _ t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+-- boilerplate: recursive syntax expressions
+fwdSliceStoreEffects st (TLet _ t1 t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TPair t1 t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TSeq t1 t2)
+    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
+fwdSliceStoreEffects st (TOp _ ts)    = foldl fwdSliceStoreEffects st ts
+fwdSliceStoreEffects st (TFst t)      = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TSnd t)      = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TInL t)      = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TInR t)      = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TRoll _ t)   = fwdSliceStoreEffects st t
+fwdSliceStoreEffects st (TUnroll _ t) = fwdSliceStoreEffects st t
+-- boilerplate: non-recursive syntax expressions
+fwdSliceStoreEffects st TUnit         = st
+fwdSliceStoreEffects st (TVar _)      = st
+fwdSliceStoreEffects st (TBool _)     = st
+fwdSliceStoreEffects st (TInt _)      = st
+fwdSliceStoreEffects st (TString _)   = st
+fwdSliceStoreEffects st (TFun _)      = st
+fwdSliceStoreEffects st THole         = st
+
+insertStoreHole :: EvalState -> StoreLabel -> EvalState
+insertStoreHole = updateLabel VHole
+
+updateLabel :: Value -> EvalState -> StoreLabel -> EvalState
+updateLabel val st@(EvalState { refs }) l =
+  assert (l `M.member` refs) $
+  st { refs = M.insert l val refs }
 
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
