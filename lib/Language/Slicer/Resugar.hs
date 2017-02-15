@@ -13,6 +13,7 @@ import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
+import           Language.Slicer.UpperSemiLattice
 
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
@@ -52,22 +53,27 @@ class Resugarable a where
 
 instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
     resugarM (Var v) = return (RVar v)
-    resugarM (Let v e1 e2) = do e1' <- resugarM e1
-                                e2' <- resugarM e2
-                                return (RLet v e1' e2')
+    resugarM (Let v e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RLet v e1' e2')
     resugarM  Unit = return RUnit
     resugarM (CBool   b) = return (RBool   b)
     resugarM (CInt    i) = return (RInt    i)
     resugarM (CString s) = return (RString s)
-    resugarM (Op f args) = do args' <- mapM resugarM args
-                              return (ROp f args')
-    resugarM (Pair e1 e2) = do e1' <- resugarM e1
-                               e2' <- resugarM e2
-                               return (RPair e1' e2')
-    resugarM (Fst e) = do e' <- resugarM e
-                          return (RFst e')
-    resugarM (Snd e) = do e' <- resugarM e
-                          return (RSnd e')
+    resugarM (Op f args)
+        = do args' <- mapM resugarM args
+             return (ROp f args')
+    resugarM (Pair e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RPair e1' e2')
+    resugarM (Fst e)
+        = do e' <- resugarM e
+             return (RFst e')
+    resugarM (Snd e)
+        = do e' <- resugarM e
+             return (RSnd e')
     resugarM (Roll dataty e) | Just e' <- maybeInL e
         = do e'' <- resugarM e'
              decls <- getDecls
@@ -86,10 +92,11 @@ instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
           do let (args, body) = resugarMultiFun code
              body' <- resugarM body
              return (RFun (RRec name' (reverse args) body'))
-    resugarM  Hole      = return RHole
-    resugarM (Seq e1 e2) = do e1' <- resugarM e1
-                              e2' <- resugarM e2
-                              return (RSeq e1' e2')
+    resugarM  Hole = return RHole
+    resugarM (Seq e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RSeq e1' e2')
     -- These should never happen in a well-formed program
     resugarM (InL e)
         = resugarError ("Left data constructor not wrapped in roll, can't resugar "
@@ -105,34 +112,89 @@ instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
                         ++ show e)
 
 instance Resugarable Exp where
-    resugarM (EIf c e1 e2) = do c'  <- resugarM c
-                                e1' <- resugarM e1
-                                e2' <- resugarM e2
-                                return (RIf c' e1' e2')
-    resugarM (ECase (EUnroll dataty e) m)
+    resugarM (EIf c e1 e2)
+        = do c'  <- resugarM c
+             e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RIf c' e1' e2')
+    resugarM (ECase (EUnroll dataty e) (Match alt1 alt2))
         = do e' <- resugarM e
-             m' <- resugarMatch dataty m
+             m' <- resugarMatch dataty alt1 alt2
              return (RCase e' m')
     resugarM (ECase e _)
         = resugarError ("Case scrutinee not wrapped in unroll, can't resugar "
                         ++ show e)
-    resugarM (EApp e1 e2)  = do e1' <- resugarM e1
-                                e2' <- resugarM e2
-                                return (RApp e1' e2')
-    resugarM (ETrace e) = do e' <- resugarM e
-                             return (RTrace e')
+    resugarM (EApp e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RApp e1' e2')
+    resugarM (ETrace e)
+        = do e' <- resugarM e
+             return (RTrace e')
     resugarM (ERef _)   = return RRef
-    resugarM (EDeref e) = do e' <- resugarM e
-                             return (RDeref e')
-    resugarM (EAssign e1 e2) = do e1' <- resugarM e1
-                                  e2' <- resugarM e2
-                                  return (RAssign e1' e2')
-    resugarM (ERaise e) = do e' <- resugarM e
-                             return (RRaise e')
-    resugarM (ECatch e x h) = do e' <- resugarM e
-                                 h' <- resugarM h
-                                 return (RCatch e' x h')
+    resugarM (EDeref e)
+        = do e' <- resugarM e
+             return (RDeref e')
+    resugarM (EAssign e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RAssign e1' e2')
+    resugarM (ERaise e)
+        = do e' <- resugarM e
+             return (RRaise e')
+    resugarM (ECatch e x h)
+        = do e' <- resugarM e
+             h' <- resugarM h
+             return (RCatch e' x h')
     resugarM (Exp e) = resugarM e
+
+instance Resugarable Trace where
+    resugarM (TIfThen tc _ _ t1)
+        = do tc' <- resugarM tc
+             t1' <- resugarM t1
+             return (RIf tc' t1' RHole)
+    resugarM (TIfElse tc _ _ t2)
+        = do tc' <- resugarM tc
+             t2' <- resugarM t2
+             return (RIf tc' RHole t2')
+    resugarM (TCaseL (TUnroll dataty t) v tl)
+        = do t' <- resugarM t
+             m' <- resugarMatch dataty (v, tl) (Just bot, THole)
+             return (RCase t' m')
+    resugarM (TCaseL e _ _)
+        = resugarError ("TCaseL scrutinee not wrapped in unroll, can't resugar "
+                        ++ show e)
+    resugarM (TCaseR (TUnroll dataty t) v tr)
+        = do t' <- resugarM t
+             m' <- resugarMatch dataty (Just bot, THole) (v, tr)
+             return (RCase t' m')
+    resugarM (TCaseR e _ _)
+        = resugarError ("TCaseR scrutinee not wrapped in unroll, can't resugar "
+                        ++ show e)
+    resugarM (TCall t1 t2 _ _)
+        = do t1' <- resugarM t1
+             t2' <- resugarM t2
+             return (RApp t1' t2')
+    resugarM (TRef _ _)   = return RRef
+    resugarM (TDeref _ t)
+        = do t' <- resugarM t
+             return (RDeref t')
+    resugarM (TAssign _ t1 t2)
+        = do t1' <- resugarM t1
+             t2' <- resugarM t2
+             return (RAssign t1' t2')
+    resugarM (TRaise e)
+        = do e' <- resugarM e
+             return (RRaise e')
+    resugarM (TTry t)
+        = do t' <- resugarM t
+             return (RCatch t' bot RHole)
+    resugarM (TTryWith t x ht)
+        = do t' <- resugarM t
+             ht' <- resugarM ht
+             return (RCatch t' x ht')
+    resugarM (TExp e) = resugarM e
+
 
 -- | Class of syntax trees that can contain InL or InR constructors.  We need
 --   this in Resugarable instance for Syntax, because Syntax can be
@@ -156,8 +218,9 @@ instance AskConstrs Trace where
     maybeInR (TInR e) = Just e
     maybeInR _        = Nothing
 
-resugarMatch :: TyVar -> Match -> DesugarM RMatch
-resugarMatch dataty (Match (v1, e1) (v2, e2))
+resugarMatch :: Resugarable a => TyVar -> (Maybe Var, a) -> (Maybe Var, a)
+             -> DesugarM RMatch
+resugarMatch dataty (v1, e1) (v2, e2)
     = do decls <- getDecls
          e1' <- resugarM e1
          e2' <- resugarM e2
