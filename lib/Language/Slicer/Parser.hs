@@ -205,7 +205,7 @@ exp =
       , [ Infix  (binaryOp OpOr   ) AssocLeft  ]
       , [ Prefix (unaryOp  OpNot  )            ]
       , [ Infix  assign_            AssocNone  ]
-      , [ Infix  seq_               AssocLeft  ]
+      , [ Infix  seq_               AssocRight ]
       ]
 
 appChain :: Parser Exp

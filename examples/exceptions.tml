@@ -1,4 +1,6 @@
-let n = ref 0 in
-try
-  n:=17;;(raise (raise "foo"));;n:=42;;(!n)
-with x => !n
+let t = trace(
+  let n = ref 0 in
+  try
+    n:=17;;(raise (if false then "bar" else (raise "foo")));;n:=42;;(!n)
+  with x => !n
+) in t

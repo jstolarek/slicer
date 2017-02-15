@@ -33,9 +33,9 @@ data RExp = RVar Var | RLet Var RExp RExp
           | RTrace RExp
           | RHole
           -- References
-          | RRef | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
+          | RRef RExp | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
           -- Exceptions
-          | RRaise RExp | RCatch RExp Var RExp
+          | RRaise RExp | RCatch RExp Var RExp | RException
             deriving (Show, Eq, Ord, Generic, NFData)
 
 data RCode = RRec Var [Var] RExp -- name, args, body
@@ -131,7 +131,9 @@ instance Resugarable Exp where
     resugarM (ETrace e)
         = do e' <- resugarM e
              return (RTrace e')
-    resugarM (ERef _)   = return RRef
+    resugarM (ERef e)
+        = do e' <- resugarM e
+             return (RRef e')
     resugarM (EDeref e)
         = do e' <- resugarM e
              return (RDeref e')
@@ -157,6 +159,9 @@ instance Resugarable Trace where
         = do tc' <- resugarM tc
              t2' <- resugarM t2
              return (RIf tc' RHole t2')
+    resugarM (TIfExn tc)
+        = do tc' <- resugarM tc
+             return (RIf tc' RHole RHole)
     resugarM (TCaseL (TUnroll dataty t) v tl)
         = do t' <- resugarM t
              m' <- resugarMatch dataty (v, tl) (Just bot, THole)
@@ -175,7 +180,13 @@ instance Resugarable Trace where
         = do t1' <- resugarM t1
              t2' <- resugarM t2
              return (RApp t1' t2')
-    resugarM (TRef _ _)   = return RRef
+    resugarM (TCallExn t1 t2)
+        = do t1' <- resugarM t1
+             t2' <- resugarM t2
+             return (RApp t1' t2')
+    resugarM (TRef _ t)
+        = do t' <- resugarM t
+             return (RRef t')
     resugarM (TDeref _ t)
         = do t' <- resugarM t
              return (RDeref t')
@@ -237,10 +248,11 @@ resugarMultiFun = go []
           go args (Rec _ arg body        _) = (arg:args, body)
 
 instance Resugarable Value where
-    resugarM VHole = return RHole
-    resugarM VUnit = return RUnit
-    resugarM (VBool b) = return (RBool b)
-    resugarM (VInt i)  = return (RInt i)
+    resugarM VHole       = return RHole
+    resugarM VUnit       = return RUnit
+    resugarM VException  = return RException
+    resugarM (VBool b)   = return (RBool b)
+    resugarM (VInt i)    = return (RInt i)
     resugarM (VString s) = return (RString s)
     resugarM (VPair v1 v2)
         = do e1 <- resugarM v1
@@ -259,10 +271,9 @@ instance Resugarable Value where
                Just decl -> return (RCon (conR decl) e)
                Nothing -> resugarError ("Unknown data type: " ++ show dataty)
     resugarM (VClosure v _) = resugarM (EFun v)
-    resugarM (VStoreLoc _)  = return RRef
     resugarM (VExp v _)     = resugarM v
-    resugarM (VTrace v _ _)
-        = do e <- resugarM v
+    resugarM (VTrace _ t _)
+        = do e <- resugarM t
              return (RTrace e)
     resugarM (VInL v)
         = resugarError ("Left data value not wrapped in roll, can't resugar "
@@ -276,10 +287,13 @@ instance Resugarable Value where
     resugarM VStar
         = resugarError ("Don't know how to desugar stars. " ++
                         "Where did you get this value from?" )
+    resugarM (VStoreLoc _)
+        = resugarError ("Cannot resugar store labels")
 
 instance Pretty RExp where
     pPrint RHole       = text "_"
     pPrint RUnit       = text "()"
+    pPrint RException  = text "<exception>"
     pPrint (RInt    i) = int i
     pPrint (RString s) = text (show s)
     pPrint (RBool b)   = if b then text "true" else text "false"
@@ -307,7 +321,7 @@ instance Pretty RExp where
                              nest 2 (pPrint m)
     pPrint (RFun k)        = pPrint k
     pPrint (RApp e1 e2)    = sep [ pPrint e1, pPrint e2 ]
-    pPrint RRef            = text "<ref>"
+    pPrint (RRef e)        = text "ref" <+> partial_parensOpt e
     pPrint (RDeref e)      = text "!" <> partial_parensOpt e
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
     pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2

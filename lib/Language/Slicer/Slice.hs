@@ -12,8 +12,9 @@ import           Language.Slicer.Env
 import           Language.Slicer.Monad.Eval
 import           Language.Slicer.UpperSemiLattice
 
-import           Control.Exception ( assert )
+import           Control.Exception ( assert      )
 import qualified Data.IntMap as M
+import           Data.Maybe        ( maybeToList )
 
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.
@@ -21,14 +22,17 @@ import qualified Data.IntMap as M
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> [ StoreLabel ]
 -- relevant store assignments
-storeWrites (TRef l t)         = l : storeWrites t
-storeWrites (TAssign l t1 t2)  = l : storeWrites t1 ++ storeWrites t2
+storeWrites (TRef l t)         = maybeToList l ++ storeWrites t
+storeWrites (TAssign l t1 t2)
+    = maybeToList l ++ storeWrites t1 ++ storeWrites t2
 storeWrites (TIfThen t1 t2)    = storeWrites t1 ++ storeWrites t2
 storeWrites (TIfElse t1 t2)    = storeWrites t1 ++ storeWrites t2
+storeWrites (TIfExn t)         = storeWrites t
 storeWrites (TCaseL t1 _ t2)   = storeWrites t1 ++ storeWrites t2
 storeWrites (TCaseR t1 _ t2)   = storeWrites t1 ++ storeWrites t2
 storeWrites (TCall t1 t2 _ (Rec _ _ t3 _))
-                               = storeWrites t1 ++ storeWrites t2 ++ storeWrites t3
+    = storeWrites t1 ++ storeWrites t2 ++ storeWrites t3
+storeWrites (TCallExn t1 t2)   = storeWrites t1 ++ storeWrites t2
 storeWrites (TDeref _ t)       = storeWrites t
 storeWrites (TRaise t)         = storeWrites t
 storeWrites (TTry t)           = storeWrites t
@@ -50,6 +54,8 @@ storeWrites (TInt _)           = []
 storeWrites (TString _)        = []
 storeWrites (TFun _)           = []
 storeWrites THole              = []
+storeWrites (TExp e)
+    = error ("Impossible happened at storeWrites: " ++ show e)
 
 insertStoreHole :: EvalState -> StoreLabel -> EvalState
 insertStoreHole = updateLabel VHole
@@ -247,11 +253,19 @@ class Uneval a b | a -> b where
     uneval :: a -> b
 
 instance Uneval Trace Exp where
-    uneval (TCaseL t x t1)   = ECase (uneval t) (Match (x, uneval t1) (bot, EHole))
-    uneval (TCaseR t x t2)   = ECase (uneval t) (Match (bot, EHole) (x, uneval t2))
-    uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) EHole
-    uneval (TIfElse t t2)    = EIf (uneval t) EHole (uneval t2)
+    uneval (TCaseL t x t1)   = ECase (uneval t) (Match (x, uneval t1) (bot, bot))
+    uneval (TCaseR t x t2)   = ECase (uneval t) (Match (bot, bot) (x, uneval t2))
+    uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) bot
+    uneval (TIfElse t t2)    = EIf (uneval t) bot (uneval t2)
+    uneval (TIfExn t)        = EIf (uneval t) bot bot
     uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)
+    uneval (TCallExn t1 t2)  = EApp (uneval t1) (uneval t2)
+    uneval (TRef _ t)        = ERef (uneval t)
+    uneval (TDeref _ t)      = EDeref (uneval t)
+    uneval (TAssign _ t1 t2) = EAssign (uneval t1) (uneval t2)
+    uneval (TRaise t)        = ERaise (uneval t)
+    uneval (TTry t)          = ECatch (uneval t) bot bot
+    uneval (TTryWith t x h)  = ECatch (uneval t) x (uneval h)
     uneval (TExp expr)       = Exp (uneval expr)
 
 instance Uneval a b => Uneval (Syntax a) (Syntax b) where
@@ -271,7 +285,7 @@ instance Uneval a b => Uneval (Syntax a) (Syntax b) where
     uneval (InR e)       = InR (uneval e)
     uneval (Roll tv e)   = Roll tv (uneval e)
     uneval (Unroll tv e) = Unroll tv (uneval e)
+    uneval (Seq e1 e2)   = Seq (uneval e1) (uneval e2)
 
 instance Uneval a b => Uneval (Code a) (Code b) where
     uneval (Rec name arg body label) = Rec name arg (uneval body) label
-

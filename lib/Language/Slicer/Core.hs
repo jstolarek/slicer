@@ -287,14 +287,17 @@ pattern ESeq e1 e2 = Exp (Seq e1 e2)
 data Trace = TExp (Syntax Trace)
            | TIfThen Trace Trace            -- ^ Take "then" branch of if
            | TIfElse Trace Trace            -- ^ Take "else" branch of if
+           | TIfExn Trace                   -- ^ Condition raises exception
            | TCaseL Trace (Maybe Var) Trace -- ^ Take "left constructor"
                                             -- alternative in a case expression
            | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
                                             -- alternative in a case expression
+           | TCallExn Trace Trace -- ^ Any of application arguments raises an
+                                  -- exception
            | TCall Trace Trace (Maybe Lab) (Code Trace)
-           -- References
-           | TRef StoreLabel Trace | TDeref StoreLabel Trace
-           | TAssign StoreLabel Trace Trace
+           -- References.  See Note [Maybe trace labels]
+           | TRef (Maybe StoreLabel) Trace | TDeref (Maybe StoreLabel) Trace
+           | TAssign (Maybe StoreLabel) Trace Trace
             -- Exceptions
            | TRaise Trace             -- ^ Raise exception
            | TTry Trace               -- ^ Not throwing an exception in a
@@ -302,6 +305,13 @@ data Trace = TExp (Syntax Trace)
            | TTryWith Trace Var Trace -- ^ Throwing exception in a try-with
                                       --   block
              deriving (Show, Eq, Ord, Generic, NFData)
+
+-- Note [Maybe trace labels]
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+-- Labels in reference trace constructs are Maybes because it is possible that
+-- the the enclosed expression raises an exception instead of evaluating to a
+-- label value.
 
 pattern TVar :: Var -> Trace
 pattern TVar v = TExp (Var v)
@@ -373,6 +383,8 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VExp Exp (Env Value)
            -- mutable store locations
            | VStoreLoc StoreLabel
+           -- Exceptions.  Used only for tracing
+           | VException
            -- run-time traces
            | VTrace Value Trace (Env Value)
            deriving (Show, Eq, Ord, Generic, NFData)
@@ -436,9 +448,11 @@ instance FVs a => FVs (Code a) where
 instance FVs Trace where
     fvs (TIfThen t t1)     = fvs t `union` fvs t1
     fvs (TIfElse t t2)     = fvs t `union` fvs t2
+    fvs (TIfExn t)         = fvs t
     fvs (TCaseL t v t1)    = fvs t `union` (fvs t1 \\ maybeToList v)
     fvs (TCaseR t v t2)    = fvs t `union` (fvs t2 \\ maybeToList v)
     fvs (TCall t1 t2 _ t)  = fvs t1 `union` fvs t2 `union` fvs t
+    fvs (TCallExn t1 t2)   = fvs t1 `union` fvs t2
     fvs (TRef _ t)         = fvs t
     fvs (TDeref _ t)       = fvs t
     fvs (TAssign _ t1 t2)  = fvs t1 `union` fvs t2
@@ -451,6 +465,7 @@ promote :: Value -> Value
 promote VStar            = VStar
 promote VHole            = VStar
 promote VUnit            = VUnit
+promote VException       = VException
 promote (VBool b)        = VBool b
 promote (VInt i)         = VInt i
 promote (VString s)      = VString s
