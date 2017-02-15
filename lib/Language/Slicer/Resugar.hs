@@ -149,11 +149,11 @@ instance Resugarable Exp where
     resugarM (Exp e) = resugarM e
 
 instance Resugarable Trace where
-    resugarM (TIfThen tc _ _ t1)
+    resugarM (TIfThen tc t1)
         = do tc' <- resugarM tc
              t1' <- resugarM t1
              return (RIf tc' t1' RHole)
-    resugarM (TIfElse tc _ _ t2)
+    resugarM (TIfElse tc t2)
         = do tc' <- resugarM tc
              t2' <- resugarM t2
              return (RIf tc' RHole t2')

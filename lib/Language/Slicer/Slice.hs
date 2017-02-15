@@ -27,9 +27,9 @@ fwdSliceStoreEffects st (TRef l t)
 fwdSliceStoreEffects st (TAssign l t1 t2)
     = fwdSliceStoreEffects (fwdSliceStoreEffects (insertStoreHole st l) t1) t2
 -- boilerplate: ramining trace expressions
-fwdSliceStoreEffects st (TIfThen t1 _ _ t2)
+fwdSliceStoreEffects st (TIfThen t1 t2)
     = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TIfElse t1 _ _ t2)
+fwdSliceStoreEffects st (TIfElse t1 t2)
     = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
 fwdSliceStoreEffects st (TCaseL t1 _ t2)
     = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
@@ -124,14 +124,14 @@ bslice (VInR p) (TInR t)
 bslice VStar (TInR t)
     = let (t', rho) = bslice VStar t
       in (TInR t', rho)
-bslice p1 (TIfThen t e1 e2 t1)
+bslice p1 (TIfThen t t1)
     = let (t1',rho1) = bslice p1 t1
           (t',rho)   = bslice VStar t
-      in (TIfThen t' e1 e2 t1', rho `lub` rho1)
-bslice p2 (TIfElse t e1 e2 t2)
+      in (TIfThen t' t1', rho `lub` rho1)
+bslice p2 (TIfElse t t2)
     = let (t2',rho2) = bslice p2 t2
           (t',rho)   = bslice VStar t
-      in (TIfElse t' e1 e2 t2', rho `lub` rho2)
+      in (TIfElse t' t2', rho `lub` rho2)
 bslice p1 (TCaseL t x t1)
     = let (t1',rho1) = bslice p1 t1
           p          = maybeLookupEnv' rho1 x
@@ -216,11 +216,11 @@ pslice (VInR p) (TInR t)
 pslice VStar (TInR t)
     = let (t', rho) = pslice VStar t
       in (EInR t', rho)
-pslice p1 (TIfThen t _ _ t1)
+pslice p1 (TIfThen t t1)
     = let (e1, rho1) = pslice p1 t1
           (e, rho)   = pslice VStar t
       in (EIf e e1 EHole, rho `lub` rho1)
-pslice p2 (TIfElse t _ _ t2)
+pslice p2 (TIfElse t t2)
     = let (e2, rho2) = pslice p2 t2
           (e, rho)   = pslice VStar t
       in (EIf e EHole e2, rho `lub` rho2)
@@ -265,12 +265,12 @@ class Uneval a b | a -> b where
     uneval :: a -> b
 
 instance Uneval Trace Exp where
-    uneval (TCaseL t x t1)    = ECase (uneval t) (Match (x, uneval t1) (bot, EHole))
-    uneval (TCaseR t x t2)    = ECase (uneval t) (Match (bot, EHole) (x, uneval t2))
-    uneval (TIfThen t _ _ t1) = EIf (uneval t) (uneval t1) EHole
-    uneval (TIfElse t _ _ t2) = EIf (uneval t) EHole (uneval t2)
-    uneval (TCall t1 t2 _ _)  = EApp (uneval t1) (uneval t2)
-    uneval (TExp expr)        = Exp (uneval expr)
+    uneval (TCaseL t x t1)   = ECase (uneval t) (Match (x, uneval t1) (bot, EHole))
+    uneval (TCaseR t x t2)   = ECase (uneval t) (Match (bot, EHole) (x, uneval t2))
+    uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) EHole
+    uneval (TIfElse t t2)    = EIf (uneval t) EHole (uneval t2)
+    uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)
+    uneval (TExp expr)       = Exp (uneval expr)
 
 instance Uneval a b => Uneval (Syntax a) (Syntax b) where
     uneval (Var x)       = Var x

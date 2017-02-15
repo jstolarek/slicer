@@ -269,8 +269,8 @@ traceMatch _ _ =
     evalError "traceMatch: scrutinee does not reduce to a constructor"
 
 traceIf :: (Value, Trace) -> Exp -> Exp -> EvalM (Value, Trace)
-traceIf (VBool True , t) e1 e2 = do (v1,t1) <- trace' e1
-                                    return (v1, TIfThen t e1 e2 t1)
-traceIf (VBool False, t) e1 e2 = do (v2,t2) <- trace' e2
-                                    return (v2, TIfElse t e1 e2 t2)
+traceIf (VBool True , t) e1 _ = do (v1,t1) <- trace' e1
+                                   return (v1, TIfThen t t1)
+traceIf (VBool False, t) _ e2 = do (v2,t2) <- trace' e2
+                                   return (v2, TIfElse t t2)
 traceIf _ _ _ = evalError "traceIf: condition is not a VBool value"

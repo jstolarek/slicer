@@ -158,14 +158,14 @@ instance Visualizable Trace where
     graphDiff t     THole = withColor leftColor  (graphDiff t t)
     graphDiff THole t     = withColor rightColor (graphDiff t t)
     graphDiff (TExp e) (TExp e') = graphDiff e e'
-    graphDiff (TIfThen t _ _ t1) (TIfThen t' _ _ t1') =
+    graphDiff (TIfThen t t1) (TIfThen t' t1') =
         do i <- node "if/t"
            k <- graphDiff t1 t1'
            edge i k
            j <- graphDiff t t'
            edge i j
            return i
-    graphDiff (TIfElse t _ _ t2) (TIfElse t' _ _ t2')=
+    graphDiff (TIfElse t t2) (TIfElse t' t2')=
         do i <- node "if/f"
            k <- graphDiff t2 t2'
            edge i k
