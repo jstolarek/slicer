@@ -5,7 +5,7 @@
 module Language.Slicer.Error
     ( -- * Raising errors
       SlicerError(..), parseError, desugarError, resugarError, evalError
-    , typeError, raise, rethrow
+    , typeError, raise, raiseTrace, rethrow
     ) where
 
 import           Language.Slicer.Core
@@ -22,15 +22,17 @@ data SlicerError = ParseError   String
                  | TypeError String
                  | EvalError String
                  | Exception Value (M.IntMap Value)
+                 | TraceException Value (M.IntMap Value) Trace
                    deriving (Eq, Generic, NFData)
 
 instance Show SlicerError where
-    show (ParseError   msg) = "Syntax error: " ++ msg
-    show (EvalError    msg) = "Evaluation error: " ++ msg
-    show (DesugarError msg) = "Desugaring error: " ++ msg
-    show (ResugarError msg) = "Resugaring error: " ++ msg
-    show (TypeError    msg) = "Type error: " ++ msg
-    show (Exception    v _) = "Uncaught exception: " ++ show v
+    show (ParseError     msg  ) = "Syntax error: " ++ msg
+    show (EvalError      msg  ) = "Evaluation error: " ++ msg
+    show (DesugarError   msg  ) = "Desugaring error: " ++ msg
+    show (ResugarError   msg  ) = "Resugaring error: " ++ msg
+    show (TypeError      msg  ) = "Type error: " ++ msg
+    show (Exception      v _  ) = "Uncaught exception: " ++ show v
+    show (TraceException v _ _) = "Uncaught trace exception: " ++ show v
 
 parseError :: MonadError SlicerError m => String -> m a
 parseError msg = throwError (ParseError msg)
@@ -49,6 +51,10 @@ evalError msg = throwError (EvalError msg)
 
 raise :: MonadError SlicerError m => Value -> M.IntMap Value -> m a
 raise val st = throwError (Exception val st)
+
+raiseTrace :: MonadError SlicerError m => Value -> M.IntMap Value -> Trace
+           -> m a
+raiseTrace val st trace = throwError (TraceException val st trace)
 
 rethrow :: MonadError SlicerError m => SlicerError -> m a
 rethrow = throwError
