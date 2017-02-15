@@ -285,8 +285,8 @@ pattern ESeq :: Exp -> Exp -> Exp
 pattern ESeq e1 e2 = Exp (Seq e1 e2)
 
 data Trace = TExp (Syntax Trace)
-           | TIfThen Trace Exp Exp Trace    -- ^ Take "then" branch of if
-           | TIfElse Trace Exp Exp Trace    -- ^ Take "else" branch of if
+           | TIfThen Trace Trace            -- ^ Take "then" branch of if
+           | TIfElse Trace Trace            -- ^ Take "else" branch of if
            | TCaseL Trace (Maybe Var) Trace -- ^ Take "left constructor"
                                             -- alternative in a case expression
            | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
@@ -434,18 +434,18 @@ instance FVs a => FVs (Code a) where
             in delete (funName k) (delete (funArg k) vs)
 
 instance FVs Trace where
-    fvs (TIfThen t e1 e2 t1) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t1
-    fvs (TIfElse t e1 e2 t2) = fvs t `union` fvs e1 `union` fvs e2 `union` fvs t2
-    fvs (TCaseL t v t1)      = fvs t `union` (fvs t1 \\ maybeToList v)
-    fvs (TCaseR t v t2)      = fvs t `union` (fvs t2 \\ maybeToList v)
-    fvs (TCall t1 t2 _ t)    = fvs t1 `union` fvs t2 `union` fvs t
-    fvs (TRef _ t)           = fvs t
-    fvs (TDeref _ t)         = fvs t
-    fvs (TAssign _ t1 t2)    = fvs t1 `union` fvs t2
-    fvs (TRaise t)           = fvs t
-    fvs (TTry t)             = fvs t
-    fvs (TTryWith t1 x t2)   = fvs t1 `union` (delete x (fvs t2))
-    fvs (TExp e)             = fvs e
+    fvs (TIfThen t t1)     = fvs t `union` fvs t1
+    fvs (TIfElse t t2)     = fvs t `union` fvs t2
+    fvs (TCaseL t v t1)    = fvs t `union` (fvs t1 \\ maybeToList v)
+    fvs (TCaseR t v t2)    = fvs t `union` (fvs t2 \\ maybeToList v)
+    fvs (TCall t1 t2 _ t)  = fvs t1 `union` fvs t2 `union` fvs t
+    fvs (TRef _ t)         = fvs t
+    fvs (TDeref _ t)       = fvs t
+    fvs (TAssign _ t1 t2)  = fvs t1 `union` fvs t2
+    fvs (TRaise t)         = fvs t
+    fvs (TTry t)           = fvs t
+    fvs (TTryWith t1 x t2) = fvs t1 `union` (delete x (fvs t2))
+    fvs (TExp e)           = fvs e
 
 promote :: Value -> Value
 promote VStar            = VStar
@@ -598,10 +598,10 @@ instance UpperSemiLattice Trace where
     bot                = TExp Hole
 
     leq (TExp Hole) _ = True
-    leq (TIfThen t e1 e2 t1) (TIfThen t' e1' e2' t1')
-        = t `leq` t' && e1 `leq` e1' && e2 `leq` e2' && t1 `leq` t1'
-    leq (TIfElse t e1 e2 t2) (TIfElse t' e1' e2' t2')
-        = t `leq` t' && e1 `leq` e1' && e2 `leq` e2' && t2 `leq` t2'
+    leq (TIfThen t t1) (TIfThen t' t1')
+        = t `leq` t' && t1 `leq` t1'
+    leq (TIfElse t t2) (TIfElse t' t2')
+        = t `leq` t' && t2 `leq` t2'
     leq (TCaseL t x t1) (TCaseL t' x' t1')
         = t `leq` t' && x == x' && t1 `leq` t1'
     leq (TCaseR t x t2) (TCaseR t'  x' t2')
@@ -614,10 +614,10 @@ instance UpperSemiLattice Trace where
     lub (TExp Hole) e       = e
     lub e (TExp Hole)       = e
     lub (TExp e1) (TExp e2) = TExp (e1 `lub` e2)
-    lub (TIfThen t e1 e2 t1) (TIfThen t' e1' e2' t1')
-        = TIfThen (t `lub` t') (e1 `lub` e1') (e2 `lub` e2') (t1 `lub` t1')
-    lub (TIfElse t e1 e2 t2) (TIfElse t' e1' e2' t2')
-        = TIfElse (t `lub` t') (e1 `lub` e1') (e2 `lub` e2') (t2 `lub` t2')
+    lub (TIfThen t t1) (TIfThen t' t1')
+        = TIfThen (t `lub` t') (t1 `lub` t1')
+    lub (TIfElse t t2) (TIfElse t' t2')
+        = TIfElse (t `lub` t') (t2 `lub` t2')
     lub (TCaseL t x t1) (TCaseL t' x' t1')
         = TCaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
     lub (TCaseR t x t2) (TCaseR t' x' t2')

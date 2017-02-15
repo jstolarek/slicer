@@ -45,9 +45,9 @@ toTreeFast (TInR t)       acc = toTreeFast t acc
 toTreeFast (TFun _)       acc = acc
 toTreeFast (TRoll   _ t)  acc = toTreeFast t acc
 toTreeFast (TUnroll _ t)  acc = toTreeFast t acc
-toTreeFast (TIfThen t _ _ t1) acc =
+toTreeFast (TIfThen t t1) acc =
     (TTTrue  (toTreeFast t []) (toTreeFast t1 [])):acc
-toTreeFast (TIfElse t _ _ t2) acc =
+toTreeFast (TIfElse t t2) acc =
     (TTFalse (toTreeFast t []) (toTreeFast t2 [])):acc
 toTreeFast (TCaseL t _ t1)  acc =
     (TTInL (toTreeFast t []) (toTreeFast t1 [])) : acc
