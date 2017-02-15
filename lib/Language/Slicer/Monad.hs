@@ -69,8 +69,8 @@ liftSlM slm = ExceptT $ return (runIdentity (runExceptT slm))
 -- DON'T SHOOT YOURSELF IN THE FOOT
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 --
--- Most mistakes in using the monad transformers and related combinators will
--- simply not type check.  But there is still a way to write erroneous code that
+-- Most mistakes in using monad transformers and related combinators will simply
+-- not type check.  But there is still a way to write erroneous code that
 -- actually runs and does not do what you intended.  Say we have a computation
 -- inside SlMIO monad:
 --
@@ -82,7 +82,7 @@ liftSlM slm = ExceptT $ return (runIdentity (runExceptT slm))
 -- we write:
 --
 --   bar :: EvalM ()
---   bar = runSlmIO foo >> return ()
+--   bar = runSlMIO foo >> return ()
 --
 -- then this code will compile but will not work as intended.  Instead of
 -- propagating errors, usage of `>>` will simply discard ANY result returned by

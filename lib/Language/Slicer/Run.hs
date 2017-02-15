@@ -12,7 +12,7 @@ import           Language.Slicer.Env        ( Env, emptyEnv             )
 import           Language.Slicer.Eval       ( run                       )
 import           Language.Slicer.Monad      ( SlMIO, liftSlM, runSlMIO  )
 import           Language.Slicer.Monad.Eval ( EvalState, emptyEvalState )
-import           Language.Slicer.Resugar    ( RExp, resugarValue        )
+import           Language.Slicer.Resugar    ( RExp, resugar             )
 import           Language.Slicer.Parser     ( parseIn                   )
 
 -- | Parse a program and evaluate it.  Return value, its resugaring, type and
@@ -28,5 +28,5 @@ desugarEval :: TyCtx -> Env Type -> EvalState -> Exp
 desugarEval tyCtx gamma evalS expr = do
   (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
   (val, st)   <- run evalS dexpr
-  res         <- liftSlM (resugarValue tyCtx val)
+  res         <- liftSlM (resugar tyCtx val)
   return (val, res, ty, st)
