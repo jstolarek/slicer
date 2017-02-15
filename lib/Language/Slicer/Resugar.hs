@@ -29,11 +29,12 @@ data RExp = RVar Var | RLet Var RExp RExp
           | RPair RExp RExp | RFst RExp | RSnd RExp
           | RCon Con RExp | RCase RExp RMatch
           | RFun RCode | RApp RExp RExp
+          | RTrace RExp
+          | RHole
           -- References
           | RRef | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
-          | RTrace RExp
-          -- holes
-          | RHole
+          -- Exceptions
+          | RRaise RExp | RCatch RExp Var RExp
             deriving (Show, Eq, Ord, Generic, NFData)
 
 data RCode = RRec Var [Var] RExp -- name, args, body
@@ -45,27 +46,65 @@ data RMatch = RMatch [ ( Con, Maybe Var, RExp ) ]
 resugar :: Resugarable a => TyCtx -> a -> SlM RExp
 resugar decls expr = runDesugarM decls emptyEnv (resugarM expr)
 
+-- | Class of things that can be resugared into surface syntax
 class Resugarable a where
    resugarM :: a -> DesugarM RExp
 
-instance Resugarable Exp where
-    resugarM (EVar v) = return (RVar v)
-    resugarM (ELet v e1 e2) = do e1' <- resugarM e1
-                                 e2' <- resugarM e2
-                                 return (RLet v e1' e2')
-    resugarM  EUnit = return RUnit
-    resugarM (EBool   b) = return (RBool   b)
-    resugarM (EInt    i) = return (RInt    i)
-    resugarM (EString s) = return (RString s)
-    resugarM (EOp f args) = do args' <- mapM resugarM args
-                               return (ROp f args')
-    resugarM (EPair e1 e2) = do e1' <- resugarM e1
+instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
+    resugarM (Var v) = return (RVar v)
+    resugarM (Let v e1 e2) = do e1' <- resugarM e1
                                 e2' <- resugarM e2
-                                return (RPair e1' e2')
-    resugarM (EFst e) = do e' <- resugarM e
-                           return (RFst e')
-    resugarM (ESnd e) = do e' <- resugarM e
-                           return (RSnd e')
+                                return (RLet v e1' e2')
+    resugarM  Unit = return RUnit
+    resugarM (CBool   b) = return (RBool   b)
+    resugarM (CInt    i) = return (RInt    i)
+    resugarM (CString s) = return (RString s)
+    resugarM (Op f args) = do args' <- mapM resugarM args
+                              return (ROp f args')
+    resugarM (Pair e1 e2) = do e1' <- resugarM e1
+                               e2' <- resugarM e2
+                               return (RPair e1' e2')
+    resugarM (Fst e) = do e' <- resugarM e
+                          return (RFst e')
+    resugarM (Snd e) = do e' <- resugarM e
+                          return (RSnd e')
+    resugarM (Roll dataty e) | Just e' <- maybeInL e
+        = do e'' <- resugarM e'
+             decls <- getDecls
+             case getTyDeclByName decls dataty of
+               Just decl -> return (RCon (conL decl) e'')
+               Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+    resugarM (Roll dataty e) | Just e' <- maybeInR e
+        = do e'' <- resugarM e'
+             decls <- getDecls
+             case getTyDeclByName decls dataty of
+               Just decl -> return (RCon (conR decl) e'')
+               Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+    resugarM (Fun code@(Rec name' _ _ _))
+        = -- Functions in Core are single-argument.  Need to traverse body to
+          -- reconstruct multi-argument functions
+          do let (args, body) = resugarMultiFun code
+             body' <- resugarM body
+             return (RFun (RRec name' (reverse args) body'))
+    resugarM  Hole      = return RHole
+    resugarM (Seq e1 e2) = do e1' <- resugarM e1
+                              e2' <- resugarM e2
+                              return (RSeq e1' e2')
+    -- These should never happen in a well-formed program
+    resugarM (InL e)
+        = resugarError ("Left data constructor not wrapped in roll, can't resugar "
+                        ++ show e)
+    resugarM (InR e)
+        = resugarError ("Right data constructor not wrapped in roll, can't resugar "
+                        ++ show e)
+    resugarM (Roll _ e)
+        = resugarError ("Non-constructor expression wrapped in a roll, can't resugar "
+                        ++ show e)
+    resugarM (Unroll _ e)
+        = resugarError ("Unroll outside of case scrutinee, can't resugar "
+                        ++ show e)
+
+instance Resugarable Exp where
     resugarM (EIf c e1 e2) = do c'  <- resugarM c
                                 e1' <- resugarM e1
                                 e2' <- resugarM e2
@@ -77,28 +116,9 @@ instance Resugarable Exp where
     resugarM (ECase e _)
         = resugarError ("Case scrutinee not wrapped in unroll, can't resugar "
                         ++ show e)
-    resugarM (ERoll dataty (EInL e))
-        = do e' <- resugarM e
-             decls <- getDecls
-             case getTyDeclByName decls dataty of
-               Just decl -> return (RCon (conL decl) e')
-               Nothing -> resugarError ("Unknown data type: " ++ show dataty)
-    resugarM (ERoll dataty (EInR e))
-        = do e' <- resugarM e
-             decls <- getDecls
-             case getTyDeclByName decls dataty of
-               Just decl -> return (RCon (conR decl) e')
-               Nothing -> resugarError ("Unknown data type: " ++ show dataty)
-    resugarM (EFun code@(Rec name' _ _ _))
-        = -- Functions in Core are single-argument.  Need to traverse body to
-          -- reconstruct multi-argument functions
-          do let (args, body) = resugarMultiFun code
-             body' <- resugarM body
-             return (RFun (RRec name' (reverse args) body'))
     resugarM (EApp e1 e2)  = do e1' <- resugarM e1
                                 e2' <- resugarM e2
                                 return (RApp e1' e2')
-    resugarM EHole      = return RHole
     resugarM (ETrace e) = do e' <- resugarM e
                              return (RTrace e')
     resugarM (ERef _)   = return RRef
@@ -107,25 +127,34 @@ instance Resugarable Exp where
     resugarM (EAssign e1 e2) = do e1' <- resugarM e1
                                   e2' <- resugarM e2
                                   return (RAssign e1' e2')
-    resugarM (ESeq e1 e2) = do e1' <- resugarM e1
-                               e2' <- resugarM e2
-                               return (RSeq e1' e2')
-    -- These should never happen in a well-formed program
-    resugarM (EInL e)
-        = resugarError ("Left data constructor not wrapped in roll, can't resugar "
-                        ++ show e)
-    resugarM (EInR e)
-        = resugarError ("Right data constructor not wrapped in roll, can't resugar "
-                        ++ show e)
-    resugarM (ERoll _ e)
-        = resugarError ("Non-constructor expression wrapped in a roll, can't resugar "
-                        ++ show e)
-    resugarM (EUnroll _ e)
-        = resugarError ("Unroll outside of case scrutinee, can't resugar "
-                        ++ show e)
-    -- This should never happen but it seems that GHC exhaustiveness checker
-    -- does not recognize that
-    resugarM e = error ("Impossible happened during resugaring: " ++ show e)
+    resugarM (ERaise e) = do e' <- resugarM e
+                             return (RRaise e')
+    resugarM (ECatch e x h) = do e' <- resugarM e
+                                 h' <- resugarM h
+                                 return (RCatch e' x h')
+    resugarM (Exp e) = resugarM e
+
+-- | Class of syntax trees that can contain InL or InR constructors.  We need
+--   this in Resugarable instance for Syntax, because Syntax can be
+--   parameterized by Exp or Trace and in the Roll case we need a uniform way of
+--   pattern matching on InL/InR.
+class AskConstrs a where
+    maybeInL :: a -> Maybe a
+    maybeInR :: a -> Maybe a
+
+instance AskConstrs Exp where
+    maybeInL (EInL e) = Just e
+    maybeInL _        = Nothing
+
+    maybeInR (EInR e) = Just e
+    maybeInR _        = Nothing
+
+instance AskConstrs Trace where
+    maybeInL (TInL e) = Just e
+    maybeInL _        = Nothing
+
+    maybeInR (TInR e) = Just e
+    maybeInR _        = Nothing
 
 resugarMatch :: TyVar -> Match -> DesugarM RMatch
 resugarMatch dataty (Match (v1, e1) (v2, e2))
@@ -220,6 +249,10 @@ instance Pretty RExp where
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
     pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2
     pPrint (RTrace e)      = text "trace" <+> partial_parensOpt e
+    pPrint (RRaise e)      = text "raise" <+> partial_parensOpt e
+    pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$
+                             text "with" <+> pPrint x <+> text "=>" $$
+                             nest 2 (pPrint h)
 
 instance Pretty RMatch where
     pPrint (RMatch ms) = vcat (punctuate semi (map pp_match ms))
