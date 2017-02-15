@@ -18,56 +18,38 @@ import qualified Data.IntMap as M
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.
 
--- | Erase side effects of a trace from store be replacing labels assigned by a
--- trace with holes
-fwdSliceStoreEffects :: EvalState -> Trace -> EvalState
+-- | Get list of labels that a trace writes to
+storeWrites :: Trace -> [ StoreLabel ]
 -- relevant store assignments
-fwdSliceStoreEffects st (TRef l t)
-    = fwdSliceStoreEffects (insertStoreHole st l) t
-fwdSliceStoreEffects st (TAssign l t1 t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects (insertStoreHole st l) t1) t2
--- boilerplate: ramining trace expressions
-fwdSliceStoreEffects st (TIfThen t1 t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TIfElse t1 t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TCaseL t1 _ t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TCaseR t1 _ t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TCall t1 t2 _ (Rec _ _ t3 _))
-    = fwdSliceStoreEffects (fwdSliceStoreEffects
-                            (fwdSliceStoreEffects st t1) t2) t3
-fwdSliceStoreEffects st (TDeref _ t)
-    = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TRaise t)
-    = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TTry t)
-    = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TTryWith t1 _ t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
--- boilerplate: recursive syntax expressions
-fwdSliceStoreEffects st (TLet _ t1 t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TPair t1 t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TSeq t1 t2)
-    = fwdSliceStoreEffects (fwdSliceStoreEffects st t1) t2
-fwdSliceStoreEffects st (TOp _ ts)    = foldl fwdSliceStoreEffects st ts
-fwdSliceStoreEffects st (TFst t)      = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TSnd t)      = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TInL t)      = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TInR t)      = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TRoll _ t)   = fwdSliceStoreEffects st t
-fwdSliceStoreEffects st (TUnroll _ t) = fwdSliceStoreEffects st t
--- boilerplate: non-recursive syntax expressions
-fwdSliceStoreEffects st TUnit         = st
-fwdSliceStoreEffects st (TVar _)      = st
-fwdSliceStoreEffects st (TBool _)     = st
-fwdSliceStoreEffects st (TInt _)      = st
-fwdSliceStoreEffects st (TString _)   = st
-fwdSliceStoreEffects st (TFun _)      = st
-fwdSliceStoreEffects st THole         = st
+storeWrites (TRef l t)         = l : storeWrites t
+storeWrites (TAssign l t1 t2)  = l : storeWrites t1 ++ storeWrites t2
+storeWrites (TIfThen t1 t2)    = storeWrites t1 ++ storeWrites t2
+storeWrites (TIfElse t1 t2)    = storeWrites t1 ++ storeWrites t2
+storeWrites (TCaseL t1 _ t2)   = storeWrites t1 ++ storeWrites t2
+storeWrites (TCaseR t1 _ t2)   = storeWrites t1 ++ storeWrites t2
+storeWrites (TCall t1 t2 _ (Rec _ _ t3 _))
+                               = storeWrites t1 ++ storeWrites t2 ++ storeWrites t3
+storeWrites (TDeref _ t)       = storeWrites t
+storeWrites (TRaise t)         = storeWrites t
+storeWrites (TTry t)           = storeWrites t
+storeWrites (TTryWith t1 _ t2) = storeWrites t1 ++ storeWrites t2
+storeWrites (TLet _ t1 t2)     = storeWrites t1 ++ storeWrites t2
+storeWrites (TPair t1 t2)      = storeWrites t1 ++ storeWrites t2
+storeWrites (TSeq t1 t2)       = storeWrites t1 ++ storeWrites t2
+storeWrites (TOp _ ts)         = concatMap storeWrites ts
+storeWrites (TFst t)           = storeWrites t
+storeWrites (TSnd t)           = storeWrites t
+storeWrites (TInL t)           = storeWrites t
+storeWrites (TInR t)           = storeWrites t
+storeWrites (TRoll _ t)        = storeWrites t
+storeWrites (TUnroll _ t)      = storeWrites t
+storeWrites TUnit              = []
+storeWrites (TVar _)           = []
+storeWrites (TBool _)          = []
+storeWrites (TInt _)           = []
+storeWrites (TString _)        = []
+storeWrites (TFun _)           = []
+storeWrites THole              = []
 
 insertStoreHole :: EvalState -> StoreLabel -> EvalState
 insertStoreHole = updateLabel VHole
