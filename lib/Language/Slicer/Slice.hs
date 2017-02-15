@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances    #-}
 
 module Language.Slicer.Slice
-    ( bslice, pslice, uneval
+    ( bslice, pslice
     ) where
 
 import           Language.Slicer.Core
@@ -247,45 +247,3 @@ pslice p (TUnroll tv t)
       in (EUnroll tv t', rho)
 pslice v t = error $ "Cannot unevaluate value " ++ show v ++
                      " from trace " ++ show t
-
--- unevaluation.  Squash trace back down into expression.
-class Uneval a b | a -> b where
-    uneval :: a -> b
-
-instance Uneval Trace Exp where
-    uneval (TCaseL t x t1)   = ECase (uneval t) (Match (x, uneval t1) (bot, bot))
-    uneval (TCaseR t x t2)   = ECase (uneval t) (Match (bot, bot) (x, uneval t2))
-    uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) bot
-    uneval (TIfElse t t2)    = EIf (uneval t) bot (uneval t2)
-    uneval (TIfExn t)        = EIf (uneval t) bot bot
-    uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)
-    uneval (TCallExn t1 t2)  = EApp (uneval t1) (uneval t2)
-    uneval (TRef _ t)        = ERef (uneval t)
-    uneval (TDeref _ t)      = EDeref (uneval t)
-    uneval (TAssign _ t1 t2) = EAssign (uneval t1) (uneval t2)
-    uneval (TRaise t)        = ERaise (uneval t)
-    uneval (TTry t)          = ECatch (uneval t) bot bot
-    uneval (TTryWith t x h)  = ECatch (uneval t) x (uneval h)
-    uneval (TExp expr)       = Exp (uneval expr)
-
-instance Uneval a b => Uneval (Syntax a) (Syntax b) where
-    uneval (Var x)       = Var x
-    uneval Unit          = Unit
-    uneval Hole          = Hole
-    uneval (CBool b)     = CBool b
-    uneval (CInt i)      = CInt i
-    uneval (CString s)   = CString s
-    uneval (Fun k)       = Fun k
-    uneval (Let x e1 e2) = Let x (uneval e1) (uneval e2)
-    uneval (Op f es)     = Op f (map uneval es)
-    uneval (Pair e1 e2)  = Pair (uneval e1) (uneval e2)
-    uneval (Fst e)       = Fst (uneval e)
-    uneval (Snd e)       = Snd (uneval e)
-    uneval (InL e)       = InL (uneval e)
-    uneval (InR e)       = InR (uneval e)
-    uneval (Roll tv e)   = Roll tv (uneval e)
-    uneval (Unroll tv e) = Unroll tv (uneval e)
-    uneval (Seq e1 e2)   = Seq (uneval e1) (uneval e2)
-
-instance Uneval a b => Uneval (Code a) (Code b) where
-    uneval (Rec name arg body label) = Rec name arg (uneval body) label

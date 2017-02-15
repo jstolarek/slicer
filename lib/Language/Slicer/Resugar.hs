@@ -13,7 +13,6 @@ import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
-import           Language.Slicer.UpperSemiLattice
 
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
@@ -151,61 +150,25 @@ instance Resugarable Exp where
     resugarM (Exp e) = resugarM e
 
 instance Resugarable Trace where
-    resugarM (TIfThen tc t1)
-        = do tc' <- resugarM tc
-             t1' <- resugarM t1
-             return (RIf tc' t1' RHole)
-    resugarM (TIfElse tc t2)
-        = do tc' <- resugarM tc
-             t2' <- resugarM t2
-             return (RIf tc' RHole t2')
-    resugarM (TIfExn tc)
-        = do tc' <- resugarM tc
-             return (RIf tc' RHole RHole)
-    resugarM (TCaseL (TUnroll dataty t) v tl)
-        = do t' <- resugarM t
-             m' <- resugarMatch dataty (v, tl) (Just bot, THole)
-             return (RCase t' m')
-    resugarM (TCaseL e _ _)
-        = resugarError ("TCaseL scrutinee not wrapped in unroll, can't resugar "
-                        ++ show e)
-    resugarM (TCaseR (TUnroll dataty t) v tr)
-        = do t' <- resugarM t
-             m' <- resugarMatch dataty (Just bot, THole) (v, tr)
-             return (RCase t' m')
-    resugarM (TCaseR e _ _)
-        = resugarError ("TCaseR scrutinee not wrapped in unroll, can't resugar "
-                        ++ show e)
-    resugarM (TCall t1 t2 _ _)
-        = do t1' <- resugarM t1
-             t2' <- resugarM t2
-             return (RApp t1' t2')
-    resugarM (TCallExn t1 t2)
-        = do t1' <- resugarM t1
-             t2' <- resugarM t2
-             return (RApp t1' t2')
-    resugarM (TRef _ t)
-        = do t' <- resugarM t
-             return (RRef t')
-    resugarM (TDeref _ t)
-        = do t' <- resugarM t
-             return (RDeref t')
-    resugarM (TAssign _ t1 t2)
-        = do t1' <- resugarM t1
-             t2' <- resugarM t2
-             return (RAssign t1' t2')
-    resugarM (TRaise e)
-        = do e' <- resugarM e
-             return (RRaise e')
-    resugarM (TTry t)
-        = do t' <- resugarM t
-             return (RCatch t' bot RHole)
-    resugarM (TTryWith t x ht)
-        = do t' <- resugarM t
-             ht' <- resugarM ht
-             return (RCatch t' x ht')
-    resugarM (TExp e) = resugarM e
+    resugarM t = resugarM (uneval t)
 
+resugarMatch :: Resugarable a => TyVar -> (Maybe Var, a) -> (Maybe Var, a)
+             -> DesugarM RMatch
+resugarMatch dataty (v1, e1) (v2, e2)
+    = do decls <- getDecls
+         e1' <- resugarM e1
+         e2' <- resugarM e2
+         case getTyDeclByName decls dataty of
+           Just decl ->
+               return (RMatch [ ((conL decl), v1, e1')
+                              , ((conR decl), v2, e2') ] )
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+
+resugarMultiFun :: Code Exp -> ([Var], Exp)
+resugarMultiFun = go []
+    where go :: [Var] -> Code Exp -> ([Var], Exp)
+          go args (Rec _ arg (EFun code) _) = go (arg:args) code
+          go args (Rec _ arg body        _) = (arg:args, body)
 
 -- | Class of syntax trees that can contain InL or InR constructors.  We need
 --   this in Resugarable instance for Syntax, because Syntax can be
@@ -228,24 +191,6 @@ instance AskConstrs Trace where
 
     maybeInR (TInR e) = Just e
     maybeInR _        = Nothing
-
-resugarMatch :: Resugarable a => TyVar -> (Maybe Var, a) -> (Maybe Var, a)
-             -> DesugarM RMatch
-resugarMatch dataty (v1, e1) (v2, e2)
-    = do decls <- getDecls
-         e1' <- resugarM e1
-         e2' <- resugarM e2
-         case getTyDeclByName decls dataty of
-           Just decl ->
-               return (RMatch [ ((conL decl), v1, e1')
-                              , ((conR decl), v2, e2') ] )
-           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
-
-resugarMultiFun :: Code Exp -> ([Var], Exp)
-resugarMultiFun = go []
-    where go :: [Var] -> Code Exp -> ([Var], Exp)
-          go args (Rec _ arg (EFun code) _) = go (arg:args) code
-          go args (Rec _ arg body        _) = (arg:args, body)
 
 instance Resugarable Value where
     resugarM VHole       = return RHole
