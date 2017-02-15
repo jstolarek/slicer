@@ -23,7 +23,7 @@ import           Data.Map  ( (!) )
 import           System.FilePath.Posix
 
 run :: EvalState -> Exp -> SlMIO (Value, EvalState)
-run env e = runEvalM env (evalM e)
+run st e = runEvalM st (evalM e)
 
 eval :: Env Value -> Exp -> SlMIO Value
 eval env e = evalEvalM env (evalM e)
@@ -95,7 +95,7 @@ evalM (ECatch e x h)  = do st  <- getEvalState
 -- This will never happen because the above matches cover all cases.  But the
 -- pattern exhaustiveness checker doesn't see that because we're using pattern
 -- synonym.  See GHC bug #8779.  Hopefully GHC 8.2 will ship a fix.
-evalM _ = error "Impossible happened in evalM"
+evalM (Exp e) = error ("Impossible happened in evalM: " ++ show e)
 
 -- | Evaluates an expression and forces the result before returning it.  Ensures
 -- strict semantics.
@@ -108,7 +108,7 @@ evalM' e = do v <- evalM e
 --
 -- Evaluation of exceptions piggybacks on the fact, that our evaluation monad is
 -- also an error monad.
-
+--
 -- When evaluating a "raise" construct we simply throw an exception.  Note that
 -- thrown exception also carries the reference store so that changes made to the
 -- store before the exception was thrown are not lost.
@@ -235,8 +235,33 @@ trace (ERoll tv e)   = do (v, t) <- trace' e
 trace (EUnroll tv e) = do (VRoll tv' v, t) <- trace' e
                           assert (tv == tv') (return (v, TUnroll tv t))
 trace (ETrace _)     = evalError "Cannot trace a trace"
-trace t =
-   evalError $ "Cannot trace: " ++ show t
+-- references
+trace (ERef e)       = do (v, t) <- trace' e
+                          r@(VStoreLoc l) <- newRef v
+                          return (r, TRef l t)
+trace (EDeref e)     = do (r@(VStoreLoc l), t) <- trace' e
+                          v <- getRef r
+                          return (v, TDeref l t)
+trace (EAssign e1 e2)= do (v1@(VStoreLoc l), t1) <- trace' e1
+                          (v2, t2) <- trace' e2
+                          updateRef v1 v2
+                          return (VUnit, TAssign l t1 t2)
+-- exceptions
+trace (ERaise e)     = do (v, t) <- trace' e
+                          st <- getStore
+                          raiseTrace v st (TRaise t)
+trace (ECatch e x h) = do st  <- getEvalState
+                          res <- runSlMIO (runEvalM st (trace' e))
+                          case res of
+                            Right ((v, t), st') ->
+                                do setEvalState st'
+                                   return (v, TTry t)
+                            Left (TraceException v st' t) ->
+                                do setStore st'
+                                   (v', t') <- withBinder x v (trace' h)
+                                   return (v', TTryWith t x t')
+                            Left err -> rethrow err
+trace (Exp e) = error ("Impossible happened in trace: " ++ show e)
 
 trace' :: Exp -> EvalM (Value, Trace)
 trace' e = do (v, t) <- trace e
