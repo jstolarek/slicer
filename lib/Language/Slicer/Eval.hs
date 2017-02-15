@@ -246,6 +246,9 @@ trace (EAssign e1 e2)= do (v1@(VStoreLoc l), t1) <- trace' e1
                           (v2, t2) <- trace' e2
                           updateRef v1 v2
                           return (VUnit, TAssign l t1 t2)
+trace (ESeq e1 e2)   = do (VUnit, t1) <- trace' e1
+                          (v2, t2) <- trace' e2
+                          return (v2, TSeq t1 t2)
 -- exceptions
 trace (ERaise e)     = do (v, t) <- trace' e
                           st <- getStore
