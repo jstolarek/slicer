@@ -39,7 +39,7 @@ parseAndEvalLine line = do
            gamma  <- getGamma
            dsgres <- runSlMIO (desugarEval tyCtx gamma evalS expr)
            case dsgres of
-             Right (val, res, ty, st) ->
+             Right (val, res, ty, st, _) ->
                  do setEvalState st
                      -- See Note [Handling let bindings]
                     when (isLetBinding expr)

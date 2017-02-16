@@ -16,8 +16,10 @@ import           Control.Monad.Except
 import qualified Data.Map as M
 import           Data.Maybe
 
-desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp, Type)
-desugar decls gamma expr = runDesugarM decls gamma (desugarM expr)
+desugar :: A.TyCtx -> Ctx -> A.Exp -> SlM (Exp, Type, Ctx)
+desugar decls gamma expr = do
+  ((expr', ty), gamma') <- runDesugarM decls gamma (desugarM expr)
+  return (expr', ty, gamma')
 
 -- Assuming that op name + argument types determines the op result type.
 lookupOp :: Primitive -> [Type] -> DesugarM Type
