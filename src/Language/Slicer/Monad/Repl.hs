@@ -1,13 +1,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Slicer.Monad.Repl
-    ( ReplM, runRepl, runReplWithState, emptyState
-    , getTyCtx, getGamma, getEvalState, setEvalState
+    ( ReplM, runRepl, getTyCtx, getGamma, getEvalState, setEvalState
     , addDataDefn, addBinding
     ) where
 
 import           Language.Slicer.Absyn
-import qualified Language.Slicer.Core as C         ( Value, Type, Ctx         )
+import qualified Language.Slicer.Core as C         ( Value, Type              )
 import           Language.Slicer.Env
 import           Language.Slicer.Monad.Eval hiding ( addBinding, getEvalState
                                                    , setEvalState             )
@@ -21,7 +20,7 @@ type ReplM = StateT ReplState IO
 -- | REPL state
 data ReplState = ReplState
     { tyCtxS :: TyCtx      -- ^ Data type declarations
-    , gammaS :: C.Ctx      -- ^ Context Γ, stores variable types
+    , gammaS :: Env C.Type -- ^ Context Γ, stores variable types
     , evalS  :: EvalState  -- ^ Evaluation monad state. Contains
                            --   environment ρ (variable values) and
                            --   reference store
@@ -73,8 +72,3 @@ addBinding var val ty = do
 -- | Run REPL monad
 runRepl :: ReplM () -> IO ()
 runRepl repl = evalStateT repl emptyState
-
--- | Run REPL with initial state
-runReplWithState :: (TyCtx, C.Ctx, EvalState) -> ReplM () -> IO ()
-runReplWithState (tyctx, gamma, evalSt) repl
-    = evalStateT repl (ReplState tyctx gamma evalSt)

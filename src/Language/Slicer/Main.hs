@@ -3,21 +3,15 @@ module Main
       main
     ) where
 
-import           Language.Slicer.Absyn          ( TyCtx, emptyTyCtx         )
-import           Language.Slicer.Core           ( Ctx                       )
-import           Language.Slicer.Env
-import           Language.Slicer.Monad.Eval     ( EvalState, emptyEvalState )
-import           Language.Slicer.Monad.Repl     ( runReplWithState          )
 import           Language.Slicer.Run
 import           Language.Slicer.Repl
 
-import           Control.Monad                  ( foldM                     )
-import           Control.Monad.Trans            ( lift                      )
+import           Control.Monad.Trans            ( lift              )
 import           System.Console.GetOpt
 import           System.Console.Haskeline
-import           System.Directory               ( getHomeDirectory          )
-import           System.Environment             ( getArgs                   )
-import           System.FilePath                ( joinPath                  )
+import           System.Directory               ( getHomeDirectory  )
+import           System.Environment             ( getArgs           )
+import           System.FilePath                ( joinPath          )
 import           System.IO
 import           Text.PrettyPrint.HughesPJClass
 
@@ -55,8 +49,8 @@ compileAndRun arg = do
   code   <- readFile arg
   result <- runSlMIO (parseDesugarEval code)
   case result of
-    Right (_, res, ty, _, _, _) -> putStrLn $ "val it = " ++ show (pPrint res)
-                                           ++ " : "       ++ show (pPrint ty )
+    Right (_, res, ty, _) -> putStrLn $ "val it = " ++ show (pPrint res) ++
+                                        " : "       ++ show (pPrint ty )
     Left err -> hPutStrLn stderr (show err)
 
 -- | Start an interactive loop
@@ -74,31 +68,16 @@ replLoop = do
              It    str -> outputStrLn str        >> replLoop
              Error err -> outputStrLn (show err) >> replLoop
 
-loadFile :: (TyCtx, Ctx, EvalState) -> FilePath -> IO (TyCtx, Ctx, EvalState)
-loadFile (tyctx, gamma, evalSt) file = do
-  putStrLn $ "Loading " ++ file
-  hFlush stdout -- otherwise errors get printed before "Running"
-  code   <- readFile file
-  result <- runSlMIO (parseDesugarEval code)
-  case result of
-    Right (_, res, ty, tyctx', evalSt', gamma') ->
-        do putStrLn $ "val it = " ++ show (pPrint res)
-                   ++ " : "       ++ show (pPrint ty )
-           return (tyctx', gamma', evalSt')
-    Left err ->
-        do hPutStrLn stderr (show err)
-           return (tyctx, gamma, evalSt)
-
 -- | Main program loop
 main :: IO ()
 main = do
   args <- getArgs
   case getOpt Permute options args of
-    (flags, files, []) | isReplEnabled flags ->
-        do putStrLn "Welcome to Slicer REPL"
-           settings <- haskelineSettings
-           state <- foldM loadFile (emptyTyCtx, emptyEnv, emptyEvalState) files
-           runReplWithState state (runInputT settings $ noesc replLoop)
+    -- start REPL only when no files are given on the command line
+    (flags, [], []) | isReplEnabled flags -> do
+                        putStrLn "Welcome to Slicer REPL"
+                        settings <- haskelineSettings
+                        runRepl (runInputT settings $ noesc replLoop)
     ([], files, []) -> mapM_ compileAndRun files
     (_, _, errs) -> hPutStrLn stderr (concat errs ++ usageInfo usage options)
         where usage = "Usage: slicer [--repl|<file>.tml ...]"
