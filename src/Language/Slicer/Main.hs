@@ -74,10 +74,11 @@ main = do
   args <- getArgs
   case getOpt Permute options args of
     -- start REPL only when no files are given on the command line
-    (flags, [], []) | isReplEnabled flags -> do
-                        putStrLn "Welcome to Slicer REPL"
-                        settings <- haskelineSettings
-                        runRepl (runInputT settings $ noesc replLoop)
+    (flags, files, []) | isReplEnabled flags -> do
+       putStrLn "Welcome to Slicer REPL"
+       settings <- haskelineSettings
+       let loadFiles = mapM_ loadFileToRepl files
+       runRepl (loadFiles >> (runInputT settings $ noesc replLoop))
     ([], files, []) -> mapM_ compileAndRun files
     (_, _, errs) -> hPutStrLn stderr (concat errs ++ usageInfo usage options)
         where usage = "Usage: slicer [--repl|<file>.tml ...]"
