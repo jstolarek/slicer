@@ -11,7 +11,6 @@ import           Language.Slicer.Env
 import           Language.Slicer.Error
 import           Language.Slicer.Monad  ( SlM )
 
-import           Control.Arrow
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
@@ -33,10 +32,9 @@ data DesugarState = DesugarState
     }
 
 -- | Run desugaring monad with supplied data decarations and variables in scope
-runDesugarM :: A.TyCtx -> Ctx -> DesugarM a -> SlM (a, Ctx)
+runDesugarM :: A.TyCtx -> Ctx -> DesugarM a -> SlM a
 runDesugarM decls gamma m
-    = (second gammaS) `liftM` -- extract gammaS from DesugarState
-      runReaderT (runStateT m (DesugarState gamma)) decls
+    = runReaderT (evalStateT m (DesugarState gamma)) decls
 
 -- | Get the context
 getGamma :: DesugarM Ctx

@@ -6,7 +6,7 @@ module Language.Slicer.Run
     ) where
 
 import           Language.Slicer.Absyn      ( Exp, TyCtx, emptyTyCtx    )
-import           Language.Slicer.Core       ( Value, Type, Ctx          )
+import           Language.Slicer.Core       ( Value, Type               )
 import           Language.Slicer.Desugar    ( desugar                   )
 import           Language.Slicer.Env        ( Env, emptyEnv             )
 import           Language.Slicer.Eval       ( run                       )
@@ -17,16 +17,16 @@ import           Language.Slicer.Parser     ( parseIn                   )
 
 -- | Parse a program and evaluate it.  Return value, its resugaring, type and
 -- data type context
-parseDesugarEval :: String -> SlMIO (Value, RExp, Type, TyCtx, EvalState, Ctx)
+parseDesugarEval :: String -> SlMIO (Value, RExp, Type, TyCtx)
 parseDesugarEval s = do
   (tyctx, e) <- liftSlM $ parseIn s emptyTyCtx
-  (val, res, ty, st, gamma) <- desugarEval tyctx emptyEnv emptyEvalState e
-  return (val, res, ty, tyctx, st, gamma)
+  (val, res, ty, _) <- desugarEval tyctx emptyEnv emptyEvalState e
+  return (val, res, ty, tyctx)
 
 desugarEval :: TyCtx -> Env Type -> EvalState -> Exp
-            -> SlMIO (Value, RExp, Type, EvalState, Ctx)
+            -> SlMIO (Value, RExp, Type, EvalState)
 desugarEval tyCtx gamma evalS expr = do
-  (dexpr, ty, gamma') <- liftSlM (desugar tyCtx gamma expr)
-  (val, st)           <- run evalS dexpr
-  res                 <- liftSlM (resugar tyCtx val)
-  return (val, res, ty, st, gamma')
+  (dexpr, ty) <- liftSlM (desugar tyCtx gamma expr)
+  (val, st)   <- run evalS dexpr
+  res         <- liftSlM (resugar tyCtx val)
+  return (val, res, ty, st)

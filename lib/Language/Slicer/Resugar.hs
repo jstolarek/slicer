@@ -15,7 +15,6 @@ import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
 
 import           Control.DeepSeq ( NFData  )
-import           Control.Monad   ( liftM   )
 import           GHC.Generics    ( Generic )
 import           Text.PrettyPrint.HughesPJClass
 
@@ -45,7 +44,7 @@ data RMatch = RMatch [ ( Con, Maybe Var, RExp ) ]
               deriving (Show, Eq, Ord, Generic, NFData)
 
 resugar :: Resugarable a => TyCtx -> a -> SlM RExp
-resugar decls expr = fst `liftM` runDesugarM decls emptyEnv (resugarM expr)
+resugar decls expr = runDesugarM decls emptyEnv (resugarM expr)
 
 -- | Class of things that can be resugared into surface syntax
 class Resugarable a where
