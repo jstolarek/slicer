@@ -1,5 +1,5 @@
 module Language.Slicer.Repl
-    ( ReplM, runRepl, parseAndEvalLine
+    ( ReplM, runRepl, parseAndEvalLine, loadFileToRepl
 
     , ParseResult(..)
     ) where
@@ -13,7 +13,9 @@ import           Language.Slicer.Monad.Repl
 import           Language.Slicer.Parser            ( parseRepl   )
 
 import           Control.Exception                 ( assert      )
-import           Control.Monad                     ( when        )
+import           Control.Monad                     ( when, liftM )
+import           Control.Monad.IO.Class            ( liftIO      )
+import           System.IO
 import           Text.PrettyPrint.HughesPJClass
 
 -- | Possible results of parsing and evaluating user input
@@ -21,6 +23,21 @@ data ParseResult = OK               -- ^ Success without reply
                  | It String        -- ^ Success and reply to user
                  | Error SlicerError -- ^ Parse error
                    deriving ( Eq )
+
+loadFileToRepl :: String -> ReplM ()
+loadFileToRepl file = do
+  code <- liftIO (do putStr $ "Loading " ++ file ++ "..."
+                     hFlush stdout
+                     lines `liftM` readFile file)
+  loadLinesToRepl (filter (not . null) code)
+
+loadLinesToRepl :: [String] -> ReplM ()
+loadLinesToRepl [] = liftIO (putStrLn "done")
+loadLinesToRepl (line : ls) = do
+  result <- parseAndEvalLine line
+  case result of
+    Error err -> liftIO (putStrLn "" >> putStrLn (show err))
+    _         -> loadLinesToRepl ls
 
 -- | Main REPL logic responsible for parsing a line of input, executing it,
 -- updating the REPL state accordingly and returning the result to user

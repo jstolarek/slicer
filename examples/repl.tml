@@ -1,0 +1,4 @@
+data intlist = Nil | Cons int * intlist
+
+let abs = fun abs (x : int) : int => if x > 0 then x else (0 - x)
+let map = fun map (f : int -> int) (xs : intlist) : intlist => case xs of Nil -> Nil; Cons y -> Cons (f (fst y), map f (snd y))
