@@ -28,6 +28,7 @@ run st e = runEvalM st (evalM e)
 eval :: Env Value -> Exp -> SlMIO Value
 eval env e = evalEvalM env (evalM e)
 
+-- JSTOLAREK: Don't evaluate holes
 evalM :: Exp -> EvalM Value
 evalM EHole           = return VHole
 evalM (EVar x)        = do env <- getEnv
@@ -162,7 +163,8 @@ evalTraceOp PrimSlice [VTrace v t env st, p]
                              " is not a prefix of output " ++ show v)
 evalTraceOp PrimPSlice [VTrace v t _ st, p]
     | p `leq` v
-    = do let (t', env') = pslice st p t
+    = do let (env', t') = pslice st p t
+         -- JSTOLAREK: store store in a VExp
          return (VExp t' env')
     | otherwise = evalError ("pslice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
