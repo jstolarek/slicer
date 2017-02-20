@@ -19,7 +19,7 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise
+    , isException, isRaise, deref
 
     , Pattern(extract)
 
@@ -211,6 +211,9 @@ instance Ord Lab where
     compare (L s h) (L s' h') = case compare h h' of
                                   EQ -> compare s s'
                                   o  -> o
+
+deref :: Store -> StoreLabel -> Value
+deref = (M.!)
 
 mkL :: String -> Lab
 mkL s = L s (H.hash s)

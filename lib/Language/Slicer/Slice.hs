@@ -59,13 +59,13 @@ storeWrites THole              = []
 storeWrites (TExp e)
     = error ("Impossible happened at storeWrites: " ++ show e)
 
-insertStoreHole :: EvalState -> StoreLabel -> EvalState
+insertStoreHole :: Store -> StoreLabel -> Store
 insertStoreHole = updateLabel VHole
 
-updateLabel :: Value -> EvalState -> StoreLabel -> EvalState
-updateLabel val st@(EvalState { refs }) l =
-  assert (l `M.member` refs) $
-  st { refs = M.insert l val refs }
+updateLabel :: Value -> Store -> StoreLabel -> Store
+updateLabel val st l =
+  assert (l `M.member` st) $
+  M.insert l val st
 
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
@@ -280,5 +280,11 @@ pslice store VStar (TRoll tv' t)
 pslice store p (TUnroll tv t)
     = let (rho, store', e, t') = pslice store (VRoll tv p) t
       in (rho, store', EUnroll tv e, TUnroll tv t')
+pslice store v (TRef (Just l) t) | not (isException v)
+    = let (rho, store', e, t') = pslice store (deref store l) t
+      in (rho, insertStoreHole store' l, ERef e, TRef (Just l) t')
+pslice store v (TRef Nothing t) | isException v
+    = let (rho, store', e, t') = pslice store v t
+      in (rho, store', ERef e, TRef Nothing t')
 pslice _ v t = error $ "Cannot slice value " ++ show v ++
                        " from trace " ++ show t
