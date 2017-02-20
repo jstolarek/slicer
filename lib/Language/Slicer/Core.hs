@@ -9,7 +9,8 @@
 
 module Language.Slicer.Core
     ( -- * Abstract syntax
-      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..), StoreLabel
+      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
+    , Store, StoreLabel
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -42,6 +43,7 @@ import           Language.Slicer.UpperSemiLattice
 import           Control.DeepSeq    ( NFData                                  )
 import           Data.Map as Map    ( Map, fromList, mapWithKey, keys, member )
 import           Data.Maybe
+import qualified Data.IntMap as M
 import           Data.List          ( union, delete, (\\)                     )
 import qualified Data.Hashable as H ( hash                                    )
 import           GHC.Generics       ( Generic                                 )
@@ -187,6 +189,9 @@ instance Pretty Type where
 
 -- | Internal labels used during runtime to identify store locations
 type StoreLabel = Int
+
+-- | Reference store
+type Store = M.IntMap Value
 
 type Ctx = Env Type
 
