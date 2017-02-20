@@ -18,7 +18,7 @@ module Language.Slicer.Core
             , TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
+    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy, isException
 
     , Pattern(extract)
 
@@ -391,10 +391,14 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            -- mutable store locations
            | VStoreLoc StoreLabel
            -- Exceptions.  Used only for tracing
-           | VException
+           | VException Value
            -- run-time traces
            | VTrace Value Trace (Env Value) Store
            deriving (Show, Eq, Ord, Generic, NFData)
+
+isException :: Value -> Bool
+isException (VException _) = True
+isException _              = False
 
 class Valuable a where
     to_val :: a -> Value
@@ -514,7 +518,7 @@ promote :: Value -> Value
 promote VStar               = VStar
 promote VHole               = VStar
 promote VUnit               = VUnit
-promote VException          = VException
+promote (VException e)      = VException e
 promote (VBool b)           = VBool b
 promote (VInt i)            = VInt i
 promote (VString s)         = VString s

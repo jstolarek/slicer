@@ -19,7 +19,8 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Control.Exception
 import           Control.Monad.Except
-import           Data.Map  ( (!) )
+import           Data.Map  ( (!)  )
+import           Data.List ( find )
 import           System.FilePath.Posix
 
 run :: EvalState -> Exp -> SlMIO (Value, EvalState)
@@ -217,9 +218,9 @@ trace (EInt i)       = return (VInt i, TInt i)
 trace (EString s)    = return (VString s, TString s)
 trace (EOp f exps)   = do vts <- traceOpArgs exps
                           let (vs,ts) = unzip vts
-                          v <- if all (/= VException) vs
-                               then evalTraceOp f vs
-                               else return VException
+                          v <- case find isException vs of
+                                 Nothing  -> evalTraceOp f vs
+                                 Just exn -> return exn
                           return (v, TOp f ts)
 trace (EPair e1 e2)  = do (v1, t1) <- trace' e1
                           (v2, t2) <- traceWithExn v1 (trace' e2)
@@ -252,36 +253,36 @@ trace (EUnroll _ e)  = do (v, t) <- trace' e
 trace (ETrace _)     = evalError "Cannot trace a trace"
 -- references
 trace (ERef e)       = do (v, t) <- trace' e
-                          if v == VException
-                          then return (VException, TRef Nothing t)
+                          if isException v
+                          then return (v, TRef Nothing t)
                           else do r@(VStoreLoc l) <- newRef v
                                   return (r, TRef (Just l) t)
 trace (EDeref e)     = do (v, t) <- trace' e
-                          if v == VException
-                          then return (VException, TDeref Nothing t)
+                          if isException v
+                          then return (v, TDeref Nothing t)
                           else do let r@(VStoreLoc l) = v
                                   v' <- getRef r
                                   return (v', TDeref (Just l) t)
 trace (EAssign e1 e2)= do (v1, t1) <- trace' e1
                           (v2, t2) <- traceWithExn v1 (trace' e2)
-                          if v2 /= VException
+                          if not (isException v2)
                           -- traceWithExn ensures that:
                           --   v1 = VException => v2 = Exception
                           then do updateRef v1 v2
                                   let (VStoreLoc l) = v1
                                   return (VUnit, TAssign (Just l) t1 t2)
-                          else return (VException, TAssign Nothing t1 t2)
+                          else return (v2, TAssign Nothing t1 t2)
 trace (ESeq e1 e2)   = do (v1, t1) <- trace' e1
                           (v2, t2) <- traceWithExn v1 (trace' e2)
                           returnWithExn v2 v2 (TSeq t1 t2)
 -- exceptions
-trace (ERaise e)     = do (_, t) <- trace' e
-                          return (VException, TRaise t)
+trace (ERaise e)     = do (v, t) <- trace' e
+                          return (VException v, TRaise t)
 trace (ECatch e x h) = do (v, t) <- trace' e
                           case v of
-                            VException ->
-                                do (v', ht) <- withBinder x v (trace' h)
-                                   return (v', TTryWith t x ht)
+                            VException v'->
+                                do (v'', ht) <- withBinder x v' (trace' h)
+                                   return (v'', TTryWith t x ht)
                             _ -> return (v, TTry t)
 trace (Exp e) = error ("Impossible happened in trace: " ++ show e)
 
@@ -290,26 +291,26 @@ trace' e = do (v, t) <- trace e
               v `seq` return (v, t)
 
 traceWithExn :: Value -> EvalM (Value, Trace) -> EvalM (Value, Trace)
-traceWithExn VException _     = return (VException, THole)
-traceWithExn _          thing = thing
+traceWithExn v _     | isException v = return (v, THole)
+traceWithExn _ thing                 = thing
 
 returnWithExn :: Value -> Value -> Trace -> EvalM (Value, Trace)
-returnWithExn VException _ t = return (VException, t)
-returnWithExn _          v t = return (v, t)
+returnWithExn v _ t | isException v = return (v, t)
+returnWithExn _ v t                 = return (v, t)
 
 traceOpArgs :: [Exp] -> EvalM [(Value, Trace)]
 traceOpArgs []  = return []
 traceOpArgs (x:xs) = do t <- trace' x
-                        if fst t == VException
+                        if isException (fst t)
                         then return (t : map (const (VHole, THole)) xs)
                         else do xs' <- traceOpArgs xs
                                 return (t : xs')
 
 traceCall :: (Value, Trace) -> (Value, Trace) -> EvalM (Value, Trace)
-traceCall (VException, t) (VHole, THole)
-    = return (VException, TCallExn t THole)
-traceCall (VClosure _ _, t1) (VException, t2)
-    = return (VException, TCallExn t1 t2)
+traceCall (v, t) (VHole, THole) | isException v
+    = return (v, TCallExn t THole)
+traceCall (VClosure _ _, t1) (v, t2) | isException v
+    = return (v, TCallExn t1 t2)
 traceCall (v1@(VClosure k env0), t1) (v2, t2)
     = do let envf  = bindEnv env0 (funName k) v1
              envfx = bindEnv envf (funArg  k) v2
@@ -335,5 +336,5 @@ traceIf (VBool True , t) e1 _ = do (v1, t1) <- trace' e1
                                    return (v1, TIfThen t t1)
 traceIf (VBool False, t) _ e2 = do (v2, t2) <- trace' e2
                                    return (v2, TIfElse t t2)
-traceIf (VException, t) _ _   = return (VException, TIfExn t)
+traceIf (VException v, t) _ _ = return (VException v, TIfExn t)
 traceIf _ _ _ = evalError "traceIf: condition is not a VBool value"
