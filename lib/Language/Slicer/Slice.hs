@@ -164,6 +164,10 @@ bslice _ x = error $ show x
 pslice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
 pslice store (VException VHole) trace
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
+pslice store (VException _) THole -- JSTOLAREK: speculative equation
+    = (bot, store, EHole, THole)
+pslice store VStar THole -- JSTOLAREK: another speculative equation
+    = (bot, store, EHole, THole)
 pslice store VHole trace
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
 pslice store (VException v) (TRaise t)
@@ -209,57 +213,72 @@ pslice store (VInR p) (TInR t)
 pslice store VStar (TInR t)
     = let (rho, store', e', t') = pslice store VStar t
       in (rho, store', EInR e', TInR t')
+-- JSTOLAREK: This case should be redundant
+pslice store p (TLet x t THole)
+    = let (rho1, store', e1, t1') = pslice store p t
+      in  (rho1, store', ELet x e1 EHole, TLet x t1' THole)
 pslice store p2 (TLet x t1 t2)
     = let (rho2, store2, e2, t2') = pslice store p2 t2
           p1                      = lookupEnv' rho2 x
           rho2'                   = unbindEnv  rho2 x
           (rho1, store1, e1, t1') = pslice store2 p1 t1
       in (rho1 `lub` rho2', store1, ELet x e1 e2, TLet x t1' t2')
-{-
-pslice _ _ (TOp f ts)
-    = let (rhos, ts') = unzip (map (\t -> pslice undefined VStar t) ts)
-      in (foldl lub bot rhos, EOp f ts')
-pslice _ p1 (TIfThen t t1)
-    = let (rho1, e1) = pslice undefined p1 t1
-          (rho,  e ) = pslice undefined VStar t
-      in (rho `lub` rho1, EIf e e1 EHole)
-pslice _ p2 (TIfElse t t2)
-    = let (rho2, e2) = pslice undefined p2 t2
-          (rho , e ) = pslice undefined VStar t
-      in (rho `lub` rho2, EIf e EHole e2)
-pslice _ p1 (TCaseL t x t1)
-    = let (rho1, e1) = pslice undefined p1 t1
-          p          = maybeLookupEnv' rho1 x
-          rho1'      = maybeUnbindEnv rho1 x
-          (rho, e)   = pslice undefined (VInL p) t
-      in (rho `lub` rho1', ECase e (Match (x,e1) (bot,bot)))
-pslice _ p2 (TCaseR t x t2)
-    = let (rho2, e2) = pslice undefined p2 t2
-          p          = maybeLookupEnv' rho2 x
-          rho2'      = maybeUnbindEnv rho2 x
-          (rho, e)   = pslice undefined (VInR p) t
-      in (rho `lub` rho2', ECase e (Match (bot,bot) (x,e2)))
-pslice _ p (TCall t1 t2 _ t)
-    = let (rho, e)   = pslice undefined p (funBody t)
-          f          = funName t
-          x          = funArg  t
-          k0         = Rec f x e Nothing
-          p1         = lookupEnv' rho f
-          p2         = lookupEnv' rho x
-          rho0       = unbindEnv (unbindEnv rho f) x
-          (rho1, e1) = pslice undefined (p1 `lub` VClosure k0 rho0) t1
-          (rho2, e2) = pslice undefined p2 t2
-      in (rho1 `lub` rho2, EApp e1 e2)
-pslice _ (VRoll tv p) (TRoll tv' t)
+pslice store _ (TOp f ts)
+    = let (rhoA, storeA, esA, tsA) = foldr (\t' (rho', store', es', ts') ->
+                    let (rho'', store'', e, t) = pslice store' VStar t'
+                    in (rho' `lub` rho'', store'', e:es', t:ts'))
+                  (bot, store, [], []) ts
+      in (rhoA, storeA, EOp f esA, TOp f tsA)
+pslice store p1 (TIfThen t t1)
+    = let (rho1, store1, e1, t1') = pslice store p1 t1
+          (rho , store2, e , t' ) = pslice store1 VStar t
+      in (rho `lub` rho1, store2, EIf e e1 EHole, TIfThen t' t1')
+pslice store p2 (TIfElse t t2)
+    = let (rho2, store1, e2, t2') = pslice store p2 t2
+          (rho , store2, e , t' ) = pslice store1 VStar t
+      in (rho `lub` rho2, store2, EIf e EHole e2, TIfElse t' t2')
+pslice store p (TIfExn t)
+    = let (rho, store', e, t') = pslice store p t
+      in (rho, store', EIf e EHole EHole, TIfExn t')
+pslice store p1 (TCaseL t x t1)
+    = let (rho1, store1, e1, t1') = pslice store p1 t1
+          p                       = maybeLookupEnv' rho1 x
+          rho1'                   = maybeUnbindEnv rho1 x
+          (rho , store2, e , t' ) = pslice store1 (VInL p) t
+      in ( rho `lub` rho1', store2, ECase e (Match (x,e1) (bot,bot))
+         , TCaseL t' x t1' )
+pslice store p2 (TCaseR t x t2)
+    = let (rho2, store1, e2, t2') = pslice store p2 t2
+          p                       = maybeLookupEnv' rho2 x
+          rho2'                   = maybeUnbindEnv rho2 x
+          (rho , store2, e , t' ) = pslice store1 (VInR p) t
+      in ( rho `lub` rho2', store2, ECase e (Match (bot,bot) (x,e2))
+         , TCaseR t' x t2')
+pslice store p (TCall t1 t2 l t)
+    = let (rho, store', e, t')    = pslice store p (funBody t)
+          f                       = funName t
+          x                       = funArg  t
+          k0                      = Rec f x e Nothing
+          p1                      = lookupEnv' rho f
+          p2                      = lookupEnv' rho x
+          rho0                    = unbindEnv (unbindEnv rho f) x
+          (rho2, store2, e2, t2') = pslice store' p2 t2
+          (rho1, store1, e1, t1') = pslice store2 (p1 `lub` VClosure k0 rho0) t1
+      in ( rho1 `lub` rho2, store1, EApp e1 e2
+         , TCall t1' t2' l (Rec f x t' Nothing))
+pslice store p (TCallExn t1 t2)
+    = let (rho2, store2, e2, t2') = pslice store  p t2
+          (rho1, store1, e1, t1') = pslice store2 p t1
+      in (rho1 `lub` rho2, store1, EApp e1 e2, TCallExn t1' t2')
+pslice store (VRoll tv p) (TRoll tv' t)
     | tv == tv'
-    = let (rho, t') = pslice undefined p t
-      in (rho, ERoll tv' t')
-pslice _ VStar (TRoll tv' t)
-    = let (rho, t') = pslice undefined VStar t
-      in (rho, ERoll tv' t')
-pslice _ p (TUnroll tv t)
-    = let (rho, t') = pslice undefined (VRoll tv p) t
-      in (rho, EUnroll tv t')
--}
+    = let (rho, store', e, t') = pslice store p t
+      in (rho, store', ERoll tv e, TRoll tv' t')
+pslice store VStar (TRoll tv' t)
+    = let (rho, store', e, t') = pslice store VStar t
+      in (rho, store', ERoll tv' e, TRoll tv' t')
+pslice store p (TUnroll tv t)
+    = let (rho, store', e, t') = pslice store (VRoll tv p) t
+      in (rho, store', EUnroll tv e, TUnroll tv t')
 pslice _ v t = error $ "Cannot slice value " ++ show v ++
                        " from trace " ++ show t
