@@ -393,7 +393,7 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            -- Exceptions.  Used only for tracing
            | VException
            -- run-time traces
-           | VTrace Value Trace (Env Value)
+           | VTrace Value Trace (Env Value) Store
            deriving (Show, Eq, Ord, Generic, NFData)
 
 class Valuable a where
@@ -511,21 +511,22 @@ instance FVs Trace where
     fvs (TExp e)           = fvs e
 
 promote :: Value -> Value
-promote VStar            = VStar
-promote VHole            = VStar
-promote VUnit            = VUnit
-promote VException       = VException
-promote (VBool b)        = VBool b
-promote (VInt i)         = VInt i
-promote (VString s)      = VString s
-promote (VPair v1 v2)    = VPair (promote v1) (promote v2)
-promote (VInL v)         = VInL (promote v)
-promote (VInR v)         = VInR (promote v)
-promote (VRoll tv v)     = VRoll tv (promote v)
-promote (VStoreLoc l)    = VStoreLoc l
-promote (VClosure k env) = VClosure k (fmap promote env)
-promote (VTrace v t env) = VTrace (promote v) t (fmap promote env)
-promote (VExp     e env) = VExp e (fmap promote env)
+promote VStar               = VStar
+promote VHole               = VStar
+promote VUnit               = VUnit
+promote VException          = VException
+promote (VBool b)           = VBool b
+promote (VInt i)            = VInt i
+promote (VString s)         = VString s
+promote (VPair v1 v2)       = VPair (promote v1) (promote v2)
+promote (VInL v)            = VInL (promote v)
+promote (VInR v)            = VInR (promote v)
+promote (VRoll tv v)        = VRoll tv (promote v)
+promote (VStoreLoc l)       = VStoreLoc l
+promote (VClosure k env)    = VClosure k (fmap promote env)
+promote (VTrace v t env st) = VTrace (promote v) t (fmap promote env)
+                                     (fmap promote st)
+promote (VExp     e env)    = VExp e (fmap promote env)
 
 instance UpperSemiLattice Value where
     bot                               = VHole

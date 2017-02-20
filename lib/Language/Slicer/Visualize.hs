@@ -245,7 +245,7 @@ instance Visualizable Value where
     graphDiff (VStoreLoc i) (VStoreLoc i')
         | i == i'
         = node ("<ref " ++ show i ++ ">")
-    graphDiff (VTrace _ t _) (VTrace _ t' _)
+    graphDiff (VTrace _ t _ _) (VTrace _ t' _ _)
         = graphDiff t t'
     graphDiff v v' =
         evalError ("Cannot visualize Values with different structure. v is "
