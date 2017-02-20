@@ -166,7 +166,10 @@ pslice store (VException VHole) trace
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
 pslice store VHole trace
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
-pslice store v (TVar x )
+pslice store (VException v) (TRaise t)
+    = let (rho, store', e, t') = pslice store v t
+      in (rho, store', ERaise e, TRaise t')
+pslice store v (TVar x)
     = (singletonEnv x v, store, EVar x, TVar x)
 pslice store VUnit TUnit
     = (bot, store, EUnit, TUnit  )
