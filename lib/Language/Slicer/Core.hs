@@ -10,7 +10,7 @@
 module Language.Slicer.Core
     ( -- * Abstract syntax
       Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
-    , Store, StoreLabel
+    , Store, StoreLabel, StoreLabels
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -188,7 +188,8 @@ instance Pretty Type where
     pPrint (TraceTy ty) = text "trace" <> parens (pPrint ty)
 
 -- | Internal labels used during runtime to identify store locations
-type StoreLabel = Int
+type StoreLabel  = Int
+type StoreLabels = [ StoreLabel ]
 
 -- | Reference store
 type Store = M.IntMap Value
@@ -302,6 +303,8 @@ data Trace = TExp (Syntax Trace)
            | TCallExn Trace Trace -- ^ Any of application arguments raises an
                                   -- exception
            | TCall Trace Trace (Maybe Lab) (Code Trace)
+           -- Annotated hole
+           | TSlicedHole StoreLabels ReturnType
            -- References.  See Note [Maybe trace labels]
            | TRef (Maybe StoreLabel) Trace | TDeref (Maybe StoreLabel) Trace
            | TAssign (Maybe StoreLabel) Trace Trace
@@ -312,6 +315,10 @@ data Trace = TExp (Syntax Trace)
            | TTryWith Trace Var Trace -- ^ Throwing exception in a try-with
                                       --   block
              deriving (Show, Eq, Ord, Generic, NFData)
+
+-- | Did computations returned a result or raised an exception?
+data ReturnType = Return | Raise
+                  deriving (Show, Eq, Ord, Generic, NFData)
 
 -- Note [Maybe trace labels]
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -431,6 +438,7 @@ instance Uneval Trace Exp where
     uneval (TTry t)          = ECatch (uneval t) bot bot
     uneval (TTryWith t x h)  = ECatch (uneval t) x (uneval h)
     uneval (TExp expr)       = Exp (uneval expr)
+    uneval (TSlicedHole _ _) = EHole
 
 instance Uneval a b => Uneval (Syntax a) (Syntax b) where
     uneval (Var x)       = Var x
@@ -513,6 +521,7 @@ instance FVs Trace where
     fvs (TTry t)           = fvs t
     fvs (TTryWith t1 x t2) = fvs t1 `union` (delete x (fvs t2))
     fvs (TExp e)           = fvs e
+    fvs (TSlicedHole _ _)  = []
 
 promote :: Value -> Value
 promote VStar               = VStar
