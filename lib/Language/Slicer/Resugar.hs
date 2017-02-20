@@ -34,7 +34,7 @@ data RExp = RVar Var | RLet Var RExp RExp
           -- References
           | RRef RExp | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
           -- Exceptions
-          | RRaise RExp | RCatch RExp Var RExp | RException
+          | RRaise RExp | RCatch RExp Var RExp | RException RExp
             deriving (Show, Eq, Ord, Generic, NFData)
 
 data RCode = RRec Var [Var] RExp -- name, args, body
@@ -195,10 +195,12 @@ instance AskConstrs Trace where
 instance Resugarable Value where
     resugarM VHole       = return RHole
     resugarM VUnit       = return RUnit
-    resugarM VException  = return RException
     resugarM (VBool b)   = return (RBool b)
     resugarM (VInt i)    = return (RInt i)
     resugarM (VString s) = return (RString s)
+    resugarM (VException v)
+        = do e <- resugarM v
+             return (RException e)
     resugarM (VPair v1 v2)
         = do e1 <- resugarM v1
              e2 <- resugarM v2
@@ -238,7 +240,6 @@ instance Resugarable Value where
 instance Pretty RExp where
     pPrint RHole       = text "_"
     pPrint RUnit       = text "()"
-    pPrint RException  = text "<exception>"
     pPrint (RInt    i) = int i
     pPrint (RString s) = text (show s)
     pPrint (RBool b)   = if b then text "true" else text "false"
@@ -275,6 +276,7 @@ instance Pretty RExp where
     pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$
                              text "with" <+> pPrint x <+> text "=>" $$
                              nest 2 (pPrint h)
+    pPrint (RException e)  = text "<exception>" <> partial_parensOpt e
 
 instance Pretty RMatch where
     pPrint (RMatch ms) = vcat (punctuate semi (map pp_match ms))
