@@ -39,9 +39,9 @@ type EvalM = StateT EvalState (ExceptT SlicerError IO)
 
 -- | State of the evaluation monad
 data EvalState = EvalState
-    { envS     :: Env Value      -- ^ Environment ρ, stores variable values
-    , refCount :: Int            -- ^ Reference counter
-    , refs     :: M.IntMap Value -- ^ Reference store
+    { envS     :: Env Value -- ^ Environment ρ, stores variable values
+    , refCount :: Int       -- ^ Reference counter
+    , refs     :: Store     -- ^ Reference store
     } deriving (Eq, Ord, Generic, NFData)
 
 -- | Run the evaluation monad with a supplied state.  Return result and final
@@ -67,13 +67,13 @@ setEvalState :: EvalState -> EvalM ()
 setEvalState = put
 
 -- | Get current reference store
-getStore :: EvalM (M.IntMap Value)
+getStore :: EvalM Store
 getStore = do
   EvalState { refs } <- get
   return refs
 
 -- | Set reference store
-setStore :: M.IntMap Value -> EvalM ()
+setStore :: Store -> EvalM ()
 setStore store = do
     env <- getEnv
     put (EvalState env (M.size store) store)

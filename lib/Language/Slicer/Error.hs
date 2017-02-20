@@ -12,7 +12,6 @@ import           Language.Slicer.Core
 
 import           Control.DeepSeq               ( NFData     )
 import           Control.Monad.Except
-import qualified Data.IntMap as M
 import           GHC.Generics                  ( Generic    )
 
 -- | Error types that the program can raise
@@ -21,7 +20,7 @@ data SlicerError = ParseError   String
                  | ResugarError String
                  | TypeError String
                  | EvalError String
-                 | Exception Value (M.IntMap Value)
+                 | Exception Value Store
                    deriving (Eq, Generic, NFData)
 
 instance Show SlicerError where
@@ -47,7 +46,7 @@ typeError msg = throwError (TypeError msg)
 evalError :: MonadError SlicerError m => String -> m a
 evalError msg = throwError (EvalError msg)
 
-raise :: MonadError SlicerError m => Value -> M.IntMap Value -> m a
+raise :: MonadError SlicerError m => Value -> Store -> m a
 raise val st = throwError (Exception val st)
 
 rethrow :: MonadError SlicerError m => SlicerError -> m a
