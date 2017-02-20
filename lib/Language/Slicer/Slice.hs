@@ -159,91 +159,97 @@ bslice _ x = error $ show x
 
 -- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
 -- paper
-pslice :: Value -> Trace -> (Exp, Env Value)
-pslice VHole _      = (bot    , bot)
-pslice p (TVar x )  = (EVar x , singletonEnv x p)
-pslice _ TUnit      = (EUnit  , bot)
-pslice _ (TBool b)  = (EBool b, bot)
-pslice _ (TInt i)   = (EInt i , bot)
-pslice (VClosure k env) (TFun _k')
+
+-- JSTOLAREK TODO:
+--  * add Store argument
+--  * swap return order of arguments
+--  * add return store argument
+--  * returns trace as well - this makes bslice obsolete
+pslice :: Store -> Value -> Trace -> (Exp, Env Value)
+pslice _ VHole _      = (bot    , bot)
+pslice _ p (TVar x )  = (EVar x , singletonEnv x p)
+pslice _ _ TUnit      = (EUnit  , bot)
+pslice _ _ (TBool b)  = (EBool b, bot)
+pslice _ _ (TInt i)   = (EInt i , bot)
+pslice _ (VClosure k env) (TFun _k')
     = (EFun k, env) -- assumes k <= k'
-pslice VStar (TFun k)
+pslice _ VStar (TFun k)
     = (EFun k, constEnv (fvs k) VStar)
-pslice p2 (TLet x t1 t2)
-    = let (t2',rho2) = pslice p2 t2
+pslice _ p2 (TLet x t1 t2)
+    = let (t2',rho2) = pslice undefined p2 t2
           p1         = lookupEnv' rho2 x
           rho2'      = unbindEnv rho2 x
-          (t1',rho1) = pslice p1 t1
+          (t1',rho1) = pslice undefined p1 t1
       in (ELet x t1' t2', rho1 `lub` rho2')
-pslice _ (TOp f ts)
-    = let (ts', rhos) = unzip (map (\t -> pslice VStar t) ts)
+pslice _ _ (TOp f ts)
+    = let (ts', rhos) = unzip (map (\t -> pslice undefined VStar t) ts)
       in (EOp f ts', foldl lub bot rhos)
-pslice (VPair p1 p2) (TPair t1 t2)
-    = let (t1',rho1) = pslice p1 t1
-          (t2',rho2) = pslice p2 t2
+pslice _ (VPair p1 p2) (TPair t1 t2)
+    = let (t1',rho1) = pslice undefined p1 t1
+          (t2',rho2) = pslice undefined p2 t2
       in (EPair t1' t2', rho1 `lub` rho2)
-pslice VStar (TPair t1 t2)
-    = let (t1',rho1) = pslice VStar t1
-          (t2',rho2) = pslice VStar t2
+pslice _ VStar (TPair t1 t2)
+    = let (t1',rho1) = pslice undefined VStar t1
+          (t2',rho2) = pslice undefined VStar t2
       in (EPair t1' t2', rho1 `lub` rho2)
-pslice p (TFst t)
-    = let (t',rho) = pslice (VPair p bot) t
+pslice _ p (TFst t)
+    = let (t',rho) = pslice undefined (VPair p bot) t
       in (EFst t', rho)
-pslice p (TSnd t)
-    = let (t',rho) = pslice (VPair bot p) t
+pslice _ p (TSnd t)
+    = let (t',rho) = pslice undefined (VPair bot p) t
       in (ESnd t', rho)
-pslice (VInL p) (TInL t)
-    = let (t',rho) = pslice p t
+pslice _ (VInL p) (TInL t)
+    = let (t',rho) = pslice undefined p t
       in (EInL t',rho)
-pslice VStar (TInL t)
-    = let (t',rho) = pslice VStar t
+pslice _ VStar (TInL t)
+    = let (t',rho) = pslice undefined VStar t
       in (EInL t',rho)
-pslice (VInR p) (TInR t)
-    = let (t', rho) = pslice p t
+pslice _ (VInR p) (TInR t)
+    = let (t', rho) = pslice undefined p t
       in (EInR t', rho)
-pslice VStar (TInR t)
-    = let (t', rho) = pslice VStar t
+pslice _ VStar (TInR t)
+    = let (t', rho) = pslice undefined VStar t
       in (EInR t', rho)
-pslice p1 (TIfThen t t1)
-    = let (e1, rho1) = pslice p1 t1
-          (e, rho)   = pslice VStar t
+pslice _ p1 (TIfThen t t1)
+    = let (e1, rho1) = pslice undefined p1 t1
+          (e, rho)   = pslice undefined VStar t
       in (EIf e e1 EHole, rho `lub` rho1)
-pslice p2 (TIfElse t t2)
-    = let (e2, rho2) = pslice p2 t2
-          (e, rho)   = pslice VStar t
+pslice _ p2 (TIfElse t t2)
+    = let (e2, rho2) = pslice undefined p2 t2
+          (e, rho)   = pslice undefined VStar t
       in (EIf e EHole e2, rho `lub` rho2)
-pslice p1 (TCaseL t x t1)
-    = let (e1, rho1) = pslice p1 t1
+pslice _ p1 (TCaseL t x t1)
+    = let (e1, rho1) = pslice undefined p1 t1
           p          = maybeLookupEnv' rho1 x
           rho1'      = maybeUnbindEnv rho1 x
-          (e, rho)   = pslice (VInL p) t
+          (e, rho)   = pslice undefined (VInL p) t
       in (ECase e (Match (x,e1) (bot,bot)), rho `lub` rho1')
-pslice p2 (TCaseR t x t2)
-    = let (e2, rho2) = pslice p2 t2
+pslice _ p2 (TCaseR t x t2)
+    = let (e2, rho2) = pslice undefined p2 t2
           p          = maybeLookupEnv' rho2 x
           rho2'      = maybeUnbindEnv rho2 x
-          (e, rho)   = pslice (VInR p) t
+          (e, rho)   = pslice undefined (VInR p) t
       in (ECase e (Match (bot,bot) (x,e2)), rho `lub` rho2')
-pslice p (TCall t1 t2 _ t)
-    = let (e, rho)   = pslice p (funBody t)
+pslice _ p (TCall t1 t2 _ t)
+    = let (e, rho)   = pslice undefined p (funBody t)
           f          = funName t
           x          = funArg  t
           k0         = Rec f x e Nothing
           p1         = lookupEnv' rho f
           p2         = lookupEnv' rho x
           rho0       = unbindEnv (unbindEnv rho f) x
-          (e1, rho1) = pslice (p1 `lub` VClosure k0 rho0) t1
-          (e2, rho2) = pslice p2 t2
+          (e1, rho1) = pslice undefined (p1 `lub` VClosure k0 rho0) t1
+          (e2, rho2) = pslice undefined p2 t2
       in (EApp e1 e2, rho1 `lub` rho2)
-pslice (VRoll tv p) (TRoll tv' t)
+pslice _ (VRoll tv p) (TRoll tv' t)
     | tv == tv'
-    = let (t',rho) = pslice p t
+    = let (t',rho) = pslice undefined p t
       in (ERoll tv' t', rho)
-pslice VStar (TRoll tv' t)
-    = let (t',rho) = pslice VStar t
+pslice _ VStar (TRoll tv' t)
+    = let (t',rho) = pslice undefined VStar t
       in (ERoll tv' t', rho)
-pslice p (TUnroll tv t)
-    = let (t',rho) = pslice (VRoll tv p) t
+pslice _ p (TUnroll tv t)
+    = let (t',rho) = pslice undefined (VRoll tv p) t
       in (EUnroll tv t', rho)
-pslice v t = error $ "Cannot unevaluate value " ++ show v ++
-                     " from trace " ++ show t
+pslice _ v t = error $ "Cannot unevaluate value " ++ show v ++
+                       " from trace " ++ show t

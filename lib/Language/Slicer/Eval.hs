@@ -160,7 +160,7 @@ evalTraceOp PrimSlice [VTrace v t env, p]
                              " is not a prefix of output " ++ show v)
 evalTraceOp PrimPSlice [VTrace v t _, p]
     | p `leq` v
-    = do let (t',env') = pslice p t
+    = do let (t', env') = pslice undefined p t
          return (VExp t' env')
     | otherwise = evalError ("pslice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
