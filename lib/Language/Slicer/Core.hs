@@ -10,7 +10,7 @@
 module Language.Slicer.Core
     ( -- * Abstract syntax
       Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
-    , Store, StoreLabel, StoreLabels
+    , Store, StoreLabel, StoreLabels, ReturnType(..)
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -18,7 +18,8 @@ module Language.Slicer.Core
             , TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy, isException
+    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
+    , isException, isRaise
 
     , Pattern(extract)
 
@@ -317,8 +318,12 @@ data Trace = TExp (Syntax Trace)
              deriving (Show, Eq, Ord, Generic, NFData)
 
 -- | Did computations returned a result or raised an exception?
-data ReturnType = Return | Raise
+data ReturnType = RetValue | RetRaise
                   deriving (Show, Eq, Ord, Generic, NFData)
+
+isRaise :: Trace -> Bool
+isRaise (TRaise _) = True
+isRaise _          = False
 
 -- Note [Maybe trace labels]
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~
