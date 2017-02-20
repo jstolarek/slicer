@@ -217,7 +217,7 @@ instance Resugarable Value where
                Nothing -> resugarError ("Unknown data type: " ++ show dataty)
     resugarM (VClosure v _) = resugarM (EFun v)
     resugarM (VExp v _)     = resugarM v
-    resugarM (VTrace _ t _)
+    resugarM (VTrace _ t _ _)
         = do e <- resugarM t
              return (RTrace e)
     resugarM (VInL v)

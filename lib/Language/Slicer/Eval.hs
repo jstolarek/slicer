@@ -65,8 +65,9 @@ evalM (ERoll tv e)    = do e' <- evalM' e
 evalM (EUnroll tv e)  = do (VRoll tv' v) <- evalM' e
                            assert (tv == tv') (return v)
 evalM (ETrace e)      = do env    <- getEnv
+                           store  <- getStore
                            (v, t) <- trace e
-                           return (VTrace v t env)
+                           return (VTrace v t env store)
 -- References
 evalM (ERef e)        = do v <- evalM' e
                            newRef v
@@ -149,18 +150,19 @@ evalIf (VBool False) _  e2 = evalM' e2
 evalIf _ _ _ = evalError "evalIf: condition is not a VBool value"
 
 evalTraceOp :: Primitive -> [Value] -> EvalM Value
-evalTraceOp PrimVal [VTrace v _ _] = return v
-evalTraceOp PrimSlice [VTrace v t env, p]
+evalTraceOp PrimVal [VTrace v _ _ _] = return v
+evalTraceOp PrimSlice [VTrace v t env st, p]
     | p `leq` v
     = do let (t',penv) = bslice p t
              v'        = extract p v
              env'      = extract penv env
-         v' `seq` t' `seq` env' `seq` return (VTrace v' t' env')
+             -- JSTOLAREK: update store argument
+         v' `seq` t' `seq` env' `seq` return (VTrace v' t' env' st)
     | otherwise = evalError ("slice: criterion " ++ show p ++
                              " is not a prefix of output " ++ show v)
-evalTraceOp PrimPSlice [VTrace v t _, p]
+evalTraceOp PrimPSlice [VTrace v t _ st, p]
     | p `leq` v
-    = do let (t', env') = pslice undefined p t
+    = do let (t', env') = pslice st p t
          return (VExp t' env')
     | otherwise = evalError ("pslice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
@@ -174,12 +176,12 @@ evalTraceOp PrimVisualizeDiff [VString s, v1, v2]
         ".pdf" -> lift (visualizeDiffPDF s v1 v2) >> return VUnit
         ".svg" -> lift (visualizeDiffSVG s v1 v2) >> return VUnit
         ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
-evalTraceOp PrimTreeSize [VTrace _ t _] =
+evalTraceOp PrimTreeSize [VTrace _ t _ _] =
     return (VInt (forestsize (toTree t)))
-evalTraceOp PrimProfile [VTrace _ t _]
+evalTraceOp PrimProfile [VTrace _ t _ _]
     = do liftIO $ putStrLn (show (profile t))
          return VUnit
-evalTraceOp PrimProfileDiff [VTrace _ t _]
+evalTraceOp PrimProfileDiff [VTrace _ t _ _]
     = do liftIO $ putStrLn (show (profileDiff t))
          return VUnit
 evalTraceOp op vs = liftEvalM $ evalOp op vs
