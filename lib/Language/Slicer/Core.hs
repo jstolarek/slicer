@@ -19,7 +19,7 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise, deref, storeInsert
+    , isException, isRaise, unnestException, deref, storeInsert
 
     , Pattern(extract)
 
@@ -419,6 +419,10 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
 isException :: Value -> Bool
 isException (VException _) = True
 isException _              = False
+
+unnestException :: Value -> Value
+unnestException (VException v) = unnestException v
+unnestException v              = v
 
 class Valuable a where
     to_val :: a -> Value
