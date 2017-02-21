@@ -281,7 +281,8 @@ trace (ERaise e)     = do (v, t) <- trace' e
 trace (ETryWith e x h) = do (v, t) <- trace' e
                             case v of
                               VException v'->
-                                  do (v'', ht) <- withBinder x v' (trace' h)
+                                  do let uv = unnestException v'
+                                     (v'', ht) <- withBinder x uv (trace' h)
                                      return (v'', TTryWith t x ht)
                               _ -> return (v, TTry t)
 trace (Exp e) = error ("Impossible happened in trace: " ++ show e)
