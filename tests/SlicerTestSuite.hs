@@ -29,6 +29,7 @@ tests =
       , runTMLTest "operators"
       , runTMLTest "proportion"
       , runTMLTest "refs"
+      , runTMLTest "refs-bslice"
       , runTMLTest "reverse-eval"
       , runTMLTest "reverse-slice-profile2"
       , runTMLTest "reverse-slice-profile"
