@@ -143,7 +143,7 @@ instance Resugarable Exp where
     resugarM (ERaise e)
         = do e' <- resugarM e
              return (RRaise e')
-    resugarM (ECatch e x h)
+    resugarM (ETryWith e x h)
         = do e' <- resugarM e
              h' <- resugarM h
              return (RCatch e' x h')

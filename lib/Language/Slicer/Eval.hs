@@ -85,7 +85,7 @@ evalM (ESeq e1 e2)    = do VUnit <- evalM' e1
 evalM (ERaise e)      = do v <- evalM' e
                            st <- getStore
                            raise v st
-evalM (ECatch e x h)  = do st  <- getEvalState
+evalM (ETryWith e x h)= do st  <- getEvalState
                            res <- runSlMIO (run st e)
                            case res of
                              Right (v, st') ->
@@ -278,12 +278,12 @@ trace (ESeq e1 e2)   = do (v1, t1) <- trace' e1
 -- exceptions
 trace (ERaise e)     = do (v, t) <- trace' e
                           return (VException v, TRaise t)
-trace (ECatch e x h) = do (v, t) <- trace' e
-                          case v of
-                            VException v'->
-                                do (v'', ht) <- withBinder x v' (trace' h)
-                                   return (v'', TTryWith t x ht)
-                            _ -> return (v, TTry t)
+trace (ETryWith e x h) = do (v, t) <- trace' e
+                            case v of
+                              VException v'->
+                                  do (v'', ht) <- withBinder x v' (trace' h)
+                                     return (v'', TTryWith t x ht)
+                              _ -> return (v, TTry t)
 trace (Exp e) = error ("Impossible happened in trace: " ++ show e)
 
 trace' :: Exp -> EvalM (Value, Trace)
