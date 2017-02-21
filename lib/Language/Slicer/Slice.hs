@@ -313,7 +313,7 @@ pslice store v (TAssign (Just l) t1 t2) | isException v
       in ( rho1 `lub` rho2, store1, EAssign e1 e2, TAssign (Just l) t1' t2')
 pslice store v (TSeq t1 t2)
     = let (rho2, store2, e2, t2') = pslice store v t2
-          (rho1, store1, e1, t1') = pslice store2 VStar t1
+          (rho1, store1, e1, t1') = pslice store2 VHole t1
       in ( rho1 `lub` rho2, store1, ESeq e1 e2, TSeq t1' t2')
 pslice store v (TTry t)
     = let (rho, store', e, t') = pslice store v t

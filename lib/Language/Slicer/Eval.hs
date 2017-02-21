@@ -29,7 +29,6 @@ run st e = runEvalM st (evalM e)
 eval :: Env Value -> Exp -> SlMIO Value
 eval env e = evalEvalM env (evalM e)
 
--- JSTOLAREK: Don't evaluate holes
 evalM :: Exp -> EvalM Value
 evalM EHole           = return VHole
 evalM (EVar x)        = do env <- getEnv
@@ -67,8 +66,8 @@ evalM (ERoll tv e)    = do e' <- evalM' e
 evalM (EUnroll tv e)  = do (VRoll tv' v) <- evalM' e
                            assert (tv == tv') (return v)
 evalM (ETrace e)      = do env    <- getEnv
-                           store  <- getStore
                            (v, t) <- trace e
+                           store  <- getStore
                            return (VTrace v t env store)
 -- References
 evalM (ERef e)        = do v <- evalM' e
