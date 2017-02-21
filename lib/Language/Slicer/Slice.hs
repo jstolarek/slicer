@@ -311,5 +311,14 @@ pslice store v (TAssign (Just l) t1 t2) | isException v
     = let (rho2, store2, e2, t2') = pslice store  v t2
           (rho1, store1, e1, t1') = pslice store2 (VStoreLoc l) t1
       in ( rho1 `lub` rho2, store1, EAssign e1 e2, TAssign (Just l) t1' t2')
+pslice store v (TTry t)
+    = let (rho, store', e, t') = pslice store v t
+      in (rho, store', ECatch e bot bot, TTry t')
+pslice store v (TTryWith t1 x t2)
+    = let (rho2, store2, e2, t2') = pslice store v t2
+          p1                      = lookupEnv' rho2 x
+          rho2'                   = unbindEnv  rho2 x
+          (rho1, store1, e1, t1') = pslice store2 (VException p1) t1
+      in ( rho1 `lub` rho2', store1, ECatch e1 x e2, TTryWith t1' x t2')
 pslice _ v t = error $ "Cannot slice value " ++ show v ++
                        " from trace " ++ show t

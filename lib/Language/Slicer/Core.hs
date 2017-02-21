@@ -336,7 +336,9 @@ isRaise _          = False
 --
 -- Labels in reference trace constructs are Maybes because it is possible that
 -- the the enclosed expression raises an exception instead of evaluating to a
--- label value.
+-- label value.  In case of assignment StoreLabel is Nothing only if LHS of the
+-- assignment raises an exception.  If the RHS of the assignment that raises an
+-- exception we store tha label.  This is required for backwards slicing.
 
 pattern TVar :: Var -> Trace
 pattern TVar v = TExp (Var v)
