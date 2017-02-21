@@ -245,7 +245,7 @@ data Exp = Exp (Syntax Exp)
          -- References
          | ERef Exp | EDeref Exp | EAssign Exp Exp
          -- Exceptions
-         | ERaise Exp | ECatch Exp Var Exp
+         | ERaise Exp | ETryWith Exp Var Exp
            deriving (Show, Eq, Ord, Generic, NFData)
 
 pattern EVar :: Var -> Exp
@@ -448,8 +448,8 @@ instance Uneval Trace Exp where
     uneval (TDeref _ t)      = EDeref (uneval t)
     uneval (TAssign _ t1 t2) = EAssign (uneval t1) (uneval t2)
     uneval (TRaise t)        = ERaise (uneval t)
-    uneval (TTry t)          = ECatch (uneval t) bot bot
-    uneval (TTryWith t x h)  = ECatch (uneval t) x (uneval h)
+    uneval (TTry t)          = ETryWith (uneval t) bot bot
+    uneval (TTryWith t x h)  = ETryWith (uneval t) x (uneval h)
     uneval (TExp expr)       = Exp (uneval expr)
     uneval (TSlicedHole _ _) = EHole
 
@@ -505,7 +505,7 @@ instance FVs Exp where
     fvs (EApp e1 e2)    = fvs e1 `union` fvs e2
     fvs (ETrace e)      = fvs e
     fvs (ERaise e)      = fvs e
-    fvs (ECatch e x e1) = fvs e `union` (delete x (fvs e1))
+    fvs (ETryWith e x e1) = fvs e `union` (delete x (fvs e1))
     fvs (ERef e)        = fvs e
     fvs (EDeref e)      = fvs e
     fvs (EAssign e1 e2) = fvs e1 `union` fvs e2

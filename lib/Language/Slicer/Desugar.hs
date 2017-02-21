@@ -186,7 +186,7 @@ desugarM (A.Catch e x h)
                 typeError ("Types of \"try\" and \"with\" blocks don't match. "
                         ++ "Try has type " ++ show ty1 ++ " but with has type "
                         ++ show ty2)
-         return (ECatch e' x h', ty1)
+         return (ETryWith e' x h', ty1)
 
 desugarTy :: A.Type -> Type
 desugarTy A.IntTy            = IntTy
