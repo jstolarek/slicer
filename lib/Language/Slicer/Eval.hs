@@ -265,13 +265,13 @@ trace (EDeref e)     = do (v, t) <- trace' e
                                   return (v', TDeref (Just l) t)
 trace (EAssign e1 e2)= do (v1, t1) <- trace' e1
                           (v2, t2) <- traceWithExn v1 (trace' e2)
-                          if not (isException v2)
                           -- traceWithExn ensures that:
                           --   v1 = VException => v2 = Exception
-                          then do updateRef v1 v2
-                                  let (VStoreLoc l) = v1
+                          unless (isException v2) (updateRef v1 v2)
+                          if isException v1
+                          then return (v2, TAssign Nothing t1 t2)
+                          else do let (VStoreLoc l) = v1
                                   return (VUnit, TAssign (Just l) t1 t2)
-                          else return (v2, TAssign Nothing t1 t2)
 trace (ESeq e1 e2)   = do (v1, t1) <- trace' e1
                           (v2, t2) <- traceWithExn v1 (trace' e2)
                           returnWithExn v2 v2 (TSeq t1 t2)

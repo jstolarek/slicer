@@ -9,7 +9,6 @@ module Language.Slicer.Slice
 
 import           Language.Slicer.Core
 import           Language.Slicer.Env
-import           Language.Slicer.Monad.Eval
 import           Language.Slicer.UpperSemiLattice
 
 import           Control.Exception ( assert      )
@@ -164,12 +163,12 @@ bslice _ x = error $ show x
 pslice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
 pslice store (VException VHole) trace
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
+pslice store VHole trace
+    = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
 pslice store (VException _) THole -- JSTOLAREK: speculative equation
     = (bot, store, EHole, THole)
 pslice store VStar THole -- JSTOLAREK: another speculative equation
     = (bot, store, EHole, THole)
-pslice store VHole trace
-    = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
 pslice store (VException v) (TRaise t)
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', ERaise e, TRaise t')
@@ -177,11 +176,19 @@ pslice store v (TVar x)
     = (singletonEnv x v, store, EVar x, TVar x)
 pslice store VUnit TUnit
     = (bot, store, EUnit, TUnit  )
+pslice store VStar TUnit
+    = (bot, store, EUnit, TUnit  )
 pslice store (VBool b) (TBool b') | b == b'
-    = (bot, store, EBool   b, TBool   b)
+    = (bot, store, EBool b, TBool b)
+pslice store VStar (TBool b)
+    = (bot, store, EBool b, TBool b)
 pslice store (VInt i) (TInt i') | i == i'
-    = (bot, store, EInt    i, TInt    i)
+    = (bot, store, EInt i, TInt i)
+pslice store VStar (TInt i)
+    = (bot, store, EInt i, TInt i)
 pslice store (VString s) (TString s') | s == s'
+    = (bot, store, EString s, TString s)
+pslice store VStar (TString s)
     = (bot, store, EString s, TString s)
 pslice store (VClosure k env) (TFun k') | k `leq` k'
     = (env, store, EFun k, TFun k')
@@ -286,5 +293,23 @@ pslice store v (TRef (Just l) t) | not (isException v)
 pslice store v (TRef Nothing t) | isException v
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', ERef e, TRef Nothing t')
+pslice store v (TDeref (Just l) t) | not (isException v)
+    = let (rho, store', e, t') = pslice store (VStoreLoc l) t
+      in (rho, storeInsert store' l v, EDeref e, TDeref (Just l) t')
+pslice store v (TDeref Nothing t) | isException v
+    = let (rho, store', e, t') = pslice store v t
+      in (rho, store', EDeref e, TDeref Nothing t')
+pslice store v (TAssign (Just l) t1 t2) | not (isException v)
+    = let (rho2, store2, e2, t2') = pslice store  (deref store l) t2
+          (rho1, store1, e1, t1') = pslice store2 (VStoreLoc l) t1
+      in ( rho1 `lub` rho2, insertStoreHole store1 l, EAssign e1 e2
+         , TAssign (Just l) t1' t2')
+pslice store v (TAssign Nothing t1 THole) | isException v
+    = let (rho1, store1, e1, t1') = pslice store v t1
+      in ( rho1, store1, EAssign e1 EHole, TAssign Nothing t1' THole)
+pslice store v (TAssign (Just l) t1 t2) | isException v
+    = let (rho2, store2, e2, t2') = pslice store  v t2
+          (rho1, store1, e1, t1') = pslice store2 (VStoreLoc l) t1
+      in ( rho1 `lub` rho2, store1, EAssign e1 e2, TAssign (Just l) t1' t2')
 pslice _ v t = error $ "Cannot slice value " ++ show v ++
                        " from trace " ++ show t
