@@ -11,6 +11,6 @@ let abs = fun abs (x : int) : int =>
     else (0 - x) in
 let xs = Cons ((-1), Cons (2, Nil)) in
 map abs xs) in
-let s = slice (t, Cons (_:int, Cons (2, Nil))) in
+let s = traceSlice (t, Cons (_:int, Cons (2, Nil))) in
 let z = visualize ( "abs.pdf", s ) in
 read (s)

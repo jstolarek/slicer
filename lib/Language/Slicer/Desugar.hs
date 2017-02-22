@@ -40,7 +40,7 @@ lookupOp PrimProfile       [TraceTy _ ] = return UnitTy
 lookupOp PrimProfileDiff   [TraceTy _ ] = return UnitTy
 lookupOp PrimVisualize     [StringTy, _]               = return UnitTy
 lookupOp PrimVisualizeDiff [StringTy, t, t'] | t == t' = return UnitTy
-lookupOp PrimSlice [ty@(TraceTy ty1), ty2] =
+lookupOp PrimTraceSlice [ty@(TraceTy ty1), ty2] =
     if ty1 == ty2
     then return ty
     else typeError ("Slice type mismatch: " ++ show ty1 ++
