@@ -3,7 +3,7 @@
 
 module Language.Slicer.Primitives
     ( -- * Built-in primitive operators and functions
-      Primitive(..), isInfixOp
+      Primitive(..), isInfixOp, acceptsExns
     ) where
 
 import           Control.DeepSeq ( NFData  )
@@ -75,3 +75,15 @@ isInfixOp OpAnd   = True
 isInfixOp OpOr    = True
 -- Logical negation and builtin functions
 isInfixOp _       = False
+
+-- | Does operator accept exception values as arguments?
+acceptsExns :: Primitive -> Bool
+acceptsExns PrimProfile       = True
+acceptsExns PrimProfileDiff   = True
+acceptsExns PrimBwdSlice      = True
+acceptsExns PrimTraceSlice    = True
+acceptsExns PrimTreeSize      = True
+acceptsExns PrimVal           = True
+acceptsExns PrimVisualize     = True
+acceptsExns PrimVisualizeDiff = True
+acceptsExns _                 = False
