@@ -106,7 +106,7 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strRef, strRoll, strSnd, strThen, strTrace, strTrue, strTry
            , strUnit, strUnroll, strWith
            ] ++ map show
-           [ PrimVal, PrimSlice, PrimPSlice, PrimVisualize, PrimVisualizeDiff
+           [ PrimVal, PrimSlice, PrimBwdSlice, PrimVisualize, PrimVisualizeDiff
            , PrimProfile, PrimProfileDiff, PrimTreeSize
            ]
 
@@ -451,13 +451,13 @@ slice_ = do keyword (show PrimSlice)
 
 
 pslice_ :: Parser Exp
-pslice_ = do keyword (show PrimPSlice)
+pslice_ = do keyword (show PrimBwdSlice)
              (e1,e2) <-  parenthesise $ do
                             e1 <- exp
                             _  <- comma token_
                             e2 <- exp
                             return (e1,e2)
-             return (Op PrimPSlice [e1,e2])
+             return (Op PrimBwdSlice [e1,e2])
 
 -- In REPL mode we either parse a data definition or an expression
 repl :: Parser (ParserState, Maybe Exp)

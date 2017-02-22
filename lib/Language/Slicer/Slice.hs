@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances    #-}
 
 module Language.Slicer.Slice
-    ( bslice, pslice
+    ( bslice, bwdSlice
     ) where
 
 import           Language.Slicer.Core
@@ -15,182 +15,182 @@ import           Language.Slicer.UpperSemiLattice
 -- paper
 bslice :: Store -> Value -> Trace -> (Trace, Env Value)
 bslice store value trace =
-    let (env, _, _, trace') = pslice store value trace
+    let (env, _, _, trace') = bwdSlice store value trace
     in (trace', env)
 
 -- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
 -- paper
-pslice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
-pslice store VHole (TRaise t)
-    = let (rho, store', e, t') = pslice store VStar t
+bwdSlice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
+bwdSlice store VHole (TRaise t)
+    = let (rho, store', e, t') = bwdSlice store VStar t
       in (rho, store', ERaise e, TRaise t')
-pslice store (VException VHole) trace | allStoreHoles store (storeWrites trace)
+bwdSlice store (VException VHole) trace | allStoreHoles store (storeWrites trace)
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
-pslice store VHole trace | allStoreHoles store (storeWrites trace)
+bwdSlice store VHole trace | allStoreHoles store (storeWrites trace)
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
-pslice store (VException _) THole -- JSTOLAREK: speculative equation
+bwdSlice store (VException _) THole -- JSTOLAREK: speculative equation
     = (bot, store, EHole, THole)
-pslice store VStar THole -- JSTOLAREK: another speculative equation
+bwdSlice store VStar THole -- JSTOLAREK: another speculative equation
     = (bot, store, EHole, THole)
-pslice store (VException v) (TRaise t)
-    = let (rho, store', e, t') = pslice store v t
+bwdSlice store (VException v) (TRaise t)
+    = let (rho, store', e, t') = bwdSlice store v t
       in (rho, store', ERaise e, TRaise t')
-pslice store VStar (TRaise t)
-    = let (rho, store', e, t') = pslice store VStar t
+bwdSlice store VStar (TRaise t)
+    = let (rho, store', e, t') = bwdSlice store VStar t
       in (rho, store', ERaise e, TRaise t')
-pslice store v (TVar x)
+bwdSlice store v (TVar x)
     = (singletonEnv x v, store, EVar x, TVar x)
-pslice store VUnit TUnit
+bwdSlice store VUnit TUnit
     = (bot, store, EUnit, TUnit)
-pslice store VStar TUnit
+bwdSlice store VStar TUnit
     = (bot, store, EUnit, TUnit)
-pslice store (VBool b) (TBool b') | b == b'
+bwdSlice store (VBool b) (TBool b') | b == b'
     = (bot, store, EBool b, TBool b)
-pslice store VStar (TBool b)
+bwdSlice store VStar (TBool b)
     = (bot, store, EBool b, TBool b)
-pslice store (VInt i) (TInt i') | i == i'
+bwdSlice store (VInt i) (TInt i') | i == i'
     = (bot, store, EInt i, TInt i)
-pslice store VStar (TInt i)
+bwdSlice store VStar (TInt i)
     = (bot, store, EInt i, TInt i)
-pslice store (VString s) (TString s') | s == s'
+bwdSlice store (VString s) (TString s') | s == s'
     = (bot, store, EString s, TString s)
-pslice store VStar (TString s)
+bwdSlice store VStar (TString s)
     = (bot, store, EString s, TString s)
-pslice store (VClosure k env) (TFun k') | k `leq` k'
+bwdSlice store (VClosure k env) (TFun k') | k `leq` k'
     = (env, store, EFun k, TFun k')
-pslice store VStar (TFun k)
+bwdSlice store VStar (TFun k)
     = (constEnv (fvs k) VStar, store, EFun k, TFun k)
-pslice store (VPair p1 p2) (TPair t1 t2)
-    = let (rho2, store2, e2, t2') = pslice store  p2 t2
-          (rho1, store1, e1, t1') = pslice store2 p1 t1
+bwdSlice store (VPair p1 p2) (TPair t1 t2)
+    = let (rho2, store2, e2, t2') = bwdSlice store  p2 t2
+          (rho1, store1, e1, t1') = bwdSlice store2 p1 t1
       in (rho1 `lub` rho2, store1, EPair e1 e2, TPair t1' t2')
-pslice store VStar (TPair t1 t2)
-    = let (rho2, store2, e2, t2') = pslice store  VStar t2
-          (rho1, store1, e1, t1') = pslice store2 VStar t1
+bwdSlice store VStar (TPair t1 t2)
+    = let (rho2, store2, e2, t2') = bwdSlice store  VStar t2
+          (rho1, store1, e1, t1') = bwdSlice store2 VStar t1
       in (rho1 `lub` rho2, store1, EPair e1 e2, TPair t1' t2')
-pslice store p (TFst t)
-    = let (rho, store', e', t') = pslice store (VPair p bot) t
+bwdSlice store p (TFst t)
+    = let (rho, store', e', t') = bwdSlice store (VPair p bot) t
       in (rho, store', EFst e', TFst t')
-pslice store p (TSnd t)
-    = let (rho, store', e', t') = pslice store (VPair bot p) t
+bwdSlice store p (TSnd t)
+    = let (rho, store', e', t') = bwdSlice store (VPair bot p) t
       in (rho, store', ESnd e', TSnd t')
-pslice store (VInL p) (TInL t)
-    = let (rho, store', e', t') = pslice store p t
+bwdSlice store (VInL p) (TInL t)
+    = let (rho, store', e', t') = bwdSlice store p t
       in (rho, store', EInL e', TInL t')
-pslice store VStar (TInL t)
-    = let (rho, store', e', t') = pslice store VStar t
+bwdSlice store VStar (TInL t)
+    = let (rho, store', e', t') = bwdSlice store VStar t
       in (rho, store', EInL e', TInL t')
-pslice store (VInR p) (TInR t)
-    = let (rho, store', e', t') = pslice store p t
+bwdSlice store (VInR p) (TInR t)
+    = let (rho, store', e', t') = bwdSlice store p t
       in (rho, store', EInR e', TInR t')
-pslice store VStar (TInR t)
-    = let (rho, store', e', t') = pslice store VStar t
+bwdSlice store VStar (TInR t)
+    = let (rho, store', e', t') = bwdSlice store VStar t
       in (rho, store', EInR e', TInR t')
 -- JSTOLAREK: This case should be redundant
-pslice store p (TLet x t THole)
-    = let (rho1, store', e1, t1') = pslice store p t
+bwdSlice store p (TLet x t THole)
+    = let (rho1, store', e1, t1') = bwdSlice store p t
       in  (rho1, store', ELet x e1 EHole, TLet x t1' THole)
-pslice store p2 (TLet x t1 t2)
-    = let (rho2, store2, e2, t2') = pslice store p2 t2
+bwdSlice store p2 (TLet x t1 t2)
+    = let (rho2, store2, e2, t2') = bwdSlice store p2 t2
           p1                      = lookupEnv' rho2 x
           rho2'                   = unbindEnv  rho2 x
-          (rho1, store1, e1, t1') = pslice store2 p1 t1
+          (rho1, store1, e1, t1') = bwdSlice store2 p1 t1
       in (rho1 `lub` rho2', store1, ELet x e1 e2, TLet x t1' t2')
-pslice store _ (TOp f ts)
+bwdSlice store _ (TOp f ts)
     = let (rhoA, storeA, esA, tsA) = foldr (\t' (rho', store', es', ts') ->
-                    let (rho'', store'', e, t) = pslice store' VStar t'
+                    let (rho'', store'', e, t) = bwdSlice store' VStar t'
                     in (rho' `lub` rho'', store'', e:es', t:ts'))
                   (bot, store, [], []) ts
       in (rhoA, storeA, EOp f esA, TOp f tsA)
-pslice store p1 (TIfThen t t1)
-    = let (rho1, store1, e1, t1') = pslice store p1 t1
-          (rho , store2, e , t' ) = pslice store1 VStar t
+bwdSlice store p1 (TIfThen t t1)
+    = let (rho1, store1, e1, t1') = bwdSlice store p1 t1
+          (rho , store2, e , t' ) = bwdSlice store1 VStar t
       in (rho `lub` rho1, store2, EIf e e1 EHole, TIfThen t' t1')
-pslice store p2 (TIfElse t t2)
-    = let (rho2, store1, e2, t2') = pslice store p2 t2
-          (rho , store2, e , t' ) = pslice store1 VStar t
+bwdSlice store p2 (TIfElse t t2)
+    = let (rho2, store1, e2, t2') = bwdSlice store p2 t2
+          (rho , store2, e , t' ) = bwdSlice store1 VStar t
       in (rho `lub` rho2, store2, EIf e EHole e2, TIfElse t' t2')
-pslice store p (TIfExn t)
-    = let (rho, store', e, t') = pslice store p t
+bwdSlice store p (TIfExn t)
+    = let (rho, store', e, t') = bwdSlice store p t
       in (rho, store', EIf e EHole EHole, TIfExn t')
-pslice store p1 (TCaseL t x t1)
-    = let (rho1, store1, e1, t1') = pslice store p1 t1
+bwdSlice store p1 (TCaseL t x t1)
+    = let (rho1, store1, e1, t1') = bwdSlice store p1 t1
           p                       = maybeLookupEnv' rho1 x
           rho1'                   = maybeUnbindEnv rho1 x
-          (rho , store2, e , t' ) = pslice store1 (VInL p) t
+          (rho , store2, e , t' ) = bwdSlice store1 (VInL p) t
       in ( rho `lub` rho1', store2, ECase e (Match (x,e1) (bot,bot))
          , TCaseL t' x t1' )
-pslice store p2 (TCaseR t x t2)
-    = let (rho2, store1, e2, t2') = pslice store p2 t2
+bwdSlice store p2 (TCaseR t x t2)
+    = let (rho2, store1, e2, t2') = bwdSlice store p2 t2
           p                       = maybeLookupEnv' rho2 x
           rho2'                   = maybeUnbindEnv rho2 x
-          (rho , store2, e , t' ) = pslice store1 (VInR p) t
+          (rho , store2, e , t' ) = bwdSlice store1 (VInR p) t
       in ( rho `lub` rho2', store2, ECase e (Match (bot,bot) (x,e2))
          , TCaseR t' x t2')
-pslice store p (TCall t1 t2 l t)
-    = let (rho, store', e, t')    = pslice store p (funBody t)
+bwdSlice store p (TCall t1 t2 l t)
+    = let (rho, store', e, t')    = bwdSlice store p (funBody t)
           f                       = funName t
           x                       = funArg  t
           k0                      = Rec f x e Nothing
           p1                      = lookupEnv' rho f
           p2                      = lookupEnv' rho x
           rho0                    = unbindEnv (unbindEnv rho f) x
-          (rho2, store2, e2, t2') = pslice store' p2 t2
-          (rho1, store1, e1, t1') = pslice store2 (p1 `lub` VClosure k0 rho0) t1
+          (rho2, store2, e2, t2') = bwdSlice store' p2 t2
+          (rho1, store1, e1, t1') = bwdSlice store2 (p1 `lub` VClosure k0 rho0) t1
       in ( rho1 `lub` rho2, store1, EApp e1 e2
          , TCall t1' t2' l (Rec f x t' Nothing))
-pslice store p (TCallExn t1 t2)
-    = let (rho2, store2, e2, t2') = pslice store  p t2
-          (rho1, store1, e1, t1') = pslice store2 p t1
+bwdSlice store p (TCallExn t1 t2)
+    = let (rho2, store2, e2, t2') = bwdSlice store  p t2
+          (rho1, store1, e1, t1') = bwdSlice store2 p t1
       in (rho1 `lub` rho2, store1, EApp e1 e2, TCallExn t1' t2')
-pslice store (VRoll tv p) (TRoll tv' t)
+bwdSlice store (VRoll tv p) (TRoll tv' t)
     | tv == tv'
-    = let (rho, store', e, t') = pslice store p t
+    = let (rho, store', e, t') = bwdSlice store p t
       in (rho, store', ERoll tv e, TRoll tv' t')
-pslice store VStar (TRoll tv' t)
-    = let (rho, store', e, t') = pslice store VStar t
+bwdSlice store VStar (TRoll tv' t)
+    = let (rho, store', e, t') = bwdSlice store VStar t
       in (rho, store', ERoll tv' e, TRoll tv' t')
-pslice store p (TUnroll tv t)
-    = let (rho, store', e, t') = pslice store (VRoll tv p) t
+bwdSlice store p (TUnroll tv t)
+    = let (rho, store', e, t') = bwdSlice store (VRoll tv p) t
       in (rho, store', EUnroll tv e, TUnroll tv t')
-pslice store v (TRef (Just l) t) | not (isException v)
-    = let (rho, store', e, t') = pslice store (storeDeref store l) t
+bwdSlice store v (TRef (Just l) t) | not (isException v)
+    = let (rho, store', e, t') = bwdSlice store (storeDeref store l) t
       in (rho, storeUpdateHole store' l, ERef e, TRef (Just l) t')
-pslice store v (TRef Nothing t) | isException v
-    = let (rho, store', e, t') = pslice store v t
+bwdSlice store v (TRef Nothing t) | isException v
+    = let (rho, store', e, t') = bwdSlice store v t
       in (rho, store', ERef e, TRef Nothing t')
-pslice store v (TDeref (Just l) t) | not (isException v)
-    = let (rho, store', e, t') = pslice store (toValue l) t
+bwdSlice store v (TDeref (Just l) t) | not (isException v)
+    = let (rho, store', e, t') = bwdSlice store (toValue l) t
       in (rho, storeUpdate store' l v, EDeref e, TDeref (Just l) t')
-pslice store v (TDeref Nothing t) | isException v
-    = let (rho, store', e, t') = pslice store v t
+bwdSlice store v (TDeref Nothing t) | isException v
+    = let (rho, store', e, t') = bwdSlice store v t
       in (rho, store', EDeref e, TDeref Nothing t')
-pslice store _ (TAssign (Just l) _ _) | not (existsInStore store l)
+bwdSlice store _ (TAssign (Just l) _ _) | not (existsInStore store l)
     = ( bot, store, EHole, TSlicedHole (singletonStoreLabel l) RetValue)
-pslice store v (TAssign (Just l) t1 t2) | not (isException v)
-    = let (rho2, store2, e2, t2') = pslice store  (storeDeref store l) t2
-          (rho1, store1, e1, t1') = pslice store2 (toValue l) t1
+bwdSlice store v (TAssign (Just l) t1 t2) | not (isException v)
+    = let (rho2, store2, e2, t2') = bwdSlice store  (storeDeref store l) t2
+          (rho1, store1, e1, t1') = bwdSlice store2 (toValue l) t1
       in ( rho1 `lub` rho2, storeUpdateHole store1 l, EAssign e1 e2
          , TAssign (Just l) t1' t2')
-pslice store v (TAssign Nothing t1 THole) | isException v
-    = let (rho1, store1, e1, t1') = pslice store v t1
+bwdSlice store v (TAssign Nothing t1 THole) | isException v
+    = let (rho1, store1, e1, t1') = bwdSlice store v t1
       in ( rho1, store1, EAssign e1 EHole, TAssign Nothing t1' THole)
-pslice store v (TAssign (Just l) t1 t2) | isException v
-    = let (rho2, store2, e2, t2') = pslice store  v t2
-          (rho1, store1, e1, t1') = pslice store2 (toValue l) t1
+bwdSlice store v (TAssign (Just l) t1 t2) | isException v
+    = let (rho2, store2, e2, t2') = bwdSlice store  v t2
+          (rho1, store1, e1, t1') = bwdSlice store2 (toValue l) t1
       in ( rho1 `lub` rho2, store1, EAssign e1 e2, TAssign (Just l) t1' t2')
-pslice store v (TSeq t1 t2)
-    = let (rho2, store2, e2, t2') = pslice store v t2
-          (rho1, store1, e1, t1') = pslice store2 VHole t1
+bwdSlice store v (TSeq t1 t2)
+    = let (rho2, store2, e2, t2') = bwdSlice store v t2
+          (rho1, store1, e1, t1') = bwdSlice store2 VHole t1
       in ( rho1 `lub` rho2, store1, ESeq e1 e2, TSeq t1' t2')
-pslice store v (TTry t)
-    = let (rho, store', e, t') = pslice store v t
+bwdSlice store v (TTry t)
+    = let (rho, store', e, t') = bwdSlice store v t
       in (rho, store', ETryWith e bot bot, TTry t')
-pslice store v (TTryWith t1 x t2)
-    = let (rho2, store2, e2, t2') = pslice store v t2
+bwdSlice store v (TTryWith t1 x t2)
+    = let (rho2, store2, e2, t2') = bwdSlice store v t2
           p1                      = lookupEnv' rho2 x
           rho2'                   = unbindEnv  rho2 x
-          (rho1, store1, e1, t1') = pslice store2 (VException p1) t1
+          (rho1, store1, e1, t1') = bwdSlice store2 (VException p1) t1
       in ( rho1 `lub` rho2', store1, ETryWith e1 x e2, TTryWith t1' x t2')
-pslice _ v t = error $ "Cannot slice value " ++ show v ++
-                       " from trace " ++ show t
+bwdSlice _ v t = error $ "Cannot slice value " ++ show v ++
+                         " from trace " ++ show t
