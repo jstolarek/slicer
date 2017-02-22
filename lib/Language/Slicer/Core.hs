@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE PatternSynonyms        #-}
-{-# LANGUAGE StandaloneDeriving     #-}
 
 module Language.Slicer.Core
     ( -- * Abstract syntax
@@ -80,8 +79,6 @@ instance Eq Type where
     RefTy t      == RefTy t'       = t == t'
     TraceTy t    == TraceTy t'     = t == t'
     _            == _              = False
-
-deriving instance Ord Type
 
 -- | Is reference type?
 isRefTy :: Type -> Bool
