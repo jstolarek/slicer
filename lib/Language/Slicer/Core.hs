@@ -545,21 +545,18 @@ instance UpperSemiLattice Value where
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
                       show a ++ " and " ++ show b
 
--- JSTOLAREK: instances below completely ignore new constructors related to
--- references and exceptions.  I'm leaving them out for now to make sure that
--- their absence indeed causes an error when it should
 instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     bot                                = Hole
 
     leq Hole _                        = True
     leq (Var x) (Var x')               = x `leq` x'
     leq (Let x e1 e2) (Let x' e1' e2') = x `leq` x' && e1 `leq` e1' && e2 `leq` e2'
+    leq (CBool b) (CBool b')           = b == b'
     leq (CInt i) (CInt j)              = i == j
     leq (CString i) (CString j)        = i == j
     leq (Op f es) (Op f' es')          | f == f' && length es == length es'
                                        = all (\(x,y) -> x `leq` y) (zip es es')
     leq Unit Unit                      = True
-    leq (CBool _) (CBool _)            = True
     leq (Pair e1 e2) (Pair e1' e2')    = e1 `leq` e1' && e2 `leq` e2'
     leq (Fst e) (Fst e')               = e `leq` e'
     leq (Snd e) (Snd e')               = e `leq` e'
@@ -568,6 +565,7 @@ instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     leq (Fun k) (Fun k')               = k `leq` k'
     leq (Roll tv e) (Roll tv' e')      | tv == tv' = e `leq` e'
     leq (Unroll tv e) (Unroll tv' e')  | tv == tv' = e `leq` e'
+    leq (Seq e1 e2) (Seq e1' e2')      = e1 `leq` e1' && e2 `leq` e2'
     leq a b = error $ "UpperSemiLattice Syntax: error taking leq of " ++
                       show a ++ " and " ++ show b
 
@@ -591,30 +589,45 @@ instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     lub (Fun k) (Fun k')               = Fun (k `lub` k')
     lub (Roll tv e) (Roll tv' e')      | tv == tv' = Roll tv (e `lub` e')
     lub (Unroll tv e) (Unroll tv' e')  | tv == tv' = Unroll tv (e `lub` e')
+    lub (Seq e1 e2) (Seq e1' e2')      = Seq (e1 `lub` e1') (e2 `lub` e2')
     lub a b = error $ "UpperSemiLattice Syntax: error taking lub of " ++
                       show a ++ " and " ++ show b
 
 instance UpperSemiLattice Exp where
     bot                                = Exp Hole
 
-    leq (Exp Hole) _                   = True
+    leq EHole _                        = True
     leq (Exp e1) (Exp e2)              = e1 `leq` e2
     leq (EIf e e1 e2) (EIf e' e1' e2') = e `leq` e' && e1 `leq` e1' && e2 `leq` e2'
     leq (ECase e m) (ECase e' m')      = e `leq` e' && m `leq` m'
     leq (EApp e1 e2) (EApp e1' e2')    = e1 `leq`  e1' && e2 `leq` e2'
     leq (ETrace e) (ETrace e')
         = e `leq` e'
+    leq (ERef   e1) (ERef   e2)        = e1 `leq` e2
+    leq (EDeref e1) (EDeref e2)        = e1 `leq` e2
+    leq (EAssign e1 e2) (EAssign e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (ERaise e1) (ERaise e2)        = e1 `leq` e2
+    leq (ETryWith e1 x e2) (ETryWith e1' x' e2')
+        = e1 `leq` e1' && x `leq` x' && e2 `leq` e2'
     leq a b = error $ "UpperSemiLattice Exp: error taking leq of " ++
                       show a ++ " and " ++ show b
 
-    lub (Exp Hole) e                   = e
-    lub e (Exp Hole)                   = e
+    lub EHole e                        = e
+    lub e EHole                        = e
     lub (Exp e1) (Exp e2)              = Exp (e1 `lub` e2)
     lub (EIf e e1 e2) (EIf e' e1' e2') = EIf (e `lub` e') (e1 `lub` e1') (e2 `lub` e2')
     lub (ECase e m) (ECase e' m')      = ECase (e `lub` e') (m `lub` m')
     lub (EApp e1 e2) (EApp e1' e2')    = EApp (e1 `lub` e1') (e2 `lub` e2')
     lub (ETrace e) (ETrace e')
         = ETrace (e `lub` e')
+    lub (ERef   e1) (ERef   e2)        = ERef   (e1 `lub` e2)
+    lub (EDeref e1) (EDeref e2)        = EDeref (e1 `lub` e2)
+    lub (EAssign e1 e2) (EAssign e1' e2')
+        = EAssign (e1 `lub` e1') (e2 `lub` e2')
+    lub (ERaise e1) (ERaise e2)        = ERaise (e1 `lub` e2)
+    lub (ETryWith e1 x e2) (ETryWith e1' x' e2')
+        = ETryWith (e1 `lub` e1') (x `lub` x') (e2 `lub` e2')
     lub a b = error $ "UpperSemiLattice Exp: error taking lub of " ++
                       show a ++ " and " ++ show b
 
@@ -639,35 +652,60 @@ instance UpperSemiLattice Match where
 
 
 instance UpperSemiLattice Trace where
-    bot                = TExp Hole
+    bot                = THole
 
-    leq (TExp Hole) _ = True
+    leq t _ | isTHole t = True
+    leq (TExp t1) (TExp t2) = t1 `leq`  t2
     leq (TIfThen t t1) (TIfThen t' t1')
         = t `leq` t' && t1 `leq` t1'
     leq (TIfElse t t2) (TIfElse t' t2')
         = t `leq` t' && t2 `leq` t2'
+    leq (TIfExn t) (TIfExn t')
+        = t `leq` t'
     leq (TCaseL t x t1) (TCaseL t' x' t1')
         = t `leq` t' && x == x' && t1 `leq` t1'
     leq (TCaseR t x t2) (TCaseR t'  x' t2')
         = t `leq` t' && x == x' && t2 `leq` t2'
     leq (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = t1 `leq` t1' && t2 `leq` t2' && k `leq` k' && t `leq` t'
+    leq (TCallExn t1 t2) (TCallExn t1' t2')
+        = t1 `leq` t1' && t2 `leq` t2'
+    leq (TRef l t) (TRef l' t') | l == l' = t `leq` t'
+    leq (TDeref l t) (TDeref l' t') | l == l' = t `leq` t'
+    leq (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2'
+    leq (TRaise t) (TRaise t') = t `leq` t'
+    leq (TTry t) (TTry t') = t `leq` t'
+    leq (TTryWith t1 x t2) (TTryWith t1' x' t2')
+        = t1 `leq` t1' && x `leq` x' && t2 `leq` t2'
     leq a b = error $ "UpperSemiLattice Trace: error taking leq of " ++
                       show a ++ " and " ++ show b
 
-    lub (TExp Hole) e       = e
-    lub e (TExp Hole)       = e
+    lub t1 t2 | isTHole t1 = t2
+    lub t1 t2 | isTHole t2 = t1
     lub (TExp e1) (TExp e2) = TExp (e1 `lub` e2)
     lub (TIfThen t t1) (TIfThen t' t1')
         = TIfThen (t `lub` t') (t1 `lub` t1')
     lub (TIfElse t t2) (TIfElse t' t2')
         = TIfElse (t `lub` t') (t2 `lub` t2')
+    lub (TIfExn t) (TIfExn t')
+        = TIfExn (t `lub` t')
     lub (TCaseL t x t1) (TCaseL t' x' t1')
         = TCaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
     lub (TCaseR t x t2) (TCaseR t' x' t2')
         = TCaseR (t `lub` t') (x `lub` x') (t2 `lub` t2')
     lub (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = TCall (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
+    lub (TCallExn t1 t2) (TCallExn t1' t2')
+        = TCallExn (t1 `lub` t1') (t2 `lub` t2')
+    lub (TRef l t) (TRef l' t') | l == l' = TRef l (t `lub` t')
+    lub (TDeref l t) (TDeref l' t') | l == l' = TDeref l (t `lub` t')
+    lub (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
+        = TAssign l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TRaise t) (TRaise t') = TRaise (t `lub` t')
+    lub (TTry t) (TTry t') = TTry (t `lub` t')
+    lub (TTryWith t1 x t2) (TTryWith t1' x' t2')
+        = TTryWith (t1 `lub` t1') (x `lub` x') (t2 `lub` t2')
     lub a b = error $ "UpperSemiLattice Trace: error taking lub of " ++
                       show a ++ " and " ++ show b
 
