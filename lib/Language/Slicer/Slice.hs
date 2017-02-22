@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances    #-}
 
 module Language.Slicer.Slice
-    ( bslice, bwdSlice
+    ( traceSlice, bwdSlice
     ) where
 
 import           Language.Slicer.Core
@@ -13,8 +13,8 @@ import           Language.Slicer.UpperSemiLattice
 
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
-bslice :: Store -> Value -> Trace -> (Trace, Env Value)
-bslice store value trace =
+traceSlice :: Store -> Value -> Trace -> (Trace, Env Value)
+traceSlice store value trace =
     let (env, _, _, trace') = bwdSlice store value trace
     in (trace', env)
 

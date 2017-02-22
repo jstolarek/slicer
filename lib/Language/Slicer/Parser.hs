@@ -106,8 +106,9 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strRef, strRoll, strSnd, strThen, strTrace, strTrue, strTry
            , strUnit, strUnroll, strWith
            ] ++ map show
-           [ PrimVal, PrimSlice, PrimBwdSlice, PrimVisualize, PrimVisualizeDiff
-           , PrimProfile, PrimProfileDiff, PrimTreeSize
+           [ PrimVal, PrimTraceSlice, PrimBwdSlice
+           , PrimVisualize, PrimVisualizeDiff, PrimProfile, PrimProfileDiff
+           , PrimTreeSize
            ]
 
 -- Some helpers.
@@ -441,13 +442,13 @@ traceval_ = do
    return (Op PrimVal [e])
 
 slice_ :: Parser Exp
-slice_ = do keyword (show PrimSlice)
+slice_ = do keyword (show PrimTraceSlice)
             (e1,e2) <- parenthesise $ do
                           e1 <- exp
                           _  <- comma token_
                           e2 <- exp
                           return (e1,e2)
-            return (Op PrimSlice [e1,e2])
+            return (Op PrimTraceSlice [e1,e2])
 
 
 pslice_ :: Parser Exp

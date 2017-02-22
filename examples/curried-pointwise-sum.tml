@@ -16,5 +16,5 @@ let sum =
 in
 let p = Cons(_:int, Cons (12, Nil)) in
 let t = trace (sum l1 l2) in
-let s = slice (t, p) in
+let s = traceSlice (t, p) in
 read s

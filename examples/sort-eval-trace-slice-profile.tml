@@ -53,7 +53,7 @@ let sum = fun sum (xs : intlist) : int =>
 in
 let l = mklist 1000 in
 let t = trace(mergesort(l)) in
-let s = slice(t,Cons(1,_:intlist)) in
+let s = traceSlice(t,Cons(1,_:intlist)) in
 let p = profile(s) in
 let v = read(t) in
 sum(v)

@@ -37,5 +37,5 @@ let listeq = fun listeq (xs:intlist) (ys:intlist) : bool =>
 in
 let xs = mklist 100 in
 let t = trace(fastreverse xs) in
-let s = slice(t,Cons(1,_:intlist)) in
+let s = traceSlice(t,Cons(1,_:intlist)) in
 read(t)
