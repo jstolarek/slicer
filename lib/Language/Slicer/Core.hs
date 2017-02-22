@@ -793,12 +793,14 @@ storeLookup (Store refs _) (StoreLabel label) =
 -- value was allocated
 storeInsert :: Store -> Value -> (Store, StoreLabel)
 storeInsert (Store refs refCount) v =
+    assert (not (isException v)) $
     (Store (M.insert refCount v refs) (refCount + 1), StoreLabel refCount)
 
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
 storeUpdate (Store refs refCount) (StoreLabel l) v =
-    assert (l `M.member` refs) $
+    assert (l `M.member` refs)   $
+    assert (not (isException v)) $
     Store (M.insert l v refs) refCount
 
 -- | Update a label already present in a store to contain hole

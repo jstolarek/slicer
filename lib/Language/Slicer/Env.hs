@@ -105,6 +105,6 @@ maybeUnbindEnv (Env env) (Just x) = Env (Map.delete x env)
 maybeUnbindEnv      env   Nothing = env
 
 instance (UpperSemiLattice a) => UpperSemiLattice (Env a) where
-    bot                                = Env Map.empty
-    leq (Env env1) (Env env2)          = Map.isSubmapOfBy leq env1 env2
-    lub (Env env1) (Env env2)          = Env (Map.unionWith lub env1 env2)
+    bot                       = Env Map.empty
+    leq (Env env1) (Env env2) = Map.isSubmapOfBy leq env1 env2
+    lub (Env env1) (Env env2) = Env (Map.unionWith lub env1 env2)
