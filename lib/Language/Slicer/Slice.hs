@@ -11,66 +11,10 @@ import           Language.Slicer.Core
 import           Language.Slicer.Env
 import           Language.Slicer.UpperSemiLattice
 
-import           Control.Exception ( assert      )
-import qualified Data.IntMap as M
 import           Data.Maybe        ( maybeToList )
 
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.
-
--- | Get list of labels that a trace writes to
-storeWrites :: Trace -> StoreLabels
--- relevant store assignments
-storeWrites (TRef l t)         = maybeToList l ++ storeWrites t
-storeWrites (TAssign l t1 t2)
-    = maybeToList l ++ storeWrites t1 ++ storeWrites t2
--- sliced hole annotated with store labels
-storeWrites (TSlicedHole ls _) = ls
-storeWrites (TIfThen t1 t2)    = storeWrites t1 ++ storeWrites t2
-storeWrites (TIfElse t1 t2)    = storeWrites t1 ++ storeWrites t2
-storeWrites (TIfExn t)         = storeWrites t
-storeWrites (TCaseL t1 _ t2)   = storeWrites t1 ++ storeWrites t2
-storeWrites (TCaseR t1 _ t2)   = storeWrites t1 ++ storeWrites t2
-storeWrites (TCall t1 t2 _ (Rec _ _ t3 _))
-    = storeWrites t1 ++ storeWrites t2 ++ storeWrites t3
-storeWrites (TCallExn t1 t2)   = storeWrites t1 ++ storeWrites t2
-storeWrites (TDeref _ t)       = storeWrites t
-storeWrites (TRaise t)         = storeWrites t
-storeWrites (TTry t)           = storeWrites t
-storeWrites (TTryWith t1 _ t2) = storeWrites t1 ++ storeWrites t2
-storeWrites (TLet _ t1 t2)     = storeWrites t1 ++ storeWrites t2
-storeWrites (TPair t1 t2)      = storeWrites t1 ++ storeWrites t2
-storeWrites (TSeq t1 t2)       = storeWrites t1 ++ storeWrites t2
-storeWrites (TOp _ ts)         = concatMap storeWrites ts
-storeWrites (TFst t)           = storeWrites t
-storeWrites (TSnd t)           = storeWrites t
-storeWrites (TInL t)           = storeWrites t
-storeWrites (TInR t)           = storeWrites t
-storeWrites (TRoll _ t)        = storeWrites t
-storeWrites (TUnroll _ t)      = storeWrites t
-storeWrites TUnit              = []
-storeWrites (TVar _)           = []
-storeWrites (TBool _)          = []
-storeWrites (TInt _)           = []
-storeWrites (TString _)        = []
-storeWrites (TFun _)           = []
-storeWrites THole              = []
-storeWrites (TExp e)
-    = error ("Impossible happened at storeWrites: " ++ show e)
-
-insertStoreHole :: Store -> StoreLabel -> Store
-insertStoreHole = updateLabel VHole
-
-updateLabel :: Value -> Store -> StoreLabel -> Store
-updateLabel val st l =
-  assert (l `M.member` st) $
-  M.insert l val st
-
-isStoreHole :: Store -> StoreLabel -> Bool
-isStoreHole store l = not (l `M.member` store) || (M.!) store l == VHole
-
-allHoles :: Store -> StoreLabels -> Bool
-allHoles store labels = all (isStoreHole store) labels
 
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
@@ -170,9 +114,9 @@ pslice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
 pslice store VHole (TRaise t)
     = let (rho, store', e, t') = pslice store VStar t
       in (rho, store', ERaise e, TRaise t')
-pslice store (VException VHole) trace | allHoles store (storeWrites trace)
+pslice store (VException VHole) trace | allStoreHoles store (storeWrites trace)
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
-pslice store VHole trace | allHoles store (storeWrites trace)
+pslice store VHole trace | allStoreHoles store (storeWrites trace)
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
 pslice store (VException _) THole -- JSTOLAREK: speculative equation
     = (bot, store, EHole, THole)
@@ -301,7 +245,7 @@ pslice store p (TUnroll tv t)
       in (rho, store', EUnroll tv e, TUnroll tv t')
 pslice store v (TRef (Just l) t) | not (isException v)
     = let (rho, store', e, t') = pslice store (deref store l) t
-      in (rho, insertStoreHole store' l, ERef e, TRef (Just l) t')
+      in (rho, storeInsertHole store' l, ERef e, TRef (Just l) t')
 pslice store v (TRef Nothing t) | isException v
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', ERef e, TRef Nothing t')
@@ -316,7 +260,7 @@ pslice store _ (TAssign (Just l) _ _) | not (existsInStore store l)
 pslice store v (TAssign (Just l) t1 t2) | not (isException v)
     = let (rho2, store2, e2, t2') = pslice store  (deref store l) t2
           (rho1, store1, e1, t1') = pslice store2 (VStoreLoc l) t1
-      in ( rho1 `lub` rho2, insertStoreHole store1 l, EAssign e1 e2
+      in ( rho1 `lub` rho2, storeInsertHole store1 l, EAssign e1 e2
          , TAssign (Just l) t1' t2')
 pslice store v (TAssign Nothing t1 THole) | isException v
     = let (rho1, store1, e1, t1') = pslice store v t1

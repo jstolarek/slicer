@@ -19,7 +19,10 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise, unnestException, deref, storeInsert, existsInStore
+    , isException, isRaise, unnestException
+
+    -- * Store abstraction
+    , deref, storeInsert, storeInsertHole, existsInStore, storeWrites, allStoreHoles
 
     , Pattern(extract)
 
@@ -42,6 +45,7 @@ import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
 import           Control.DeepSeq    ( NFData                                  )
+import           Control.Exception ( assert      )
 import           Data.Map as Map    ( Map, fromList, mapWithKey, keys, member )
 import           Data.Maybe
 import qualified Data.IntMap as M
@@ -188,13 +192,6 @@ instance Pretty Type where
     pPrint (RefTy ty)   = text "ref" <> parens (pPrint ty)
     pPrint (TraceTy ty) = text "trace" <> parens (pPrint ty)
 
--- | Internal labels used during runtime to identify store locations
-type StoreLabel  = Int
-type StoreLabels = [ StoreLabel ]
-
--- | Reference store
-type Store = M.IntMap Value
-
 type Ctx = Env Type
 
 data Lab = L { unL  :: String
@@ -211,18 +208,6 @@ instance Ord Lab where
     compare (L s h) (L s' h') = case compare h h' of
                                   EQ -> compare s s'
                                   o  -> o
-
-deref :: Store -> StoreLabel -> Value
-deref store label =
-    if (label `M.member` store)
-    then (M.!) store label
-    else bot
-
-storeInsert :: Store -> StoreLabel -> Value -> Store
-storeInsert store l v = M.insert l v store
-
-existsInStore :: Store -> StoreLabel -> Bool
-existsInStore store label = label `M.member` store
 
 mkL :: String -> Lab
 mkL s = L s (H.hash s)
@@ -770,6 +755,91 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
                            (lookupEnv' env2 x)) (Map.keys penv')
     extract (Env penv') env
         = Env (Map.mapWithKey (\x p -> extract p (lookupEnv' env x)) penv')
+
+--------------------------------------------------------------------------------
+--                           REFERENCE STORE                                  --
+--------------------------------------------------------------------------------
+
+-- | Internal labels used during runtime to identify store locations
+type StoreLabel  = Int
+type StoreLabels = [ StoreLabel ]
+
+-- | Reference store
+type Store = M.IntMap Value
+
+-- | Dereference a label.  If label is absent in the store return bottom
+deref :: Store -> StoreLabel -> Value
+deref store label =
+    if (label `M.member` store)
+    then store M.! label
+    else bot
+
+-- | Insert a value into a store under a given label.  Requires that label
+-- already exists in store.
+storeInsert :: Store -> StoreLabel -> Value -> Store
+storeInsert store l v = assert (l `M.member` store) $ M.insert l v store
+
+-- | Insert a hole into a store under a given label.  Requires that label
+-- already exists in store.
+storeInsertHole :: Store -> StoreLabel -> Store
+storeInsertHole store label = storeInsert store label VHole
+
+-- | Check if a label is allocated in a store
+existsInStore :: Store -> StoreLabel -> Bool
+existsInStore store label = label `M.member` store
+
+-- | Return true if a label does not exists in a store or exsists and points to
+-- a hole
+isStoreHole :: Store -> StoreLabel -> Bool
+isStoreHole store l = not (existsInStore store l) || (M.!) store l == VHole
+
+-- | Check if all store labels are store holes (according to `isStoreHole`)
+allStoreHoles :: Store -> StoreLabels -> Bool
+allStoreHoles store labels = all (isStoreHole store) labels
+
+-- | Get list of labels that a trace writes to
+storeWrites :: Trace -> StoreLabels
+-- relevant store assignments
+storeWrites (TRef l t)         = maybeToList l ++ storeWrites t
+storeWrites (TAssign l t1 t2)
+    = maybeToList l ++ storeWrites t1 ++ storeWrites t2
+-- sliced hole annotated with store labels
+storeWrites (TSlicedHole ls _) = ls
+storeWrites (TIfThen t1 t2)    = storeWrites t1 ++ storeWrites t2
+storeWrites (TIfElse t1 t2)    = storeWrites t1 ++ storeWrites t2
+storeWrites (TIfExn t)         = storeWrites t
+storeWrites (TCaseL t1 _ t2)   = storeWrites t1 ++ storeWrites t2
+storeWrites (TCaseR t1 _ t2)   = storeWrites t1 ++ storeWrites t2
+storeWrites (TCall t1 t2 _ (Rec _ _ t3 _))
+    = storeWrites t1 ++ storeWrites t2 ++ storeWrites t3
+storeWrites (TCallExn t1 t2)   = storeWrites t1 ++ storeWrites t2
+storeWrites (TDeref _ t)       = storeWrites t
+storeWrites (TRaise t)         = storeWrites t
+storeWrites (TTry t)           = storeWrites t
+storeWrites (TTryWith t1 _ t2) = storeWrites t1 ++ storeWrites t2
+storeWrites (TLet _ t1 t2)     = storeWrites t1 ++ storeWrites t2
+storeWrites (TPair t1 t2)      = storeWrites t1 ++ storeWrites t2
+storeWrites (TSeq t1 t2)       = storeWrites t1 ++ storeWrites t2
+storeWrites (TOp _ ts)         = concatMap storeWrites ts
+storeWrites (TFst t)           = storeWrites t
+storeWrites (TSnd t)           = storeWrites t
+storeWrites (TInL t)           = storeWrites t
+storeWrites (TInR t)           = storeWrites t
+storeWrites (TRoll _ t)        = storeWrites t
+storeWrites (TUnroll _ t)      = storeWrites t
+storeWrites TUnit              = []
+storeWrites (TVar _)           = []
+storeWrites (TBool _)          = []
+storeWrites (TInt _)           = []
+storeWrites (TString _)        = []
+storeWrites (TFun _)           = []
+storeWrites THole              = []
+storeWrites (TExp e)
+    = error ("Impossible happened at storeWrites: " ++ show e)
+
+--------------------------------------------------------------------------------
+--              BUILT-IN ARITHMETIC AND LOGICAL OPERATORS                     --
+--------------------------------------------------------------------------------
 
 commonOps :: Eq a => Map Primitive ((a, a) -> Value)
 commonOps = fromList
