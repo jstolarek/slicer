@@ -2,7 +2,7 @@ module Main (
     main
  ) where
 
-import           Language.Slicer.API
+import           Language.Slicer.Run
 
 import           Control.DeepSeq
 import           Control.Exception.Base
@@ -46,6 +46,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
     , "exceptions3"
     , "filter"
     , "foo"
+    , "icfp17-example"
     , "map-increment-closed"
     , "map-increment"
     , "map"

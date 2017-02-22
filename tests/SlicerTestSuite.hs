@@ -21,6 +21,7 @@ tests =
       , runTMLTest "exceptions3"
       , runTMLTest "filter"
       , runTMLTest "foo"
+      , runTMLTest "icfp17-example"
       , runTMLTest "map-increment-closed"
       , runTMLTest "map-increment"
       , runTMLTest "map"

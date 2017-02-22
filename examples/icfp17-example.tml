@@ -1,0 +1,14 @@
+let w = ref 0 in
+let y = ref 0 in
+let z = ref 7 in
+let g = fun g (x : int) : int => x in
+let t = trace (
+let f = fun f (x : int) : unit =>
+            if (x = 0)
+            then y := 6 * !z
+            else if !z /= 0
+                 then y := 9 / !z
+                 else (raise "Division by zero") ;;
+            w := g (!y + 12) in
+(try f 0 with x => y := 42);; !y) in
+bwdSlice (t, 42)
