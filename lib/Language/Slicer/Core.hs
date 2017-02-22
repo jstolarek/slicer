@@ -417,16 +417,16 @@ unnestException (VException v) = unnestException v
 unnestException v              = v
 
 class Valuable a where
-    to_val :: a -> Value
+    toValue :: a -> Value
 
 instance Valuable Int where
-    to_val i = VInt i
+    toValue i = VInt i
 
 instance Valuable Bool where
-    to_val b = VBool b
+    toValue b = VBool b
 
 instance Valuable () where
-    to_val () = VUnit
+    toValue () = VUnit
 
 -- Enevaluation.  Squash trace back down into expression.
 class Uneval a b | a -> b where
@@ -766,7 +766,7 @@ newtype StoreLabel = StoreLabel Int deriving ( Show, Eq, Ord, Generic, NFData )
 type StoreLabels = [ StoreLabel ]
 
 instance Valuable StoreLabel where
-    to_val = VStoreLoc
+    toValue = VStoreLoc
 
 -- | Reference store
 data Store = Store (M.IntMap Value) Int
@@ -866,36 +866,36 @@ storeWrites (TExp e)
 
 commonOps :: Eq a => Map Primitive ((a, a) -> Value)
 commonOps = fromList
-   [ (OpEq , to_val . uncurry (==))
-   , (OpNeq, to_val . uncurry (/=))
+   [ (OpEq , toValue . uncurry (==))
+   , (OpNeq, toValue . uncurry (/=))
    ]
 
 intBinOps :: Map Primitive ((Int, Int) -> Value)
 intBinOps = fromList
-   [ (OpPlus , to_val . uncurry (+))
-   , (OpMinus, to_val . uncurry (-))
-   , (OpTimes, to_val . uncurry (*))
-   , (OpDiv  , to_val . uncurry div)
-   , (OpMod  , to_val . uncurry mod)
+   [ (OpPlus , toValue . uncurry (+))
+   , (OpMinus, toValue . uncurry (-))
+   , (OpTimes, toValue . uncurry (*))
+   , (OpDiv  , toValue . uncurry div)
+   , (OpMod  , toValue . uncurry mod)
    ]
 
 intRelOps :: Map Primitive ((Int, Int) -> Value)
 intRelOps = fromList
-   [ (OpLt   , to_val . uncurry (<) )
-   , (OpGt   , to_val . uncurry (>) )
-   , (OpLeq  , to_val . uncurry (<=))
-   , (OpGeq  , to_val . uncurry (>=))
+   [ (OpLt , toValue . uncurry (<) )
+   , (OpGt , toValue . uncurry (>) )
+   , (OpLeq, toValue . uncurry (<=))
+   , (OpGeq, toValue . uncurry (>=))
    ]
 
 boolRelOps :: Map Primitive ((Bool, Bool) -> Value)
 boolRelOps = fromList
-   [ (OpAnd, to_val . uncurry (&&))
-   , (OpOr , to_val . uncurry (||))
+   [ (OpAnd, toValue . uncurry (&&))
+   , (OpOr , toValue . uncurry (||))
    ]
 
 boolUnOps :: Map Primitive (Bool -> Value)
 boolUnOps = fromList
-   [ (OpNot, to_val . not) ]
+   [ (OpNot, toValue . not) ]
 
 isCommonOp :: Primitive -> Bool
 -- instantiate type variable in commonOps to () to avoid type ambiguity
