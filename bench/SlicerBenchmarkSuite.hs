@@ -47,6 +47,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
     , "filter"
     , "foo"
     , "icfp17-example"
+    , "icfp17-example2"
     , "map-increment-closed"
     , "map-increment"
     , "map"
