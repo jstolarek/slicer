@@ -22,7 +22,6 @@ import           Language.Slicer.Monad
 import           Control.DeepSeq               ( NFData     )
 import           Control.Monad.Except
 import           Control.Monad.State.Strict
-import qualified Data.IntMap as M
 import           GHC.Generics                  ( Generic    )
 
 -- | Monad for evaluation.  Stacks several monads:
@@ -39,9 +38,8 @@ type EvalM = StateT EvalState (ExceptT SlicerError IO)
 
 -- | State of the evaluation monad
 data EvalState = EvalState
-    { envS     :: Env Value -- ^ Environment ρ, stores variable values
-    , refCount :: Int       -- ^ Reference counter
-    , refs     :: Store     -- ^ Reference store
+    { envS :: Env Value -- ^ Environment ρ, stores variable values
+    , refs :: Store     -- ^ Reference store
     } deriving (Eq, Ord, Generic, NFData)
 
 -- | Run the evaluation monad with a supplied state.  Return result and final
@@ -56,7 +54,7 @@ evalEvalM st m = evalStateT m (addEmptyStore st)
 
 -- | Construct empty EvalState
 emptyEvalState :: EvalState
-emptyEvalState = EvalState emptyEnv 0 M.empty
+emptyEvalState = EvalState emptyEnv emptyStore
 
 -- | Get current evaluation state
 getEvalState :: EvalM EvalState
@@ -76,12 +74,12 @@ getStore = do
 setStore :: Store -> EvalM ()
 setStore store = do
     env <- getEnv
-    put (EvalState env (M.size store) store)
+    put (EvalState env store)
 
 -- | Constructs evaluation state containing a given environment and an empty
 -- reference store
 addEmptyStore :: Env Value -> EvalState
-addEmptyStore env = EvalState env 0 M.empty
+addEmptyStore env = EvalState env emptyStore
 
 -- | Add variable binding to environment
 addBinding :: EvalState -> Var -> Value -> EvalState
@@ -108,15 +106,15 @@ setEnv env = do
 -- | Allocates a new reference number
 newRef :: Value -> EvalM Value
 newRef val = do
-  st@(EvalState { refCount, refs }) <- get
-  let newRefs = M.insert refCount val refs
-  put $ st { refCount = refCount + 1, refs = newRefs }
-  return (VStoreLoc refCount)
+  st@(EvalState { refs }) <- get
+  let (newRefs, label) = storeInsert refs val
+  put $ st { refs = newRefs }
+  return (VStoreLoc label)
 
 getRef :: Value -> EvalM Value
 getRef (VStoreLoc l) = do
   EvalState { refs } <- get
-  case M.lookup l refs of
+  case storeLookup refs l of
     Just ref -> return ref
     Nothing  -> evalError "Cannot read reference: not allocated"
 getRef v = evalError ("Not a reference value: " ++ show v)
@@ -124,8 +122,9 @@ getRef v = evalError ("Not a reference value: " ++ show v)
 updateRef :: Value -> Value -> EvalM ()
 updateRef (VStoreLoc l) val = do
   st@(EvalState { refs }) <- get
-  unless (l `M.member` refs) $ evalError "Cannot update reference: not allocated"
-  put $ st { refs = M.insert l val refs }
+  unless (existsInStore refs l) $
+         evalError "Cannot update reference: not allocated"
+  put $ st { refs = storeUpdate refs l val }
 updateRef v _ = evalError ("Not a reference value: " ++ show v)
 
 -- | Run monadic evaluation with extra binder in scope
