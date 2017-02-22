@@ -154,7 +154,7 @@ evalTraceOp :: Primitive -> [Value] -> EvalM Value
 evalTraceOp PrimVal [VTrace v _ _ _] = return v
 evalTraceOp PrimSlice [VTrace v t env st, p]
     | p `leq` v
-    = do let (t',penv) = bslice p t
+    = do let (t',penv) = bslice st p t
              v'        = extract p v
              env'      = extract penv env
              -- JSTOLAREK: update store argument

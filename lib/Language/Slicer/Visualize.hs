@@ -154,9 +154,9 @@ instance Visualizable Exp where
                    ++ show e ++ " and e' is " ++ show e')
 
 instance Visualizable Trace where
-    graphDiff THole THole = hole
-    graphDiff t     THole = withColor leftColor  (graphDiff t t)
-    graphDiff THole t     = withColor rightColor (graphDiff t t)
+    graphDiff t1 t2 | isTHole t1 && isTHole t2 = hole
+    graphDiff t1 t2 | isTHole t2 = withColor leftColor  (graphDiff t1 t1)
+    graphDiff t1 t2 | isTHole t1 = withColor rightColor (graphDiff t2 t2)
     graphDiff (TExp e) (TExp e') = graphDiff e e'
     graphDiff (TIfThen t t1) (TIfThen t' t1') =
         do i <- node "if/t"
