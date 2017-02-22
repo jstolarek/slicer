@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveAnyClass   #-}
 {-# LANGUAGE DeriveGeneric    #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Language.Slicer.Resugar
     ( RExp, resugar
@@ -13,13 +16,19 @@ import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
+import           Language.Slicer.UpperSemiLattice
 
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
 import           Text.PrettyPrint.HughesPJClass
 
 -- See GitHub ticket #10 and pull request #20 for discussion and thoughts on
--- possible improvements to the resugaring mechanism
+-- possible improvements to the resugaring mechanism.  See #24 for thoughts on
+-- resugaring of error messages.
+
+--------------------------------------------------------------------------------
+--                   RESUGARED EXPRESSION LANGUAGE                            --
+--------------------------------------------------------------------------------
 
 data RExp = RVar Var | RLet Var RExp RExp
           | RUnit
@@ -42,6 +51,64 @@ data RCode = RRec Var [Var] RExp -- name, args, body
 
 data RMatch = RMatch [ ( Con, Maybe Var, RExp ) ]
               deriving (Show, Eq, Ord, Generic, NFData)
+
+
+--------------------------------------------------------------------------------
+--                            UNEVALUATION                                    --
+--------------------------------------------------------------------------------
+
+-- Unevaluation squashes a trace back down into an expression.  When resugaring
+-- a trace it first gets unevaluated into an expression and then that expression
+-- is resugared.  The benefit is that the fairly complicated logic of resugaring
+-- is written only once at the expense of having to define a relatively simple
+-- unevaluation logic.
+
+class Uneval a b | a -> b where
+    uneval :: a -> b
+
+instance Uneval Trace Exp where
+    uneval (TCaseL t x t1)   = ECase (uneval t) (Match (x, uneval t1) (bot, bot))
+    uneval (TCaseR t x t2)   = ECase (uneval t) (Match (bot, bot) (x, uneval t2))
+    uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) bot
+    uneval (TIfElse t t2)    = EIf (uneval t) bot (uneval t2)
+    uneval (TIfExn t)        = EIf (uneval t) bot bot
+    uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)
+    uneval (TCallExn t1 t2)  = EApp (uneval t1) (uneval t2)
+    uneval (TRef _ t)        = ERef (uneval t)
+    uneval (TDeref _ t)      = EDeref (uneval t)
+    uneval (TAssign _ t1 t2) = EAssign (uneval t1) (uneval t2)
+    uneval (TRaise t)        = ERaise (uneval t)
+    uneval (TTry t)          = ETryWith (uneval t) bot bot
+    uneval (TTryWith t x h)  = ETryWith (uneval t) x (uneval h)
+    uneval (TExp expr)       = Exp (uneval expr)
+    uneval (TSlicedHole _ _) = EHole
+
+instance Uneval a b => Uneval (Syntax a) (Syntax b) where
+    uneval (Var x)       = Var x
+    uneval Unit          = Unit
+    uneval Hole          = Hole
+    uneval (CBool b)     = CBool b
+    uneval (CInt i)      = CInt i
+    uneval (CString s)   = CString s
+    uneval (Fun k)       = Fun k
+    uneval (Let x e1 e2) = Let x (uneval e1) (uneval e2)
+    uneval (Op f es)     = Op f (map uneval es)
+    uneval (Pair e1 e2)  = Pair (uneval e1) (uneval e2)
+    uneval (Fst e)       = Fst (uneval e)
+    uneval (Snd e)       = Snd (uneval e)
+    uneval (InL e)       = InL (uneval e)
+    uneval (InR e)       = InR (uneval e)
+    uneval (Roll tv e)   = Roll tv (uneval e)
+    uneval (Unroll tv e) = Unroll tv (uneval e)
+    uneval (Seq e1 e2)   = Seq (uneval e1) (uneval e2)
+
+instance Uneval a b => Uneval (Code a) (Code b) where
+    uneval (Rec name arg body label) = Rec name arg (uneval body) label
+
+
+--------------------------------------------------------------------------------
+--                             RESUGARING                                     --
+--------------------------------------------------------------------------------
 
 resugar :: Resugarable a => TyCtx -> a -> SlM RExp
 resugar decls expr = runDesugarM decls emptyEnv (resugarM expr)
@@ -152,46 +219,6 @@ instance Resugarable Exp where
 instance Resugarable Trace where
     resugarM t = resugarM (uneval t)
 
-resugarMatch :: Resugarable a => TyVar -> (Maybe Var, a) -> (Maybe Var, a)
-             -> DesugarM RMatch
-resugarMatch dataty (v1, e1) (v2, e2)
-    = do decls <- getDecls
-         e1' <- resugarM e1
-         e2' <- resugarM e2
-         case getTyDeclByName decls dataty of
-           Just decl ->
-               return (RMatch [ ((conL decl), v1, e1')
-                              , ((conR decl), v2, e2') ] )
-           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
-
-resugarMultiFun :: Code Exp -> ([Var], Exp)
-resugarMultiFun = go []
-    where go :: [Var] -> Code Exp -> ([Var], Exp)
-          go args (Rec _ arg (EFun code) _) = go (arg:args) code
-          go args (Rec _ arg body        _) = (arg:args, body)
-
--- | Class of syntax trees that can contain InL or InR constructors.  We need
---   this in Resugarable instance for Syntax, because Syntax can be
---   parameterized by Exp or Trace and in the Roll case we need a uniform way of
---   pattern matching on InL/InR.
-class AskConstrs a where
-    maybeInL :: a -> Maybe a
-    maybeInR :: a -> Maybe a
-
-instance AskConstrs Exp where
-    maybeInL (EInL e) = Just e
-    maybeInL _        = Nothing
-
-    maybeInR (EInR e) = Just e
-    maybeInR _        = Nothing
-
-instance AskConstrs Trace where
-    maybeInL (TInL e) = Just e
-    maybeInL _        = Nothing
-
-    maybeInR (TInR e) = Just e
-    maybeInR _        = Nothing
-
 instance Resugarable Value where
     resugarM VHole       = return RHole
     resugarM VUnit       = return RUnit
@@ -236,6 +263,56 @@ instance Resugarable Value where
                         "Where did you get this value from?" )
     resugarM (VStoreLoc _)
         = resugarError ("Cannot resugar store labels")
+
+
+--------------------------------------------------------------------------------
+--                      RESUGARING - HELPER FUNCTIONS                         --
+--------------------------------------------------------------------------------
+
+resugarMatch :: Resugarable a => TyVar -> (Maybe Var, a) -> (Maybe Var, a)
+             -> DesugarM RMatch
+resugarMatch dataty (v1, e1) (v2, e2)
+    = do decls <- getDecls
+         e1' <- resugarM e1
+         e2' <- resugarM e2
+         case getTyDeclByName decls dataty of
+           Just decl ->
+               return (RMatch [ ((conL decl), v1, e1')
+                              , ((conR decl), v2, e2') ] )
+           Nothing -> resugarError ("Unknown data type: " ++ show dataty)
+
+resugarMultiFun :: Code Exp -> ([Var], Exp)
+resugarMultiFun = go []
+    where go :: [Var] -> Code Exp -> ([Var], Exp)
+          go args (Rec _ arg (EFun code) _) = go (arg:args) code
+          go args (Rec _ arg body        _) = (arg:args, body)
+
+-- | Class of syntax trees that can contain InL or InR constructors.  We need
+--   this in Resugarable instance for Syntax, because Syntax can be
+--   parameterized by Exp or Trace and in the Roll case we need a uniform way of
+--   pattern matching on InL/InR.
+class AskConstrs a where
+    maybeInL :: a -> Maybe a
+    maybeInR :: a -> Maybe a
+
+instance AskConstrs Exp where
+    maybeInL (EInL e) = Just e
+    maybeInL _        = Nothing
+
+    maybeInR (EInR e) = Just e
+    maybeInR _        = Nothing
+
+instance AskConstrs Trace where
+    maybeInL (TInL e) = Just e
+    maybeInL _        = Nothing
+
+    maybeInR (TInR e) = Just e
+    maybeInR _        = Nothing
+
+
+--------------------------------------------------------------------------------
+--                  PRETTY PRINTING OF RESUGARED EXPRESSIONS                  --
+--------------------------------------------------------------------------------
 
 instance Pretty RExp where
     pPrint RHole       = text "_"
@@ -289,6 +366,7 @@ instance Pretty RCode where
         = text "fun" <+> pPrint name <+> sep (map pPrint args) <+> text "=>" <+>
           nest 2 (pPrint body)
 
+-- | Should the expression be wrapped in parentheses?
 parenth :: RExp -> Bool
 parenth RHole       = False
 parenth (RBool _)   = False
@@ -300,6 +378,7 @@ parenth (RVar _)    = False
 parenth (RDeref _)  = False
 parenth _           = True
 
+-- | Pretty-print an expression, wrapping it in parentheses if necessary
 partial_parensOpt :: RExp -> Doc
 partial_parensOpt e
     = let doc = pPrint e in

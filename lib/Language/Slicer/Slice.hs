@@ -11,9 +11,6 @@ import           Language.Slicer.Core
 import           Language.Slicer.Env
 import           Language.Slicer.UpperSemiLattice
 
--- slicing.  Find parts of trace/input "needed" for part of output.
--- version with unevaluation in app.
-
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
 bslice :: Store -> Value -> Trace -> (Trace, Env Value)
