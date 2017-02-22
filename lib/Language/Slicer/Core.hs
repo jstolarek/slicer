@@ -18,7 +18,7 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise, unnestException
+    , isException, isRaise, isTHole, unnestException
 
     -- * Store abstraction
     , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
@@ -321,9 +321,15 @@ data Trace = TExp (Syntax Trace)
 data ReturnType = RetValue | RetRaise
                   deriving (Show, Eq, Ord, Generic, NFData)
 
+-- JSTOLAREK: rename to TRaise
 isRaise :: Trace -> Bool
 isRaise (TRaise _) = True
 isRaise _          = False
+
+isTHole :: Trace -> Bool
+isTHole THole             = True
+isTHole (TSlicedHole _ _) = True
+isTHole _                 = False
 
 -- Note [Maybe trace labels]
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~
