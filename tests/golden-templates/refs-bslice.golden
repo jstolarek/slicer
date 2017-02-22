@@ -1,4 +1,4 @@
 Running ../../examples/refs-bslice.tml
 val it = let n = ref _
 in let m = n
-   in n := _ ;; m := 1 ;; !n : trace(int)
+   in _ ;; m := 1 ;; !n : trace(int)

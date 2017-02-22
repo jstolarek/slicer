@@ -66,6 +66,12 @@ updateLabel val st l =
   assert (l `M.member` st) $
   M.insert l val st
 
+isStoreHole :: Store -> StoreLabel -> Bool
+isStoreHole store l = not (l `M.member` store) || (M.!) store l == VHole
+
+allHoles :: Store -> StoreLabels -> Bool
+allHoles store labels = all (isStoreHole store) labels
+
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
 bslice :: Value -> Trace -> (Trace, Env Value)
@@ -164,9 +170,9 @@ pslice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
 pslice store VHole (TRaise t)
     = let (rho, store', e, t') = pslice store VStar t
       in (rho, store', ERaise e, TRaise t')
-pslice store (VException VHole) trace
+pslice store (VException VHole) trace | allHoles store (storeWrites trace)
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
-pslice store VHole trace
+pslice store VHole trace | allHoles store (storeWrites trace)
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetValue)
 pslice store (VException _) THole -- JSTOLAREK: speculative equation
     = (bot, store, EHole, THole)
