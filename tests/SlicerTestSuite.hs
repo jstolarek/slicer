@@ -17,6 +17,8 @@ tests =
       , runTMLTest "curried-pointwise-sum-two"
       , runTMLTest "example"
       , runTMLTest "exceptions"
+      , runTMLTest "exceptions2"
+      , runTMLTest "exceptions3"
       , runTMLTest "filter"
       , runTMLTest "foo"
       , runTMLTest "map-increment-closed"

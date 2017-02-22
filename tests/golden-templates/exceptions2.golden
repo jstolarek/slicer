@@ -1,0 +1,8 @@
+Running ../../examples/exceptions2.tml
+val it = let n = _
+in try
+     _ ;; raise (if false
+                 then _
+                 else raise "foo") ;; _
+   with x =>
+     x = "foo" : trace(bool)
