@@ -9,8 +9,7 @@
 
 module Language.Slicer.Core
     ( -- * Abstract syntax
-      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..)
-    , Store, StoreLabel, StoreLabels, ReturnType(..)
+      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..), ReturnType(..)
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -22,7 +21,9 @@ module Language.Slicer.Core
     , isException, isRaise, unnestException
 
     -- * Store abstraction
-    , deref, storeInsert, storeInsertHole, existsInStore, storeWrites, allStoreHoles
+    , Store, StoreLabel, StoreLabels, emptyStore
+    , storeDeref, storeInsert, storeUpdate, storeUpdateHole
+    , existsInStore, storeLookup, storeWrites, allStoreHoles
 
     , Pattern(extract)
 
@@ -545,8 +546,8 @@ promote (VInR v)            = VInR (promote v)
 promote (VRoll tv v)        = VRoll tv (promote v)
 promote (VStoreLoc l)       = VStoreLoc l
 promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace v t env st) = VTrace (promote v) t (fmap promote env)
-                                     (fmap promote st)
+promote (VTrace v t env (Store refs refCount)) =
+    VTrace (promote v) t (fmap promote env) (Store (fmap promote refs) refCount)
 promote (VExp     e env)    = VExp e (fmap promote env)
 
 instance UpperSemiLattice Value where
@@ -761,41 +762,60 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
 --------------------------------------------------------------------------------
 
 -- | Internal labels used during runtime to identify store locations
-type StoreLabel  = Int
+newtype StoreLabel = StoreLabel Int deriving ( Show, Eq, Ord, Generic, NFData )
 type StoreLabels = [ StoreLabel ]
 
 -- | Reference store
-type Store = M.IntMap Value
+data Store = Store (M.IntMap Value) Int
+             deriving ( Show, Eq, Ord, Generic, NFData )
+
+-- | Empty reference store
+emptyStore :: Store
+emptyStore = Store M.empty 0
 
 -- | Dereference a label.  If label is absent in the store return bottom
-deref :: Store -> StoreLabel -> Value
-deref store label =
-    if (label `M.member` store)
-    then store M.! label
+storeDeref :: Store -> StoreLabel -> Value
+storeDeref (Store refs _) (StoreLabel label) =
+    if (label `M.member` refs)
+    then refs M.! label
     else bot
 
--- | Insert a value into a store under a given label.  Requires that label
--- already exists in store.
-storeInsert :: Store -> StoreLabel -> Value -> Store
-storeInsert store l v = assert (l `M.member` store) $ M.insert l v store
+storeLookup :: Store -> StoreLabel -> Maybe Value
+storeLookup (Store refs _) (StoreLabel label) =
+    M.lookup label refs
 
--- | Insert a hole into a store under a given label.  Requires that label
--- already exists in store.
-storeInsertHole :: Store -> StoreLabel -> Store
-storeInsertHole store label = storeInsert store label VHole
+-- | Insert new value into a store.  Return new store and label under which the
+-- value was allocated
+storeInsert :: Store -> Value -> (Store, StoreLabel)
+storeInsert (Store refs refCount) v =
+    (Store (M.insert refCount v refs) (refCount + 1), StoreLabel refCount)
+
+-- | Update a label already present in a store
+storeUpdate :: Store -> StoreLabel -> Value -> Store
+storeUpdate (Store refs refCount) (StoreLabel l) v =
+    assert (l `M.member` refs) $
+    Store (M.insert l v refs) refCount
+
+-- | Update a label already present in a store to contain hole
+storeUpdateHole :: Store -> StoreLabel -> Store
+storeUpdateHole store label =
+    storeUpdate store label VHole
 
 -- | Check if a label is allocated in a store
 existsInStore :: Store -> StoreLabel -> Bool
-existsInStore store label = label `M.member` store
+existsInStore (Store refs _) (StoreLabel label) =
+    label `M.member` refs
 
 -- | Return true if a label does not exists in a store or exsists and points to
 -- a hole
 isStoreHole :: Store -> StoreLabel -> Bool
-isStoreHole store l = not (existsInStore store l) || (M.!) store l == VHole
+isStoreHole (Store refs _) (StoreLabel label) =
+    not (label `M.member` refs) || refs M.! label == VHole
 
 -- | Check if all store labels are store holes (according to `isStoreHole`)
 allStoreHoles :: Store -> StoreLabels -> Bool
-allStoreHoles store labels = all (isStoreHole store) labels
+allStoreHoles store labels =
+    all (isStoreHole store) labels
 
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> StoreLabels

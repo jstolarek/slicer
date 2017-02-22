@@ -11,8 +11,6 @@ import           Language.Slicer.Core
 import           Language.Slicer.Env
 import           Language.Slicer.UpperSemiLattice
 
-import           Data.Maybe        ( maybeToList )
-
 -- slicing.  Find parts of trace/input "needed" for part of output.
 -- version with unevaluation in app.
 
@@ -244,23 +242,23 @@ pslice store p (TUnroll tv t)
     = let (rho, store', e, t') = pslice store (VRoll tv p) t
       in (rho, store', EUnroll tv e, TUnroll tv t')
 pslice store v (TRef (Just l) t) | not (isException v)
-    = let (rho, store', e, t') = pslice store (deref store l) t
-      in (rho, storeInsertHole store' l, ERef e, TRef (Just l) t')
+    = let (rho, store', e, t') = pslice store (storeDeref store l) t
+      in (rho, storeUpdateHole store' l, ERef e, TRef (Just l) t')
 pslice store v (TRef Nothing t) | isException v
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', ERef e, TRef Nothing t')
 pslice store v (TDeref (Just l) t) | not (isException v)
     = let (rho, store', e, t') = pslice store (VStoreLoc l) t
-      in (rho, storeInsert store' l v, EDeref e, TDeref (Just l) t')
+      in (rho, storeUpdate store' l v, EDeref e, TDeref (Just l) t')
 pslice store v (TDeref Nothing t) | isException v
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', EDeref e, TDeref Nothing t')
 pslice store _ (TAssign (Just l) _ _) | not (existsInStore store l)
     = ( bot, store, EHole, TSlicedHole [l] RetValue)
 pslice store v (TAssign (Just l) t1 t2) | not (isException v)
-    = let (rho2, store2, e2, t2') = pslice store  (deref store l) t2
+    = let (rho2, store2, e2, t2') = pslice store  (storeDeref store l) t2
           (rho1, store1, e1, t1') = pslice store2 (VStoreLoc l) t1
-      in ( rho1 `lub` rho2, storeInsertHole store1 l, EAssign e1 e2
+      in ( rho1 `lub` rho2, storeUpdateHole store1 l, EAssign e1 e2
          , TAssign (Just l) t1' t2')
 pslice store v (TAssign Nothing t1 THole) | isException v
     = let (rho1, store1, e1, t1') = pslice store v t1
