@@ -1,0 +1,15 @@
+data intlist = Nil | Cons int * intlist
+data reflist = RefNil | RefCons (ref int) * reflist
+
+let map = fun map (f : ref int -> int) (xs : reflist) : intlist =>
+   case xs of
+      RefNil -> Nil;
+      RefCons y -> Cons (f (fst y), map f (snd y))
+in
+let a = ref 1 in
+let b = ref 2 in
+let t = trace (
+    map (fun f (c : ref int) : int => (b := !b - 1) ;;
+                   if !c = 0 then (raise "Division by zero") else 1 / !c)
+    RefCons (a, (RefCons (b, RefNil)))) in
+bwdSlice (t, raise "Division by zero")
