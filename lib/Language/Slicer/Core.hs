@@ -21,7 +21,7 @@ module Language.Slicer.Core
     , isException, isRaise, unnestException
 
     -- * Store abstraction
-    , Store, StoreLabel, StoreLabels, emptyStore
+    , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
@@ -49,9 +49,11 @@ import           Control.DeepSeq    ( NFData                                  )
 import           Control.Exception ( assert      )
 import           Data.Map as Map    ( Map, fromList, mapWithKey, keys, member )
 import           Data.Maybe
+import qualified Data.Foldable as F ( all                                     )
 import qualified Data.IntMap as M
 import           Data.List          ( union, delete, (\\)                     )
 import qualified Data.Hashable as H ( hash                                    )
+import qualified Data.Set as S
 import           GHC.Generics       ( Generic                                 )
 import           Text.PrettyPrint.HughesPJClass
 
@@ -762,8 +764,12 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
 --------------------------------------------------------------------------------
 
 -- | Internal labels used during runtime to identify store locations
-newtype StoreLabel = StoreLabel Int deriving ( Show, Eq, Ord, Generic, NFData )
-type StoreLabels = [ StoreLabel ]
+newtype StoreLabel  = StoreLabel Int
+    deriving ( Show, Eq, Ord, Generic, NFData )
+
+-- | A set of store labels
+newtype StoreLabels = StoreLabels (S.Set StoreLabel)
+    deriving ( Show, Eq, Ord, Generic, NFData )
 
 instance Valuable StoreLabel where
     toValue = VStoreLoc
@@ -817,46 +823,76 @@ isStoreHole (Store refs _) (StoreLabel label) =
 
 -- | Check if all store labels are store holes (according to `isStoreHole`)
 allStoreHoles :: Store -> StoreLabels -> Bool
-allStoreHoles store labels =
-    all (isStoreHole store) labels
+allStoreHoles store (StoreLabels labels) =
+    F.all (isStoreHole store) labels
+
+-- | An empty set of store labels
+emptyStoreLabels :: StoreLabels
+emptyStoreLabels = StoreLabels S.empty
+
+singletonStoreLabel :: StoreLabel -> StoreLabels
+singletonStoreLabel l = StoreLabels (S.singleton l)
+
+-- | Insert a label into a set of store labels
+insertStoreLabel :: Maybe StoreLabel -> StoreLabels -> StoreLabels
+insertStoreLabel Nothing   ls              = ls
+insertStoreLabel (Just l) (StoreLabels ls) = StoreLabels (l `S.insert` ls)
+
+-- | Union of two store label sets
+unionStoreLabels :: StoreLabels -> StoreLabels -> StoreLabels
+unionStoreLabels (StoreLabels ls1) (StoreLabels ls2) =
+    StoreLabels (ls1 `S.union` ls2)
 
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> StoreLabels
 -- relevant store assignments
-storeWrites (TRef l t)         = maybeToList l ++ storeWrites t
-storeWrites (TAssign l t1 t2)
-    = maybeToList l ++ storeWrites t1 ++ storeWrites t2
+storeWrites (TRef l t) =
+    l `insertStoreLabel` storeWrites t
+storeWrites (TAssign l t1 t2) =
+    l `insertStoreLabel` storeWrites t1 `unionStoreLabels`  storeWrites t2
 -- sliced hole annotated with store labels
 storeWrites (TSlicedHole ls _) = ls
-storeWrites (TIfThen t1 t2)    = storeWrites t1 ++ storeWrites t2
-storeWrites (TIfElse t1 t2)    = storeWrites t1 ++ storeWrites t2
-storeWrites (TIfExn t)         = storeWrites t
-storeWrites (TCaseL t1 _ t2)   = storeWrites t1 ++ storeWrites t2
-storeWrites (TCaseR t1 _ t2)   = storeWrites t1 ++ storeWrites t2
-storeWrites (TCall t1 t2 _ (Rec _ _ t3 _))
-    = storeWrites t1 ++ storeWrites t2 ++ storeWrites t3
-storeWrites (TCallExn t1 t2)   = storeWrites t1 ++ storeWrites t2
+storeWrites (TIfThen t1 t2)    =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TIfElse t1 t2)    =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TIfExn t)         =
+    storeWrites t
+storeWrites (TCaseL t1 _ t2)   =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TCaseR t1 _ t2)   =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+                   `unionStoreLabels` storeWrites t3
+storeWrites (TCallExn t1 t2)   =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TDeref _ t)       = storeWrites t
 storeWrites (TRaise t)         = storeWrites t
 storeWrites (TTry t)           = storeWrites t
-storeWrites (TTryWith t1 _ t2) = storeWrites t1 ++ storeWrites t2
-storeWrites (TLet _ t1 t2)     = storeWrites t1 ++ storeWrites t2
-storeWrites (TPair t1 t2)      = storeWrites t1 ++ storeWrites t2
-storeWrites (TSeq t1 t2)       = storeWrites t1 ++ storeWrites t2
-storeWrites (TOp _ ts)         = concatMap storeWrites ts
+storeWrites (TTryWith t1 _ t2) =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TLet _ t1 t2)     =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TPair t1 t2)      =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TSeq t1 t2)       =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TOp _ ts)         =
+    foldl (\acc t -> acc `unionStoreLabels` storeWrites t) emptyStoreLabels ts
 storeWrites (TFst t)           = storeWrites t
 storeWrites (TSnd t)           = storeWrites t
 storeWrites (TInL t)           = storeWrites t
 storeWrites (TInR t)           = storeWrites t
 storeWrites (TRoll _ t)        = storeWrites t
 storeWrites (TUnroll _ t)      = storeWrites t
-storeWrites TUnit              = []
-storeWrites (TVar _)           = []
-storeWrites (TBool _)          = []
-storeWrites (TInt _)           = []
-storeWrites (TString _)        = []
-storeWrites (TFun _)           = []
-storeWrites THole              = []
+storeWrites TUnit              = emptyStoreLabels
+storeWrites (TVar _)           = emptyStoreLabels
+storeWrites (TBool _)          = emptyStoreLabels
+storeWrites (TInt _)           = emptyStoreLabels
+storeWrites (TString _)        = emptyStoreLabels
+storeWrites (TFun _)           = emptyStoreLabels
+storeWrites THole              = emptyStoreLabels
 storeWrites (TExp e)
     = error ("Impossible happened at storeWrites: " ++ show e)
 

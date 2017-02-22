@@ -254,7 +254,7 @@ pslice store v (TDeref Nothing t) | isException v
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', EDeref e, TDeref Nothing t')
 pslice store _ (TAssign (Just l) _ _) | not (existsInStore store l)
-    = ( bot, store, EHole, TSlicedHole [l] RetValue)
+    = ( bot, store, EHole, TSlicedHole (singletonStoreLabel l) RetValue)
 pslice store v (TAssign (Just l) t1 t2) | not (isException v)
     = let (rho2, store2, e2, t2') = pslice store  (storeDeref store l) t2
           (rho1, store1, e1, t1') = pslice store2 (toValue l) t1
