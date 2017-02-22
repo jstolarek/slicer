@@ -66,8 +66,8 @@ evalM (ERoll tv e)    = do e' <- evalM' e
 evalM (EUnroll tv e)  = do (VRoll tv' v) <- evalM' e
                            assert (tv == tv') (return v)
 evalM (ETrace e)      = do env    <- getEnv
-                           (v, t) <- trace e
                            store  <- getStore
+                           (v, t) <- trace e
                            return (VTrace v t env store)
 -- References
 evalM (ERef e)        = do v <- evalM' e

@@ -161,6 +161,9 @@ bslice _ x = error $ show x
 -- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
 -- paper
 pslice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
+pslice store VHole (TRaise t)
+    = let (rho, store', e, t') = pslice store VStar t
+      in (rho, store', ERaise e, TRaise t')
 pslice store (VException VHole) trace
     = (bot,  store, bot, TSlicedHole (storeWrites trace) RetRaise)
 pslice store VHole trace
@@ -171,6 +174,9 @@ pslice store VStar THole -- JSTOLAREK: another speculative equation
     = (bot, store, EHole, THole)
 pslice store (VException v) (TRaise t)
     = let (rho, store', e, t') = pslice store v t
+      in (rho, store', ERaise e, TRaise t')
+pslice store VStar (TRaise t)
+    = let (rho, store', e, t') = pslice store VStar t
       in (rho, store', ERaise e, TRaise t')
 pslice store v (TVar x)
     = (singletonEnv x v, store, EVar x, TVar x)
@@ -299,6 +305,8 @@ pslice store v (TDeref (Just l) t) | not (isException v)
 pslice store v (TDeref Nothing t) | isException v
     = let (rho, store', e, t') = pslice store v t
       in (rho, store', EDeref e, TDeref Nothing t')
+pslice store _ (TAssign (Just l) _ _) | not (existsInStore store l)
+    = ( bot, store, EHole, TSlicedHole [l] RetValue)
 pslice store v (TAssign (Just l) t1 t2) | not (isException v)
     = let (rho2, store2, e2, t2') = pslice store  (deref store l) t2
           (rho1, store1, e1, t1') = pslice store2 (VStoreLoc l) t1

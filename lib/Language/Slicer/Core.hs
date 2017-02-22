@@ -19,7 +19,7 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise, unnestException, deref, storeInsert
+    , isException, isRaise, unnestException, deref, storeInsert, existsInStore
 
     , Pattern(extract)
 
@@ -213,10 +213,16 @@ instance Ord Lab where
                                   o  -> o
 
 deref :: Store -> StoreLabel -> Value
-deref = (M.!)
+deref store label =
+    if (label `M.member` store)
+    then (M.!) store label
+    else bot
 
 storeInsert :: Store -> StoreLabel -> Value -> Store
 storeInsert store l v = M.insert l v store
+
+existsInStore :: Store -> StoreLabel -> Bool
+existsInStore store label = label `M.member` store
 
 mkL :: String -> Lab
 mkL s = L s (H.hash s)
