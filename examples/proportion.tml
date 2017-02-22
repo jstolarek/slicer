@@ -23,7 +23,7 @@ let p1 = Cons(_:int, Cons(_:int, Cons(50, Cons(_:int, Nil)))) in
 let s0 = slice(t, p0) in
 let s1 = slice(t, p1) in
 let z = visualizeDiff("proportion.pdf", s1, s0) in
-let e0 = pslice(t, p0) in
-let e1 = pslice(t, p1) in
+let e0 = bwdSlice(t, p0) in
+let e1 = bwdSlice(t, p1) in
 let z = visualizeDiff("proportion-prog.pdf", e1, e0) in
 read t

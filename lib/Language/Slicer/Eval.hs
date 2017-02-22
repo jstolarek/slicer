@@ -161,12 +161,12 @@ evalTraceOp PrimSlice [VTrace v t env st, p]
          v' `seq` t' `seq` env' `seq` return (VTrace v' t' env' st)
     | otherwise = evalError ("slice: criterion " ++ show p ++
                              " is not a prefix of output " ++ show v)
-evalTraceOp PrimPSlice [VTrace v t _ st, p]
+evalTraceOp PrimBwdSlice [VTrace v t _ st, p]
     | p `leq` v
-    = do let (env', _, e', _) = pslice st p t
+    = do let (env', _, e', _) = bwdSlice st p t
          -- JSTOLAREK: store store in a VExp
          return (VExp e' env')
-    | otherwise = evalError ("pslice: criterion "++ show p ++
+    | otherwise = evalError ("bwdSlice: criterion "++ show p ++
                              " is not a prefix of output " ++ show v)
 evalTraceOp PrimVisualize [VString s, v]
     = case takeExtension s of

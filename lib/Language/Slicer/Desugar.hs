@@ -45,10 +45,10 @@ lookupOp PrimSlice [ty@(TraceTy ty1), ty2] =
     then return ty
     else typeError ("Slice type mismatch: " ++ show ty1 ++
                     " does not match " ++ show ty2)
-lookupOp PrimPSlice [ty@(TraceTy ty1), ty2] =
+lookupOp PrimBwdSlice [ty@(TraceTy ty1), ty2] =
     if ty1 == ty2
     then return ty
-    else typeError ("Slice type mismatch: " ++ show ty1 ++
+    else typeError ("Backward slice type mismatch: " ++ show ty1 ++
                     " does not match " ++ show ty2)
 lookupOp op tys =
     desugarError ("Unknown op " ++ show op ++ " at types " ++

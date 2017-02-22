@@ -6,4 +6,4 @@ let t = trace(
     false
   with x => x = "foo"
 ) in
-pslice (t, true)
+bwdSlice (t, true)
