@@ -1,0 +1,10 @@
+let t = trace(
+  let n = ref 0 in
+  try
+    n:=17 ;;
+    (raise (if false then "bar" else (raise "foo"))) ;;
+    n:=42 ;;
+    false
+  with x => x = "foo"
+) in
+pslice (t, true)
