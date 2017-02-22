@@ -508,38 +508,41 @@ promote (VTrace v t env (Store refs refCount)) =
 promote (VExp     e env)    = VExp e (fmap promote env)
 
 instance UpperSemiLattice Value where
-    bot                               = VHole
+    bot                                = VHole
 
-    leq VHole _                       = True
-    leq VStar VHole                   = False
-    leq VStar v                       = promote v == v
-    leq VUnit VUnit                   = True
-    leq (VBool b) (VBool b')          = b == b'
-    leq (VInt i) (VInt i')            = i == i'
-    leq (VString i) (VString i')      = i == i'
-    leq (VPair v1 v2) (VPair v1' v2') = v1 `leq` v1' && v2 `leq` v2'
-    leq (VInL v) (VInL v')            = v `leq` v'
-    leq (VInR v) (VInR v')            = v `leq` v'
-    leq (VRoll tv v) (VRoll tv' v')   | tv == tv' = v `leq` v'
-    leq (VStoreLoc i) (VStoreLoc i')  = i == i'
+    leq VHole _                        = True
+    leq VStar VHole                    = False
+    leq VStar v                        = promote v == v
+    leq VUnit VUnit                    = True
+    leq (VBool b) (VBool b')           = b == b'
+    leq (VInt i) (VInt i')             = i == i'
+    leq (VString i) (VString i')       = i == i'
+    leq (VPair v1 v2) (VPair v1' v2')  = v1 `leq` v1' && v2 `leq` v2'
+    leq (VInL v) (VInL v')             = v `leq` v'
+    leq (VInR v) (VInR v')             = v `leq` v'
+    leq (VRoll tv v) (VRoll tv' v')    | tv == tv' = v `leq` v'
+    leq (VStoreLoc i) (VStoreLoc i')   = i == i'
+    leq (VException m) (VException m') = m == m'
     leq (VClosure k env) (VClosure k' env')
         = k `leq` k' && env `leq` env'
     leq a b = error $ "UpperSemiLattice Value: error taking leq of " ++
                       show a ++ " and " ++ show b
 
-    lub  VHole         v              = v
-    lub  v             VHole          = v
-    lub  VStar         v              = promote v
-    lub  v             VStar          = promote v
-    lub  VUnit         VUnit          = VUnit
-    lub (VBool b)     (VBool b')      | b == b' = VBool b
-    lub (VInt i)      (VInt i')       | i == i' = VInt i
-    lub (VString i)   (VString i')    | i == i' = VString i
-    lub (VPair v1 v2) (VPair v1' v2') = VPair (v1 `lub` v1') (v2 `lub` v2')
-    lub (VInL v)      (VInL v')       = VInL (v `lub` v')
-    lub (VInR v)      (VInR v')       = VInR (v `lub` v')
-    lub (VRoll tv v)  (VRoll tv' v')  | tv == tv' = VRoll tv (v `lub` v')
-    lub (VStoreLoc i) (VStoreLoc i')  | i == i' = VStoreLoc i
+    lub  VHole         v               = v
+    lub  v             VHole           = v
+    lub  VStar         v               = promote v
+    lub  v             VStar           = promote v
+    lub  VUnit         VUnit           = VUnit
+    lub (VBool b)     (VBool b')       | b == b' = VBool b
+    lub (VInt i)      (VInt i')        | i == i' = VInt i
+    lub (VString i)   (VString i')     | i == i' = VString i
+    lub (VPair v1 v2) (VPair v1' v2')  = VPair (v1 `lub` v1') (v2 `lub` v2')
+    lub (VInL v)      (VInL v')        = VInL (v `lub` v')
+    lub (VInR v)      (VInR v')        = VInR (v `lub` v')
+    lub (VRoll tv v)  (VRoll tv' v')   | tv == tv' = VRoll tv (v `lub` v')
+    lub (VStoreLoc i) (VStoreLoc i')   | i == i' = VStoreLoc i
+    lub (VException m) (VException m') | m == m'
+        = VException m
     lub (VClosure k env) (VClosure k' env')
         = VClosure (k `lub` k') (env `lub` env')
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
