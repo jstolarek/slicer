@@ -25,7 +25,7 @@ module Language.Slicer.Core
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
-    , Pattern(extract)
+    , Pattern(extract), Valuable(..)
 
     , uneval
 
@@ -764,6 +764,9 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
 -- | Internal labels used during runtime to identify store locations
 newtype StoreLabel = StoreLabel Int deriving ( Show, Eq, Ord, Generic, NFData )
 type StoreLabels = [ StoreLabel ]
+
+instance Valuable StoreLabel where
+    to_val = VStoreLoc
 
 -- | Reference store
 data Store = Store (M.IntMap Value) Int
