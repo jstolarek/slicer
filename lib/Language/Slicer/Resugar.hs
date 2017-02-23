@@ -370,8 +370,8 @@ instance Pretty RMatch where
 
 instance Pretty RCode where
     pPrint (RRec name args body)
-        = text "fun" <+> pPrint name <+> sep (map pPrint args) <+> text "=>" <+>
-          nest 2 (pPrint body)
+        = parens (text "fun" <+> pPrint name <+> sep (map pPrint args)
+                  <+> text "=>" <+> nest 2 (pPrint body))
 
 -- | Should the expression be wrapped in parentheses?
 parenth :: RExp -> Bool
