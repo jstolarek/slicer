@@ -32,6 +32,7 @@ tests =
       , runTMLTest "merge"
       , runTMLTest "operators"
       , runTMLTest "proportion"
+      , runTMLTest "raise_inside"
       , runTMLTest "refs"
       , runTMLTest "refs-bslice"
       , runTMLTest "reverse-eval"

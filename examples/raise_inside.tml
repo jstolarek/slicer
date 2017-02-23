@@ -12,5 +12,10 @@ let s3 = bwdSlice (t3, raise "foo") in
 
 let t4 = trace ( Cons (1, raise "foo") ) in
 let s4 = bwdSlice (t4, raise "foo") in
-(s1,(s2,(s3,s4)))
 
+let t5 = trace ( (raise "foo") + 1) in
+let s5 = bwdSlice (t5, raise "foo") in
+let t6 = trace ( (raise "foo") + 1) in
+let s6 = bwdSlice (t6, raise "foo") in
+
+(s1,(s2,(s3,(s4,(s5,s6)))))
