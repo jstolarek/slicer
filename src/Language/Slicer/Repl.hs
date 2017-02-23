@@ -5,6 +5,7 @@ module Language.Slicer.Repl
     ) where
 
 import           Language.Slicer.Absyn
+import           Language.Slicer.Core              ( Outcome(..) )
 import           Language.Slicer.Run               ( desugarEval )
 import           Language.Slicer.Env
 import           Language.Slicer.Error
@@ -56,13 +57,17 @@ parseAndEvalLine line = do
            gamma  <- getGamma
            dsgres <- runSlMIO (desugarEval tyCtx gamma evalS expr)
            case dsgres of
-             Right (val, res, ty, st) ->
+             Right (ORet val, res, ty, st) ->
                  do setEvalState st
                      -- See Note [Handling let bindings]
                     when (isLetBinding expr)
                              (val `seq` addBinding (getVar expr) val ty)
                     return (It $ "val it = " ++ show (pPrint res) ++
                                  " : "       ++ show (pPrint ty))
+             Right (OExn val, _res, _ty, st) ->
+                 do setEvalState st
+                    return (It $ "Exception: " ++ show (val))
+             Right (_) -> error "Unknown outcome (should be impossible)"
              Left err -> return (Error err)
 
 -- Note [Handling let bindings]
