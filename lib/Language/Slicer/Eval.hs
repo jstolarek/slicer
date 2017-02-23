@@ -349,7 +349,6 @@ traceMatch (ORet (VInR v), t) m
     = do let (x, e) = inR m
          (v2,t2) <- maybeWithBinder x v (trace' e)
          return (v2, TCaseR t x t2)
-traceMatch (OExn v,t) _ = return (OExn v, TCaseExn t)
 traceMatch _ _ =
     evalError "traceMatch: scrutinee does not reduce to a constructor"
 

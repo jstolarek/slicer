@@ -69,7 +69,6 @@ class Uneval a b | a -> b where
 instance Uneval Trace Exp where
     uneval (TCaseL t x t1)   = ECase (uneval t) (Match (x, uneval t1) (bot, bot))
     uneval (TCaseR t x t2)   = ECase (uneval t) (Match (bot, bot) (x, uneval t2))
-    uneval (TCaseExn t)      = ECase (uneval t) (Match (bot, bot) (bot,bot))
     uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) bot
     uneval (TIfElse t t2)    = EIf (uneval t) bot (uneval t2)
     uneval (TIfExn t)        = EIf (uneval t) bot bot

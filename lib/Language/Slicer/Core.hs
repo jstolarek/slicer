@@ -296,7 +296,6 @@ data Trace = TExp (Syntax Trace)
                                             -- alternative in a case expression
            | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
                                             -- alternative in a case expression
-           | TCaseExn Trace
            | TCallExn Trace Trace -- ^ Any of application arguments raises an
                                   -- exception
            | TCall Trace Trace (Maybe Lab) (Code Trace)
@@ -345,7 +344,6 @@ isExn (TIfElse t1 t2) = isExn t1 || isExn t2
 isExn (TIfExn t) = isExn t
 isExn (TCaseL t1 _ t2) = isExn t1 || isExn t2
 isExn (TCaseR t1 _ t2) = isExn t1 || isExn t2
-isExn (TCaseExn t) = isExn t
 isExn (TCall t1 t2 _ k) = isExn t1 || isExn t2 || isExn (funBody k)
 isExn (TCallExn t1 t2) = isExn t1 || isExn t2
 isExn (TSlicedHole _ RetRaise) = True
@@ -521,7 +519,6 @@ instance FVs Trace where
     fvs (TIfExn t)         = fvs t
     fvs (TCaseL t v t1)    = fvs t `union` (fvs t1 \\ maybeToList v)
     fvs (TCaseR t v t2)    = fvs t `union` (fvs t2 \\ maybeToList v)
-    fvs (TCaseExn t)         = fvs t
     fvs (TCall t1 t2 _ t)  = fvs t1 `union` fvs t2 `union` fvs t
     fvs (TCallExn t1 t2)   = fvs t1 `union` fvs t2
     fvs (TRef _ t)         = fvs t
@@ -735,8 +732,6 @@ instance UpperSemiLattice Trace where
         = t `leq` t' && x == x' && t1 `leq` t1'
     leq (TCaseR t x t2) (TCaseR t'  x' t2')
         = t `leq` t' && x == x' && t2 `leq` t2'
-    leq (TCaseExn t) (TCaseExn t')
-        = t `leq` t'
     leq (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = t1 `leq` t1' && t2 `leq` t2' && k `leq` k' && t `leq` t'
     leq (TCallExn t1 t2) (TCallExn t1' t2')
@@ -765,8 +760,6 @@ instance UpperSemiLattice Trace where
         = TCaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
     lub (TCaseR t x t2) (TCaseR t' x' t2')
         = TCaseR (t `lub` t') (x `lub` x') (t2 `lub` t2')
-    lub (TCaseExn t) (TCaseExn t')
-        = TCaseExn (t `lub` t')
     lub (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = TCall (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
     lub (TCallExn t1 t2) (TCallExn t1' t2')
@@ -944,8 +937,6 @@ storeWrites (TCaseL t1 _ t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TCaseR t1 _ t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TCaseExn t)       =
-    storeWrites t
 storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
     storeWrites t1 `unionStoreLabels` storeWrites t2
                    `unionStoreLabels` storeWrites t3
