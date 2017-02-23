@@ -15,7 +15,7 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isRaise, isTHole
+    , isRaise, isExn, isTHole
 
     , getVal, getExn
     -- * Store abstraction
@@ -224,6 +224,7 @@ data Syntax a = Var Var
               | Hole
                 deriving (Show, Eq, Ord, Generic, NFData)
 
+
 data Exp = Exp (Syntax Exp)
          | EIf Exp Exp Exp
          | ECase Exp Match
@@ -295,7 +296,7 @@ data Trace = TExp (Syntax Trace)
                                             -- alternative in a case expression
            | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
                                             -- alternative in a case expression
-           | TCaseExn Trace                 
+           | TCaseExn Trace
            | TCallExn Trace Trace -- ^ Any of application arguments raises an
                                   -- exception
            | TCall Trace Trace (Maybe Lab) (Code Trace)
@@ -320,6 +321,44 @@ data ReturnType = RetValue | RetRaise
 isRaise :: Trace -> Bool
 isRaise (TRaise _) = True
 isRaise _          = False
+
+isExn :: Trace -> Bool
+isExn (TVar _) = False
+isExn (TLet _ t1 t2) = isExn t1 || isExn t2
+isExn (TUnit) = False
+isExn (TBool _) = False
+isExn (TInt _) = False
+isExn (TString _) = False
+isExn (TOp _ ts) = any isExn ts
+isExn (TPair t1 t2) = isExn t1 || isExn t2
+isExn (TFst t) = isExn t
+isExn (TSnd t) = isExn t
+isExn (TInL t) = isExn t
+isExn (TInR t) = isExn t
+isExn (TFun _) = False
+isExn (TRoll _tv t) = isExn t
+isExn (TUnroll _tv t) = isExn t
+isExn (THole) = False
+isExn (TSeq t1 t2) = isExn t1 || isExn t2
+isExn (TIfThen t1 t2) =  isExn t1 || isExn t2
+isExn (TIfElse t1 t2) = isExn t1 || isExn t2
+isExn (TIfExn t) = isExn t
+isExn (TCaseL t1 _ t2) = isExn t1 || isExn t2
+isExn (TCaseR t1 _ t2) = isExn t1 || isExn t2
+isExn (TCaseExn t) = isExn t
+isExn (TCall t1 t2 _ k) = isExn t1 || isExn t2 || isExn (funBody k)
+isExn (TCallExn t1 t2) = isExn t1 || isExn t2
+isExn (TSlicedHole _ RetRaise) = True
+isExn (TSlicedHole _ RetValue) = False
+isExn (TRef _ t) = isExn t
+isExn (TDeref _ t) = isExn t
+isExn (TAssign _ t1 t2) = isExn t1 || isExn t2
+isExn (TRaise _) = True  -- whether or not subtrace raises
+isExn (TTry _) = False   -- subtrace is masked
+isExn (TTryWith _ _ t2) = isExn t2 -- first subtrace is masked
+isExn _ = error "isExn: this case should be impossible"
+
+
 
 isTHole :: Trace -> Bool
 isTHole THole             = True
@@ -414,9 +453,11 @@ data Outcome = ORet Value | OExn Value | OHole | OStar
 
 getVal :: Outcome -> Value
 getVal (ORet v) = v
+getVal _ = VHole
 
 getExn :: Outcome -> Value
 getExn (OExn v) = v
+getExn _ = VHole
 
 class Valuable a where
     toValue :: a -> Value

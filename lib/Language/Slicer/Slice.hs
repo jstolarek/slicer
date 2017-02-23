@@ -32,15 +32,15 @@ bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
   case (outcome, trace) of
     (OExn VHole, TRaise t) ->
-        do (rho, e, t') <- bwdSliceM (ORet VStar) t
+        do (rho, e, t') <- bwdSliceM (OExn VStar) t
            return (rho, ERaise e, TRaise t')
     (OExn VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetRaise)
     (ORet VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetValue)
-    (ORet VStar, THole) -> -- JSTOLAREK: another speculative equation
+    (OStar, THole) -> -- JSTOLAREK: another speculative equation
         return (bot, EHole, THole)
-    (OExn v, TRaise t) | isRaise t->
+    (OExn v, TRaise t) | isExn t->
         do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, ERaise e, TRaise t')
     (OExn v, TRaise t) ->
@@ -122,12 +122,15 @@ bwdSliceM outcome trace = do
                rho2' = unbindEnv  rho2 x
            (rho1, e1, t1') <- bwdSliceM (ORet p1) t1
            return (rho1 `lub` rho2', ELet x e1 e2, TLet x t1' t2')
-    (_, TOp f ts) -> -- JRC: need to be more careful here
-        do let bwdSliceArgM t' (rho', es', ts')
-                 = do (rho'', e, t) <- bwdSliceM (ORet VStar) t'
-                      return (rho' `lub` rho'', e:es', t:ts')
-           (rho, esA, tsA) <- foldrM bwdSliceArgM (bot, [], []) ts
+    (_, TOp f ts) -> -- JRC: need to be more careful here, cf issue #47
+        do (rho, esA, tsA) <- foldrM bwdSliceArgM (bot, [], []) ts
            return (rho, EOp f esA, TOp f tsA)
+             where tStar THole = OStar
+                   tStar t | isExn t   = OExn VStar
+                   tStar _             = ORet VStar
+                   bwdSliceArgM t' (rho', es', ts') 
+                     = do (rho'', e, t) <- bwdSliceM (tStar t') t'
+                          return (rho' `lub` rho'', e:es', t:ts')
     (p1, TIfThen t t1) ->
         do (rho1, e1, t1') <- bwdSliceM p1 t1
            (rho , e , t' ) <- bwdSliceM (ORet VStar) t
@@ -232,8 +235,8 @@ bwdSliceM outcome trace = do
         do (rho2, e2, t2') <- bwdSliceM r t2
            (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
            return (rho1 `lub` rho2, ESeq e1 e2, TSeq t1' t2')
-    (OExn v, TTry t) ->
-        do (rho, e, t') <- bwdSliceM (OExn v) t
+    (ORet v, TTry t) ->
+        do (rho, e, t') <- bwdSliceM (ORet v) t
            return (rho, ETryWith e bot bot, TTry t')
     (r, TTryWith t1 x t2) ->
         do (rho2, e2, t2') <- bwdSliceM r t2

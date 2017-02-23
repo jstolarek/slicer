@@ -19,7 +19,6 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Control.Monad.Except
 import           Data.Map  ( (!)  )
-import           Data.List ( find )
 import           System.FilePath.Posix
 
 run :: EvalState -> Exp -> SlMIO (Outcome, EvalState)
@@ -78,26 +77,30 @@ evalM (ERef e)        = do r <- evalM' e
                              OExn v -> return (OExn v)
                              ORet v -> do v' <- newRef v
                                           return (ORet v')
+                             _ -> return OHole
 evalM (EDeref e)      = do r <- evalM' e
                            case r of
                              OExn v -> return (OExn v)
                              ORet v -> do v' <- getRef v
                                           return (ORet v')
+                             _ -> return OHole
 evalM (EAssign e1 e2) = do r1 <- evalM' e1
                            r2 <- withExn r1 (evalM' e2)
                            case (r1,r2) of
                              (OExn v1, _) -> return (OExn v1)
                              (_, OExn v2) -> return (OExn v2)
-                             (ORet v1@(VStoreLoc l), ORet v2) ->
+                             (ORet v1, ORet v2) ->
                                  do updateRef v1 v2
                                     return (ORet VUnit)
+                             _ -> return OHole
 evalM (ESeq e1 e2)    = do r1 <- evalM' e1
                            withExn r1 (evalM' e2)
 -- Exceptions.  See Note [Evaluation of exceptions]
 evalM (ERaise e)      = do r <- evalM' e
                            case r of
-                             OExn v -> return (OExn v)
                              ORet v -> return (OExn v)
+                             OExn v -> return (OExn v)
+                             _ -> return OHole
 evalM (ETryWith e x h)= do r <- evalM' e
                            case r of
                               OExn v -> withBinder x v (evalM' h)
@@ -145,9 +148,10 @@ evalOpArgs :: [Exp] -> EvalM [Outcome]
 evalOpArgs []  = return []
 evalOpArgs (x:xs) = do r <- evalM' x
                        case r of
-                         OExn v -> return (r : map (const OHole) xs)
-                         ORet v -> do xs' <- evalOpArgs xs
+                         OExn _ -> return (r : map (const OHole) xs)
+                         ORet _ -> do xs' <- evalOpArgs xs
                                       return (r : xs')
+                         _ -> return (OHole : map (const OHole) xs)
 
 evalTraceOp :: Primitive -> [Outcome] -> EvalM Outcome
 evalTraceOp PrimVal [ORet (VTrace r _ _ _)] = return r
@@ -189,15 +193,16 @@ evalTraceOp op vs = liftEvalM $ evalOpExn op vs
 
 evalOpExn :: Primitive -> [Outcome] -> SlM Outcome
 evalOpExn f rs =
-  case extract rs of
+  case extractExn rs of
     Left vs -> do v <- evalOp f vs
                   return (ORet v)
     Right exn -> return (exn)
-  where extract [] = Left []
-        extract (ORet v : rs) = case extract rs of
-                                  Left vs -> Left (v:vs)
-                                  Right exn -> Right exn
-        extract (OExn v : rs) = Right (OExn v)
+  where extractExn [] = Left []
+        extractExn (ORet v : rs') = case extractExn rs' of
+                                        Left vs -> Left (v:vs)
+                                        Right exn -> Right exn
+        extractExn (OExn v : _) = Right (OExn v)
+        extractExn _ = Right (OHole)
 
 evalOp :: Primitive -> [Value] -> SlM Value
 evalOp f [(VInt    i), (VInt    j)] | isCommonOp  f = return ((commonOps ! f) (i,j))
@@ -273,12 +278,14 @@ trace (ERef e)       = do (r, t) <- trace' e
                              OExn v -> return (OExn v, TRef Nothing t)
                              ORet v -> do v'@(VStoreLoc l) <- newRef v
                                           return (ORet v', TRef (Just l) t)
+                             _ -> return (OHole,THole)
 trace (EDeref e)     = do (r, t) <- trace' e
                           case r of
                              OExn v -> return (OExn v, TDeref Nothing t)
                              ORet v@(VStoreLoc l) ->
                                           do v' <- getRef v
                                              return (ORet v', TDeref (Just l) t  )
+                             _ -> return (OHole,THole)
 trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           case (r1,r2) of
@@ -287,6 +294,7 @@ trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                              (ORet v1@(VStoreLoc l), ORet v2) ->
                                   do updateRef v1 v2
                                      return (ORet VUnit, TAssign (Just l) t1 t2)
+                             _ -> return (OHole, THole)
 trace (ESeq e1 e2)   = do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           return (r1 >-< r2, TSeq t1 t2)
@@ -295,9 +303,10 @@ trace (ERaise e)     = do (r, t) <- trace' e
                           case r of
                             OExn v -> return (OExn v, TRaise t)
                             ORet v -> return (OExn v, TRaise t)
+                            _ -> return (OHole, THole)
 trace (ETryWith e x h) = do (r, t) <- trace' e
                             case r of
-                              OExn v -> do 
+                              OExn v -> do
                                      (v'', ht) <- withBinder x v (trace' h)
                                      return (v'', TTryWith t x ht)
                               _ -> return (r, TTry t)
@@ -316,7 +325,7 @@ traceOpArgs (x:xs) = do (r,t) <- trace' x
                           OExn _ -> return ((r,t) : map (const (OHole, THole)) xs)
                           ORet _ -> do xs' <- traceOpArgs xs
                                        return ((r,t) : xs')
-
+                          _ -> return ((OHole,THole) : map (const (OHole, THole)) xs)
 
 traceCall :: (Outcome, Trace) -> (Outcome, Trace) -> EvalM (Outcome, Trace)
 traceCall (OExn v, t) _
