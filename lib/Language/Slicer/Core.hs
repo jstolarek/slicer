@@ -594,7 +594,6 @@ instance UpperSemiLattice Value where
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
                       show a ++ " and " ++ show b
 
-
 instance UpperSemiLattice Outcome where
     leq (ORet v) (ORet v') = leq v v'
     leq (OExn v) (OExn v') = leq v v'
@@ -612,7 +611,6 @@ instance UpperSemiLattice Outcome where
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
                       show a ++ " and " ++ show b
     bot = OHole
-
 
 instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     bot                                = Hole
@@ -818,14 +816,13 @@ instance Pattern Value where
     extract p v = error ("extract only defined if p <= v, but p is " ++
                          show p ++ " and v is " ++ show v)
 
-
 instance Pattern Outcome where
     match (OStar) v v' = v == v'
     match (OHole) _ _ = True
     match (ORet p) (ORet v1) (ORet v2) = (match p v1 v2)
     match (OExn p) (OExn v1) (OExn v2) = (match p v1 v2)
     match _ _ _ = False
-    
+
     extract (OStar) v = v
     extract (OHole) _ = OHole
     extract (ORet p) (ORet v) = ORet (extract p v)
