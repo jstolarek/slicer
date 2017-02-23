@@ -1,0 +1,16 @@
+data intlist = Nil | Cons int * intlist
+data reflist = RefNil | RefCons (ref int) * reflist
+
+let t1 = trace ( (raise "foo", 1) ) in
+let s1 = bwdSlice (t1, raise "foo") in
+
+let t2 = trace ( (1, raise "foo") ) in
+let s2 = bwdSlice (t2, raise "foo") in
+
+let t3 = trace ( Cons (raise "foo", Nil) ) in
+let s3 = bwdSlice (t3, raise "foo") in
+
+let t4 = trace ( Cons (1, raise "foo") ) in
+let s4 = bwdSlice (t4, raise "foo") in
+(s1,(s2,(s3,s4)))
+
