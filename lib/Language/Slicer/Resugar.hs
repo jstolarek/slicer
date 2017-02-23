@@ -225,9 +225,6 @@ instance Resugarable Value where
     resugarM (VBool b)   = return (RBool b)
     resugarM (VInt i)    = return (RInt i)
     resugarM (VString s) = return (RString s)
-    resugarM (VException v)
-        = do e <- resugarM v
-             return (RException e)
     resugarM (VPair v1 v2)
         = do e1 <- resugarM v1
              e2 <- resugarM v2
@@ -263,6 +260,16 @@ instance Resugarable Value where
                         "Where did you get this value from?" )
     resugarM (VStoreLoc _)
         = resugarError ("Cannot resugar store labels")
+
+
+instance Resugarable Outcome where
+    resugarM OHole = return RHole
+    resugarM (ORet v) = resugarM v
+    resugarM (OExn v) = do e <- resugarM v
+                           return (RRaise e) 
+    resugarM OStar
+        = resugarError ("Don't know how to resugar stars. " ++
+                        "Where did you get this value from?" )
 
 
 --------------------------------------------------------------------------------

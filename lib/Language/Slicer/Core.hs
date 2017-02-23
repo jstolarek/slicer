@@ -5,7 +5,8 @@
 
 module Language.Slicer.Core
     ( -- * Abstract syntax
-      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..), ReturnType(..)
+      Syntax(..), Value(..), Outcome(..)
+    , Type(..), Ctx, Code(..), Match(..), ReturnType(..)
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -14,8 +15,9 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise, isTHole, unnestException
+    , isRaise, isExn, isTHole
 
+    , getVal, getExn
     -- * Store abstraction
     , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
@@ -222,6 +224,7 @@ data Syntax a = Var Var
               | Hole
                 deriving (Show, Eq, Ord, Generic, NFData)
 
+
 data Exp = Exp (Syntax Exp)
          | EIf Exp Exp Exp
          | ECase Exp Match
@@ -318,6 +321,43 @@ isRaise :: Trace -> Bool
 isRaise (TRaise _) = True
 isRaise _          = False
 
+isExn :: Trace -> Bool
+isExn (TVar _) = False
+isExn (TLet _ t1 t2) = isExn t1 || isExn t2
+isExn (TUnit) = False
+isExn (TBool _) = False
+isExn (TInt _) = False
+isExn (TString _) = False
+isExn (TOp _ ts) = any isExn ts
+isExn (TPair t1 t2) = isExn t1 || isExn t2
+isExn (TFst t) = isExn t
+isExn (TSnd t) = isExn t
+isExn (TInL t) = isExn t
+isExn (TInR t) = isExn t
+isExn (TFun _) = False
+isExn (TRoll _tv t) = isExn t
+isExn (TUnroll _tv t) = isExn t
+isExn (THole) = False
+isExn (TSeq t1 t2) = isExn t1 || isExn t2
+isExn (TIfThen t1 t2) =  isExn t1 || isExn t2
+isExn (TIfElse t1 t2) = isExn t1 || isExn t2
+isExn (TIfExn t) = isExn t
+isExn (TCaseL t1 _ t2) = isExn t1 || isExn t2
+isExn (TCaseR t1 _ t2) = isExn t1 || isExn t2
+isExn (TCall t1 t2 _ k) = isExn t1 || isExn t2 || isExn (funBody k)
+isExn (TCallExn t1 t2) = isExn t1 || isExn t2
+isExn (TSlicedHole _ RetRaise) = True
+isExn (TSlicedHole _ RetValue) = False
+isExn (TRef _ t) = isExn t
+isExn (TDeref _ t) = isExn t
+isExn (TAssign _ t1 t2) = isExn t1 || isExn t2
+isExn (TRaise _) = True  -- whether or not subtrace raises
+isExn (TTry _) = False   -- subtrace is masked
+isExn (TTryWith _ _ t2) = isExn t2 -- first subtrace is masked
+isExn _ = error "isExn: this case should be impossible"
+
+
+
 isTHole :: Trace -> Bool
 isTHole THole             = True
 isTHole (TSlicedHole _ _) = True
@@ -402,19 +442,20 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VExp Exp (Env Value)
            -- mutable store locations
            | VStoreLoc StoreLabel
-           -- Exceptions.  Used only for tracing
-           | VException Value
            -- run-time traces
-           | VTrace Value Trace (Env Value) Store
+           | VTrace Outcome Trace (Env Value) Store
            deriving (Show, Eq, Ord, Generic, NFData)
 
-isException :: Value -> Bool
-isException (VException _) = True
-isException _              = False
+data Outcome = ORet Value | OExn Value | OHole | OStar
+             deriving (Show, Eq, Ord, Generic, NFData)
 
-unnestException :: Value -> Value
-unnestException (VException v) = unnestException v
-unnestException v              = v
+getVal :: Outcome -> Value
+getVal (ORet v) = v
+getVal _ = VHole
+
+getExn :: Outcome -> Value
+getExn (OExn v) = v
+getExn _ = VHole
 
 class Valuable a where
     toValue :: a -> Value
@@ -493,7 +534,6 @@ promote :: Value -> Value
 promote VStar               = VStar
 promote VHole               = VStar
 promote VUnit               = VUnit
-promote (VException e)      = VException e
 promote (VBool b)           = VBool b
 promote (VInt i)            = VInt i
 promote (VString s)         = VString s
@@ -503,9 +543,15 @@ promote (VInR v)            = VInR (promote v)
 promote (VRoll tv v)        = VRoll tv (promote v)
 promote (VStoreLoc l)       = VStoreLoc l
 promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace v t env (Store refs refCount)) =
-    VTrace (promote v) t (fmap promote env) (Store (fmap promote refs) refCount)
+promote (VTrace r t env (Store refs refCount)) =
+    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) refCount)
 promote (VExp     e env)    = VExp e (fmap promote env)
+
+promoteOutcome :: Outcome -> Outcome
+promoteOutcome OStar = OStar
+promoteOutcome OHole = OStar
+promoteOutcome (OExn v) = OExn (promote v)
+promoteOutcome (ORet v) = ORet (promote v)
 
 instance UpperSemiLattice Value where
     bot                                = VHole
@@ -522,7 +568,6 @@ instance UpperSemiLattice Value where
     leq (VInR v) (VInR v')             = v `leq` v'
     leq (VRoll tv v) (VRoll tv' v')    | tv == tv' = v `leq` v'
     leq (VStoreLoc i) (VStoreLoc i')   = i == i'
-    leq (VException m) (VException m') = m == m'
     leq (VClosure k env) (VClosure k' env')
         = k `leq` k' && env `leq` env'
     leq a b = error $ "UpperSemiLattice Value: error taking leq of " ++
@@ -541,12 +586,30 @@ instance UpperSemiLattice Value where
     lub (VInR v)      (VInR v')        = VInR (v `lub` v')
     lub (VRoll tv v)  (VRoll tv' v')   | tv == tv' = VRoll tv (v `lub` v')
     lub (VStoreLoc i) (VStoreLoc i')   | i == i' = VStoreLoc i
-    lub (VException m) (VException m') | m == m'
-        = VException m
     lub (VClosure k env) (VClosure k' env')
         = VClosure (k `lub` k') (env `lub` env')
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
                       show a ++ " and " ++ show b
+
+
+instance UpperSemiLattice Outcome where
+    leq (ORet v) (ORet v') = leq v v'
+    leq (OExn v) (OExn v') = leq v v'
+    leq (OHole) _ = True
+    leq (OStar) (OHole) = False -- order matters
+    leq (OStar) _ = True
+    leq _ _ = False
+
+    lub (ORet v) (ORet v') = ORet (lub v v')
+    lub (OExn v) (OExn v') = OExn (lub v v')
+    lub (OHole) v = v
+    lub v (OHole) = v
+    lub (OStar) v = promoteOutcome v  -- order matters here
+    lub v (OStar) = promoteOutcome v
+    lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
+                      show a ++ " and " ++ show b
+    bot = OHole
+
 
 instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     bot                                = Hole
@@ -748,6 +811,22 @@ instance Pattern Value where
     extract p v = error ("extract only defined if p <= v, but p is " ++
                          show p ++ " and v is " ++ show v)
 
+
+instance Pattern Outcome where
+    match (OStar) v v' = v == v'
+    match (OHole) _ _ = True
+    match (ORet p) (ORet v1) (ORet v2) = (match p v1 v2)
+    match (OExn p) (OExn v1) (OExn v2) = (match p v1 v2)
+    match _ _ _ = False
+
+    extract (OStar) v = v
+    extract (OHole) _ = OHole
+    extract (ORet p) (ORet v) = ORet (extract p v)
+    extract (OExn p) (OExn v) = OExn (extract p v)
+    extract p v = error ("extract only defined if p <= v, but p is " ++
+                         show p ++ " and v is " ++ show v)
+
+
 instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
     match (penv@(Env penv')) env1 env2
         = all (\x -> match (lookupEnv' penv x) (lookupEnv' env1 x)
@@ -793,14 +872,12 @@ storeLookup (Store refs _) (StoreLabel label) =
 -- value was allocated
 storeInsert :: Store -> Value -> (Store, StoreLabel)
 storeInsert (Store refs refCount) v =
-    assert (not (isException v)) $
     (Store (M.insert refCount v refs) (refCount + 1), StoreLabel refCount)
 
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
 storeUpdate (Store refs refCount) (StoreLabel l) v =
     assert (l `M.member` refs)   $
-    assert (not (isException v)) $
     Store (M.insert l v refs) refCount
 
 -- | Update a label already present in a store to contain hole
