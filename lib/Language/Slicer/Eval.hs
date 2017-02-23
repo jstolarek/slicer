@@ -97,7 +97,7 @@ evalM (ESeq e1 e2)    = do r1 <- evalM' e1
 evalM (ERaise e)      = do r <- evalM' e
                            case r of
                              OExn v -> return (OExn v)
-                             ORet v -> return (ORet v)
+                             ORet v -> return (OExn v)
 evalM (ETryWith e x h)= do r <- evalM' e
                            case r of
                               OExn v -> withBinder x v (evalM' h)
