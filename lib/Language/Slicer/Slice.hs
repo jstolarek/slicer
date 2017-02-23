@@ -17,139 +17,143 @@ import           Data.Foldable
 
 -- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
 -- paper
-traceSlice :: Store -> Value -> Trace -> (Trace, Env Value)
-traceSlice store value trace =
-    let (env, _, _, trace') = bwdSlice store value trace
+traceSlice :: Store -> Outcome -> Trace -> (Trace, Env Value)
+traceSlice store outcome trace =
+    let (env, _, _, trace') = bwdSlice store outcome trace
     in (trace', env)
 
-bwdSlice :: Store -> Value -> Trace -> (Env Value, Store, Exp, Trace)
-bwdSlice store value trace = runSliceM store (bwdSliceM value trace)
+bwdSlice :: Store -> Outcome -> Trace -> (Env Value, Store, Exp, Trace)
+bwdSlice store outcome trace = runSliceM store (bwdSliceM outcome trace)
 
 -- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
 -- paper
-bwdSliceM :: Value -> Trace -> SliceM (Env Value, Exp, Trace)
-bwdSliceM value trace = do
+bwdSliceM :: Outcome -> Trace -> SliceM (Env Value, Exp, Trace)
+bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
-  case (value, trace) of
-    (VHole, TRaise t) ->
-        do (rho, e, t') <- bwdSliceM VStar t
+  case (outcome, trace) of
+    (OExn VHole, TRaise t) ->
+        do (rho, e, t') <- bwdSliceM (ORet VStar) t
            return (rho, ERaise e, TRaise t')
-    (VException VHole, _) | allStoreHoles ->
+    (OExn VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetRaise)
-    (VHole, _) | allStoreHoles ->
+    (ORet VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetValue)
-    (VException _, THole) -> -- JSTOLAREK: speculative equation
+    (ORet VStar, THole) -> -- JSTOLAREK: another speculative equation
         return (bot, EHole, THole)
-    (VStar, THole) -> -- JSTOLAREK: another speculative equation
-        return (bot, EHole, THole)
-    (VException v, TRaise t) ->
-        do (rho, e, t') <- bwdSliceM v t
+    (OExn v, TRaise t) | isRaise t->
+        do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, ERaise e, TRaise t')
-    (VStar, TRaise t) ->
-        do (rho, e, t') <- bwdSliceM VStar t
+    (OExn v, TRaise t) ->
+        do (rho, e, t') <- bwdSliceM (ORet v) t
            return (rho, ERaise e, TRaise t')
-    (v, TVar x) ->
+    (ORet v, TVar x) ->
         return (singletonEnv x v, EVar x, TVar x)
-    (VUnit, TUnit) ->
+    (ORet VUnit, TUnit) ->
         return (bot, EUnit, TUnit)
-    (VStar, TUnit) ->
+    (ORet VStar, TUnit) ->
         return (bot, EUnit, TUnit)
-    (VBool b, TBool b') | b == b' ->
+    (ORet (VBool b), TBool b') | b == b' ->
         return (bot, EBool b, TBool b)
-    (VStar, TBool b) ->
+    (ORet VStar, TBool b) ->
         return (bot, EBool b, TBool b)
-    (VInt i, TInt i') | i == i' ->
+    (ORet (VInt i), TInt i') | i == i' ->
         return (bot, EInt i, TInt i)
-    (VStar, TInt i) ->
+    (ORet VStar, TInt i) ->
         return (bot, EInt i, TInt i)
-    (VString s, TString s') | s == s' ->
+    (ORet (VString s), TString s') | s == s' ->
         return (bot, EString s, TString s)
-    (VStar, TString s) ->
+    (ORet VStar, TString s) ->
         return (bot, EString s, TString s)
-    (VClosure k env, TFun k') | k `leq` k' ->
+    (ORet (VClosure k env), TFun k') | k `leq` k' ->
         return (env, EFun k, TFun k')
-    (VStar, TFun k) ->
+    (ORet VStar, TFun k) ->
         return (constEnv (fvs k) VStar, EFun k, TFun k)
-    (VPair p1 p2, TPair t1 t2) ->
-        do (rho2, e2, t2') <- bwdSliceM p2 t2
-           (rho1, e1, t1') <- bwdSliceM p1 t1
+    (ORet (VPair p1 p2), TPair t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM (ORet p2) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet p1) t1
            return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
-    (VStar, TPair t1 t2) ->
-        do (rho2, e2, t2') <- bwdSliceM VStar t2
-           (rho1, e1, t1') <- bwdSliceM VStar t1
+    (ORet VStar, TPair t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM (ORet VStar) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
            return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
-    (v, TPair t1 THole) | isException v -> 
-        do (rho1, e1, t1') <- bwdSliceM v t1
+    (OExn v, TPair t1 THole)  -> 
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho1, EPair e1 EHole, TPair t1' THole)
-    (v, TPair t1 t2) | isException v -> 
-        do (rho2, e2, t2') <- bwdSliceM v t2
-           (rho1, e1, t1') <- bwdSliceM VHole t1
+    (OExn v, TPair t1 t2) -> 
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
            return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
-    (p, TFst t) ->
-        do (rho, e', t') <- bwdSliceM (VPair p bot) t
+    (ORet p, TFst t) ->
+        do (rho, e', t') <- bwdSliceM (ORet (VPair p bot)) t
            return (rho, EFst e', TFst t')
-    (p, TSnd t) ->
-        do (rho, e', t') <- bwdSliceM (VPair bot p) t
+    (OExn v, TFst t) ->
+        do (rho, e', t') <- bwdSliceM (OExn v) t
+           return (rho, EFst e', TFst t')
+    (ORet p, TSnd t) ->
+        do (rho, e', t') <- bwdSliceM (ORet (VPair bot p)) t
            return (rho, ESnd e', TSnd t')
-    (VInL p, TInL t) ->
-        do (rho, e', t') <- bwdSliceM p t
+    (OExn v, TSnd t) ->
+        do (rho, e', t') <- bwdSliceM (OExn v) t
+           return (rho, ESnd e', TSnd t')
+    (ORet (VInL p), TInL t) ->
+        do (rho, e', t') <- bwdSliceM (ORet p) t
            return (rho, EInL e', TInL t')
-    (VStar, TInL t) ->
-        do (rho, e', t') <- bwdSliceM VStar t
+    (ORet VStar, TInL t) ->
+        do (rho, e', t') <- bwdSliceM (ORet VStar) t
            return (rho, EInL e', TInL t')
-    (v, TInL t) | isException v ->
-        do (rho, e', t') <- bwdSliceM v t
+    (OExn v, TInL t) ->
+        do (rho, e', t') <- bwdSliceM (OExn v) t
            return (rho, EInL e', TInL t')
-    (VInR p, TInR t) ->
-        do (rho, e', t') <- bwdSliceM p t
+    (ORet (VInR p), TInR t) ->
+        do (rho, e', t') <- bwdSliceM (ORet p) t
            return (rho, EInR e', TInR t')
-    (VStar, TInR t) ->
-        do (rho, e', t') <- bwdSliceM VStar t
+    (ORet VStar, TInR t) ->
+        do (rho, e', t') <- bwdSliceM (ORet VStar) t
            return (rho, EInR e', TInR t')
-    (v, TInR t) | isException v ->
-        do (rho, e', t') <- bwdSliceM v t
+    (OExn v, TInR t)  ->
+        do (rho, e', t') <- bwdSliceM (OExn v) t
            return (rho, EInR e', TInR t')
-    (p, TLet x t THole) -> -- JSTOLAREK: This case should be redundant
-        do (rho, e1, t1') <- bwdSliceM p t
+    (r, TLet x t THole) -> -- JSTOLAREK: This case should be redundant
+        do (rho, e1, t1') <- bwdSliceM r t
            return (rho, ELet x e1 EHole, TLet x t1' THole)
-    (p2, TLet x t1 t2) ->
-        do (rho2, e2, t2') <- bwdSliceM p2 t2
+    (r, TLet x t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM r t2
            let p1    = lookupEnv' rho2 x
                rho2' = unbindEnv  rho2 x
-           (rho1, e1, t1') <- bwdSliceM p1 t1
+           (rho1, e1, t1') <- bwdSliceM (ORet p1) t1
            return (rho1 `lub` rho2', ELet x e1 e2, TLet x t1' t2')
-    (_, TOp f ts) ->
+    (_, TOp f ts) -> -- JRC: need to be more careful here
         do let bwdSliceArgM t' (rho', es', ts')
-                 = do (rho'', e, t) <- bwdSliceM VStar t'
+                 = do (rho'', e, t) <- bwdSliceM (ORet VStar) t'
                       return (rho' `lub` rho'', e:es', t:ts')
            (rho, esA, tsA) <- foldrM bwdSliceArgM (bot, [], []) ts
            return (rho, EOp f esA, TOp f tsA)
     (p1, TIfThen t t1) ->
         do (rho1, e1, t1') <- bwdSliceM p1 t1
-           (rho , e , t' ) <- bwdSliceM VStar t
+           (rho , e , t' ) <- bwdSliceM (ORet VStar) t
            return (rho1 `lub` rho, EIf e e1 EHole, TIfThen t' t1')
     (p2, TIfElse t t2) ->
         do (rho2, e2, t2') <- bwdSliceM p2 t2
-           (rho , e , t' ) <- bwdSliceM VStar t
+           (rho , e , t' ) <- bwdSliceM (ORet VStar) t
            return (rho2 `lub` rho, EIf e EHole e2, TIfElse t' t2')
-    (p, TIfExn t) ->
-        do (rho, e, t') <- bwdSliceM p t
+    (OExn p, TIfExn t) ->
+        do (rho, e, t') <- bwdSliceM (OExn p) t
            return (rho, EIf e EHole EHole, TIfExn t')
     (p1, TCaseL t x t1) ->
         do (rho1, e1, t1') <- bwdSliceM p1 t1
            let p     = maybeLookupEnv' rho1 x
                rho1' = maybeUnbindEnv  rho1 x
-           (rho, e , t' ) <- bwdSliceM (VInL p) t
+           (rho, e , t' ) <- bwdSliceM (ORet (VInL p)) t
            return ( rho `lub` rho1', ECase e (Match (x,e1) (bot,bot))
                   , TCaseL t' x t1' )
     (p2, TCaseR t x t2) ->
         do (rho2, e2, t2') <- bwdSliceM p2 t2
            let p     = maybeLookupEnv' rho2 x
                rho2' = maybeUnbindEnv  rho2 x
-           (rho, e , t' ) <- bwdSliceM (VInR p) t
+           (rho, e , t' ) <- bwdSliceM (ORet (VInR p)) t
            return ( rho `lub` rho2', ECase e (Match (bot,bot) (x,e2))
                   , TCaseR t' x t2')
-    (p, TCall t1 t2 l t) ->
+    (p, TCall t1 t2 l t) ->  
         do (rho, e, t') <- bwdSliceM p (funBody t)
            let f    = funName t
                x    = funArg  t
@@ -157,73 +161,85 @@ bwdSliceM value trace = do
                p1   = lookupEnv' rho f
                p2   = lookupEnv' rho x
                rho0 = unbindEnv (unbindEnv rho f) x
-           (rho2, e2, t2') <- bwdSliceM p2 t2
-           (rho1, e1, t1') <- bwdSliceM (p1 `lub` VClosure k0 rho0) t1
+           (rho2, e2, t2') <- bwdSliceM (ORet p2) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet (p1 `lub` VClosure k0 rho0)) t1
            return ( rho1 `lub` rho2, EApp e1 e2
                   , TCall t1' t2' l (Rec f x t' Nothing))
-    (p, TCallExn t1 t2) ->
-        do (rho2, e2, t2') <- bwdSliceM p t2
-           (rho1, e1, t1') <- bwdSliceM p t1
+    (OExn v, TCallExn t1 THole) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho1, EApp e1 EHole, TCallExn t1' THole)
+    (OExn v, TCallExn t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
            return (rho1 `lub` rho2, EApp e1 e2, TCallExn t1' t2')
-    (VRoll tv p, TRoll tv' t) | tv == tv' ->
-        do (rho, e, t') <- bwdSliceM p t
+    (ORet (VRoll tv p), TRoll tv' t) | tv == tv' ->
+        do (rho, e, t') <- bwdSliceM (ORet p) t
            return (rho, ERoll tv e, TRoll tv' t')
-    (VStar, TRoll tv' t) ->
-        do (rho, e, t') <- bwdSliceM VStar t
+    (ORet VStar, TRoll tv' t) ->
+        do (rho, e, t') <- bwdSliceM (ORet VStar) t
            return (rho, ERoll tv' e, TRoll tv' t')
-    (v, TRoll tv' t) | isException v ->
-        do (rho, e, t') <- bwdSliceM v t
+    (OExn v, TRoll tv' t) ->
+        do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, ERoll tv' e, TRoll tv' t')
-    (p, TUnroll tv t) ->
-        do (rho, e, t') <- bwdSliceM (VRoll tv p) t
+    (ORet p, TUnroll tv t) ->
+        do (rho, e, t') <- bwdSliceM (ORet (VRoll tv p)) t
            return (rho, EUnroll tv e, TUnroll tv t')
-    (v, TRef (Just l) t) | not (isException v) ->
+    (OExn v, TUnroll tv t) ->
+        do (rho, e, t') <- bwdSliceM (OExn v) t
+           return (rho, EUnroll tv e, TUnroll tv t')
+    (ORet _, TRef (Just l) t) ->
         do p <- storeDerefM l
-           (rho, e, t') <- bwdSliceM p t
+           (rho, e, t') <- bwdSliceM (ORet p) t
            storeUpdateHoleM l
            return (rho, ERef e, TRef (Just l) t')
-    (v, TRef Nothing t) | isException v ->
-        do (rho, e, t') <- bwdSliceM v t
+    (OExn v, TRef Nothing t) ->
+        do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, ERef e, TRef Nothing t')
-    (v, TDeref (Just l) t) | not (isException v) ->
-        do (rho, e, t') <- bwdSliceM (toValue l) t
+    (ORet v, TDeref (Just l) t)  ->
+        do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
            storeUpdateM l v
            return (rho, EDeref e, TDeref (Just l) t')
-    (v, TDeref Nothing t) | isException v ->
-        do (rho, e, t') <- bwdSliceM v t
+    (OExn v, TDeref Nothing t) ->
+        do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, EDeref e, TDeref Nothing t')
-    (v, TAssign (Just l) t1 t2) ->
+    (ORet _, TAssign (Just l) t1 t2) ->
         do existsInStore <- existsInStoreM l
-           if | not existsInStore ->
-                  return (bot, EHole, TSlicedHole (singletonStoreLabel l)
-                                      RetValue)
-              | not (isException v) ->
-                  do p <- storeDerefM l
-                     (rho2, e2, t2') <- bwdSliceM p t2
-                     (rho1, e1, t1') <- bwdSliceM (toValue l) t1
+           if  not existsInStore
+           then return (bot, EHole,
+                        TSlicedHole (singletonStoreLabel l) RetValue)
+           else   do p <- storeDerefM l
                      storeUpdateHoleM l
+                     (rho2, e2, t2') <- bwdSliceM (ORet p) t2
+                     (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
                      return ( rho1 `lub` rho2, EAssign e1 e2
                             , TAssign (Just l) t1' t2')
-              | otherwise -> -- isException v == True
-                  do (rho2, e2, t2') <- bwdSliceM v t2
-                     (rho1, e1, t1') <- bwdSliceM (toValue l) t1
+    (OExn v, TAssign (Just l) t1 t2) ->
+        do existsInStore <- existsInStoreM l
+           if not existsInStore
+           then return (bot, EHole,
+                        TSlicedHole (singletonStoreLabel l) RetValue)
+           else   do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+                     (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
                      return ( rho1 `lub` rho2, EAssign e1 e2
                             , TAssign (Just l) t1' t2')
-    (v, TAssign Nothing t1 THole) | isException v ->
-        do (rho, e1, t1') <- bwdSliceM v t1
+    (OExn v, TAssign Nothing t1 THole) ->
+        do (rho, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho, EAssign e1 EHole, TAssign Nothing t1' THole)
-    (v, TSeq t1 t2) ->
-        do (rho2, e2, t2') <- bwdSliceM v t2
-           (rho1, e1, t1') <- bwdSliceM VHole t1
+    (OExn v, TSeq t1 THole) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho1, ESeq e1 EHole, TSeq t1' THole)
+    (r, TSeq t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM r t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
            return (rho1 `lub` rho2, ESeq e1 e2, TSeq t1' t2')
-    (v, TTry t) ->
-        do (rho, e, t') <- bwdSliceM v t
+    (OExn v, TTry t) ->
+        do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, ETryWith e bot bot, TTry t')
-    (v, TTryWith t1 x t2) ->
-        do (rho2, e2, t2') <- bwdSliceM v t2
+    (r, TTryWith t1 x t2) ->
+        do (rho2, e2, t2') <- bwdSliceM r t2
            let p1    = lookupEnv' rho2 x
                rho2' = unbindEnv  rho2 x
-           (rho1, e1, t1') <- bwdSliceM (VException p1) t1
+           (rho1, e1, t1') <- bwdSliceM (OExn p1) t1
            return (rho1 `lub` rho2', ETryWith e1 x e2, TTryWith t1' x t2')
-    _ -> error $ "Cannot slice value " ++ show value ++
+    _ -> error $ "Cannot slice outcome " ++ show outcome ++
                  " from trace " ++ show trace

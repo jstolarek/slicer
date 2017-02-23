@@ -5,7 +5,8 @@
 
 module Language.Slicer.Core
     ( -- * Abstract syntax
-      Syntax(..), Value(..), Type(..), Ctx, Code(..), Match(..), ReturnType(..)
+      Syntax(..), Value(..), Outcome(..)
+    , Type(..), Ctx, Code(..), Match(..), ReturnType(..)
     , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
@@ -14,8 +15,9 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isException, isRaise, isTHole, unnestException
+    , isRaise, isTHole
 
+    , getVal, getExn
     -- * Store abstraction
     , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
@@ -293,6 +295,7 @@ data Trace = TExp (Syntax Trace)
                                             -- alternative in a case expression
            | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
                                             -- alternative in a case expression
+           | TCaseExn Trace                 
            | TCallExn Trace Trace -- ^ Any of application arguments raises an
                                   -- exception
            | TCall Trace Trace (Maybe Lab) (Code Trace)
@@ -402,19 +405,18 @@ data Value = VBool Bool | VInt Int | VUnit | VString String
            | VExp Exp (Env Value)
            -- mutable store locations
            | VStoreLoc StoreLabel
-           -- Exceptions.  Used only for tracing
-           | VException Value
            -- run-time traces
-           | VTrace Value Trace (Env Value) Store
+           | VTrace Outcome Trace (Env Value) Store
            deriving (Show, Eq, Ord, Generic, NFData)
 
-isException :: Value -> Bool
-isException (VException _) = True
-isException _              = False
+data Outcome = ORet Value | OExn Value | OHole | OStar
+             deriving (Show, Eq, Ord, Generic, NFData)
 
-unnestException :: Value -> Value
-unnestException (VException v) = unnestException v
-unnestException v              = v
+getVal :: Outcome -> Value
+getVal (ORet v) = v
+
+getExn :: Outcome -> Value
+getExn (OExn v) = v
 
 class Valuable a where
     toValue :: a -> Value
@@ -478,6 +480,7 @@ instance FVs Trace where
     fvs (TIfExn t)         = fvs t
     fvs (TCaseL t v t1)    = fvs t `union` (fvs t1 \\ maybeToList v)
     fvs (TCaseR t v t2)    = fvs t `union` (fvs t2 \\ maybeToList v)
+    fvs (TCaseExn t)         = fvs t
     fvs (TCall t1 t2 _ t)  = fvs t1 `union` fvs t2 `union` fvs t
     fvs (TCallExn t1 t2)   = fvs t1 `union` fvs t2
     fvs (TRef _ t)         = fvs t
@@ -493,7 +496,6 @@ promote :: Value -> Value
 promote VStar               = VStar
 promote VHole               = VStar
 promote VUnit               = VUnit
-promote (VException e)      = VException e
 promote (VBool b)           = VBool b
 promote (VInt i)            = VInt i
 promote (VString s)         = VString s
@@ -503,9 +505,15 @@ promote (VInR v)            = VInR (promote v)
 promote (VRoll tv v)        = VRoll tv (promote v)
 promote (VStoreLoc l)       = VStoreLoc l
 promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace v t env (Store refs refCount)) =
-    VTrace (promote v) t (fmap promote env) (Store (fmap promote refs) refCount)
+promote (VTrace r t env (Store refs refCount)) =
+    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) refCount)
 promote (VExp     e env)    = VExp e (fmap promote env)
+
+promoteOutcome :: Outcome -> Outcome
+promoteOutcome OStar = OStar
+promoteOutcome OHole = OStar
+promoteOutcome (OExn v) = OExn (promote v)
+promoteOutcome (ORet v) = ORet (promote v)
 
 instance UpperSemiLattice Value where
     bot                                = VHole
@@ -522,7 +530,6 @@ instance UpperSemiLattice Value where
     leq (VInR v) (VInR v')             = v `leq` v'
     leq (VRoll tv v) (VRoll tv' v')    | tv == tv' = v `leq` v'
     leq (VStoreLoc i) (VStoreLoc i')   = i == i'
-    leq (VException m) (VException m') = m == m'
     leq (VClosure k env) (VClosure k' env')
         = k `leq` k' && env `leq` env'
     leq a b = error $ "UpperSemiLattice Value: error taking leq of " ++
@@ -541,12 +548,28 @@ instance UpperSemiLattice Value where
     lub (VInR v)      (VInR v')        = VInR (v `lub` v')
     lub (VRoll tv v)  (VRoll tv' v')   | tv == tv' = VRoll tv (v `lub` v')
     lub (VStoreLoc i) (VStoreLoc i')   | i == i' = VStoreLoc i
-    lub (VException m) (VException m') | m == m'
-        = VException m
     lub (VClosure k env) (VClosure k' env')
         = VClosure (k `lub` k') (env `lub` env')
     lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
                       show a ++ " and " ++ show b
+
+instance UpperSemiLattice Outcome where
+    leq (ORet v) (ORet v') = leq v v'
+    leq (OExn v) (OExn v') = leq v v'
+    leq (OHole) _ = True
+    leq (OStar) (OHole) = False -- order matters
+    leq (OStar) _ = True
+    leq _ _ = False
+
+    lub (ORet v) (ORet v') = ORet (lub v v')
+    lub (OExn v) (OExn v') = OExn (lub v v')
+    lub (OHole) v = v
+    lub v (OHole) = v
+    lub (OStar) v = promoteOutcome v  -- order matters here
+    lub v (OStar) = promoteOutcome v
+    lub a b = error $ "UpperSemiLattice Value: error taking lub of " ++
+                      show a ++ " and " ++ show b
+    bot = OHole
 
 instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     bot                                = Hole
@@ -669,6 +692,8 @@ instance UpperSemiLattice Trace where
         = t `leq` t' && x == x' && t1 `leq` t1'
     leq (TCaseR t x t2) (TCaseR t'  x' t2')
         = t `leq` t' && x == x' && t2 `leq` t2'
+    leq (TCaseExn t) (TCaseExn t')
+        = t `leq` t'
     leq (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = t1 `leq` t1' && t2 `leq` t2' && k `leq` k' && t `leq` t'
     leq (TCallExn t1 t2) (TCallExn t1' t2')
@@ -697,6 +722,8 @@ instance UpperSemiLattice Trace where
         = TCaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
     lub (TCaseR t x t2) (TCaseR t' x' t2')
         = TCaseR (t `lub` t') (x `lub` x') (t2 `lub` t2')
+    lub (TCaseExn t) (TCaseExn t')
+        = TCaseExn (t `lub` t')
     lub (TCall t1 t2 k t) (TCall t1' t2' k' t')
         = TCall (t1 `lub` t1') (t2 `lub` t2') (k `lub` k') (t `lub` t')
     lub (TCallExn t1 t2) (TCallExn t1' t2')
@@ -748,6 +775,21 @@ instance Pattern Value where
     extract p v = error ("extract only defined if p <= v, but p is " ++
                          show p ++ " and v is " ++ show v)
 
+instance Pattern Outcome where
+    match (OStar) v v' = v == v'
+    match (OHole) _ _ = True
+    match (ORet p) (ORet v1) (ORet v2) = (match p v1 v2)
+    match (OExn p) (OExn v1) (OExn v2) = (match p v1 v2)
+    match _ _ _ = False
+    
+    extract (OStar) v = v
+    extract (OHole) _ = OHole
+    extract (ORet p) (ORet v) = ORet (extract p v)
+    extract (OExn p) (OExn v) = OExn (extract p v)
+    extract p v = error ("extract only defined if p <= v, but p is " ++
+                         show p ++ " and v is " ++ show v)
+
+
 instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
     match (penv@(Env penv')) env1 env2
         = all (\x -> match (lookupEnv' penv x) (lookupEnv' env1 x)
@@ -793,14 +835,12 @@ storeLookup (Store refs _) (StoreLabel label) =
 -- value was allocated
 storeInsert :: Store -> Value -> (Store, StoreLabel)
 storeInsert (Store refs refCount) v =
-    assert (not (isException v)) $
     (Store (M.insert refCount v refs) (refCount + 1), StoreLabel refCount)
 
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
 storeUpdate (Store refs refCount) (StoreLabel l) v =
     assert (l `M.member` refs)   $
-    assert (not (isException v)) $
     Store (M.insert l v refs) refCount
 
 -- | Update a label already present in a store to contain hole
@@ -860,6 +900,8 @@ storeWrites (TCaseL t1 _ t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TCaseR t1 _ t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TCaseExn t)       =
+    storeWrites t
 storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
     storeWrites t1 `unionStoreLabels` storeWrites t2
                    `unionStoreLabels` storeWrites t3

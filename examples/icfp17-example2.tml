@@ -6,9 +6,9 @@ let map = fun map (f : ref int -> int) (xs : reflist) : intlist =>
       RefNil -> Nil;
       RefCons y -> Cons (f (fst y), map f (snd y))
 in
-let a = ref 1 in
-let b = ref 2 in
 let t = trace (
+    let a = ref 1 in
+    let b = ref 2 in
     map (fun f (c : ref int) : int => (b := !b - 1) ;;
                    if !c = 0 then (raise "Division by zero") else 1 / !c)
     RefCons (a, (RefCons (b, RefNil)))) in
