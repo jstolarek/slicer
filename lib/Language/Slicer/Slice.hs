@@ -78,10 +78,10 @@ bwdSliceM value trace = do
         do (rho2, e2, t2') <- bwdSliceM VStar t2
            (rho1, e1, t1') <- bwdSliceM VStar t1
            return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
-    (v, TPair t1 THole) | isException v -> 
+    (v, TPair t1 THole) | isException v ->
         do (rho1, e1, t1') <- bwdSliceM v t1
            return (rho1, EPair e1 EHole, TPair t1' THole)
-    (v, TPair t1 t2) | isException v -> 
+    (v, TPair t1 t2) | isException v ->
         do (rho2, e2, t2') <- bwdSliceM v t2
            (rho1, e1, t1') <- bwdSliceM VHole t1
            return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
