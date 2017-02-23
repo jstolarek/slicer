@@ -69,5 +69,6 @@ tests =
       , runTMLTest "T2"
       , runTMLTest "T9"
       , runTMLTest "T13"
+      , runTMLTest "T43"
       , runTMLTest "uncurried-componentwise-sum"
       ]
