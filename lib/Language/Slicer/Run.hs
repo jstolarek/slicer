@@ -6,7 +6,7 @@ module Language.Slicer.Run
     ) where
 
 import           Language.Slicer.Absyn      ( Exp, TyCtx, emptyTyCtx    )
-import           Language.Slicer.Core       ( Type, Outcome      )
+import           Language.Slicer.Core       ( Type, Outcome             )
 import           Language.Slicer.Desugar    ( desugar                   )
 import           Language.Slicer.Env        ( Env, emptyEnv             )
 import           Language.Slicer.Eval       ( run                       )

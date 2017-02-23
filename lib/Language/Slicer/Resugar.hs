@@ -266,7 +266,7 @@ instance Resugarable Outcome where
     resugarM OHole = return RHole
     resugarM (ORet v) = resugarM v
     resugarM (OExn v) = do e <- resugarM v
-                           return (RRaise e) 
+                           return (RRaise e)
     resugarM OStar
         = resugarError ("Don't know how to resugar stars. " ++
                         "Where did you get this value from?" )
