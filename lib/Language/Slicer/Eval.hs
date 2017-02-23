@@ -133,7 +133,6 @@ evalMatch (ORet (VInL v)) m
 evalMatch (ORet (VInR v)) m
     = let (x, e) = inR m
       in maybeWithBinder x v (evalM' e)
-evalMatch (OExn v) _ = return (OExn v)
 evalMatch _ _
     = evalError "evalMatch: scrutinee does not reduce to a constructor"
 
@@ -189,31 +188,40 @@ evalTraceOp PrimProfile [ORet (VTrace _ t _ _)]
 evalTraceOp PrimProfileDiff [ORet (VTrace _ t _ _)]
     = do liftIO $ putStrLn (show (profileDiff t))
          return (ORet VUnit)
-evalTraceOp op vs = liftEvalM $ evalOpExn op vs
+evalTraceOp op vs = evalOpExn op vs
 
-evalOpExn :: Primitive -> [Outcome] -> SlM Outcome
+evalOpExn :: Primitive -> [Outcome] -> EvalM Outcome
 evalOpExn f rs =
   case extractExn rs of
-    Left vs -> do v <- evalOp f vs
-                  return (ORet v)
-    Right exn -> return (exn)
-  where extractExn [] = Left []
+    Left vs   -> evalOp f vs
+    Right exn -> return exn
+  where extractExn :: [Outcome] -> Either [Value] Outcome
+        extractExn [] = Left []
         extractExn (ORet v : rs') = case extractExn rs' of
                                         Left vs -> Left (v:vs)
                                         Right exn -> Right exn
         extractExn (OExn v : _) = Right (OExn v)
         extractExn _ = Right (OHole)
 
-evalOp :: Primitive -> [Value] -> SlM Value
-evalOp f [VInt    i, VInt    j] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [VBool   i, VBool   j] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [VString i, VString j] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [VInt    i, VInt    j] | isIntBinOp  f = return ((intBinOps ! f) (i,j))
-evalOp f [VInt    i, VInt    j] | isIntRelOp  f = return ((intRelOps ! f) (i,j))
-evalOp f [VBool   i, VBool   j] | isBoolRelOp f = return ((boolRelOps! f) (i,j))
-evalOp f [VBool   b]            | isBoolUnOp  f = return ((boolUnOps ! f) b)
-evalOp _ vs                     | VHole `elem` vs = return VHole
-evalOp _ vs                     | VStar `elem` vs = return VStar
+evalOp :: Primitive -> [Value] -> EvalM Outcome
+evalOp OpDiv [_    , VInt    0]
+    = return (OExn (VString "Division by zero"))
+evalOp f [VInt    i, VInt    j] | isCommonOp  f
+    = return (ORet ((commonOps ! f) (i,j)))
+evalOp f [VBool   i, VBool   j] | isCommonOp  f
+    = return (ORet ((commonOps ! f) (i,j)))
+evalOp f [VString i, VString j] | isCommonOp  f
+    = return (ORet ((commonOps ! f) (i,j)))
+evalOp f [VInt    i, VInt    j] | isIntBinOp  f
+    = return (ORet ((intBinOps ! f) (i,j)))
+evalOp f [VInt    i, VInt    j] | isIntRelOp  f
+    = return (ORet ((intRelOps ! f) (i,j)))
+evalOp f [VBool   i, VBool   j] | isBoolRelOp f
+    = return (ORet ((boolRelOps! f) (i,j)))
+evalOp f [VBool   b]            | isBoolUnOp  f
+    = return (ORet ((boolUnOps ! f) b))
+evalOp _ vs | VHole `elem` vs = return (ORet VHole)
+evalOp _ vs | VStar `elem` vs = return (ORet VStar)
 evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
 
 -- Note [No exceptions in scrutinee]

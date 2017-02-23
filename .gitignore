@@ -10,4 +10,4 @@ dist
 *.tix
 
 # Files generated when running benchmarks
-report.html
+*.html

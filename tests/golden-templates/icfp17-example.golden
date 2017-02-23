@@ -1,7 +1,7 @@
 Running ../../examples/icfp17-example.tml
-val it = let f = fun f x => if x == 0
+val it = let f = (fun f x => if x == 0
                    then y := 6 * !z
-                   else _
+                   else _)
 in try
      f 0
    with _ =>
