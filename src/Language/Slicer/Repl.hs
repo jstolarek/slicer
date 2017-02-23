@@ -64,10 +64,10 @@ parseAndEvalLine line = do
                              (val `seq` addBinding (getVar expr) val ty)
                     return (It $ "val it = " ++ show (pPrint res) ++
                                  " : "       ++ show (pPrint ty))
-             Right (OExn val, _res, _ty, st) ->
+             Right (OExn _, res, _, st) ->
                  do setEvalState st
-                    return (It $ "Exception: " ++ show (val))
-             Right (_) -> error "Unknown outcome (should be impossible)"
+                    return (It $ "Exception: " ++ show (pPrint res))
+             Right _  -> error "Unknown outcome (should be impossible)"
              Left err -> return (Error err)
 
 -- Note [Handling let bindings]
