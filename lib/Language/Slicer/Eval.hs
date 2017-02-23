@@ -205,15 +205,15 @@ evalOpExn f rs =
         extractExn _ = Right (OHole)
 
 evalOp :: Primitive -> [Value] -> SlM Value
-evalOp f [(VInt    i), (VInt    j)] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [(VBool   i), (VBool   j)] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [(VString i), (VString j)] | isCommonOp  f = return ((commonOps ! f) (i,j))
-evalOp f [(VInt    i), (VInt    j)] | isIntBinOp  f = return ((intBinOps ! f) (i,j))
-evalOp f [(VInt    i), (VInt    j)] | isIntRelOp  f = return ((intRelOps ! f) (i,j))
-evalOp f [(VBool   i), (VBool   j)] | isBoolRelOp f = return ((boolRelOps! f) (i,j))
-evalOp f [(VBool   b)]            | isBoolUnOp  f = return ((boolUnOps ! f) b)
-evalOp _ vs                     | (VHole) `elem` vs = return (VHole)
-evalOp _ vs                     | (VStar) `elem` vs = return (VStar)
+evalOp f [VInt    i, VInt    j] | isCommonOp  f = return ((commonOps ! f) (i,j))
+evalOp f [VBool   i, VBool   j] | isCommonOp  f = return ((commonOps ! f) (i,j))
+evalOp f [VString i, VString j] | isCommonOp  f = return ((commonOps ! f) (i,j))
+evalOp f [VInt    i, VInt    j] | isIntBinOp  f = return ((intBinOps ! f) (i,j))
+evalOp f [VInt    i, VInt    j] | isIntRelOp  f = return ((intRelOps ! f) (i,j))
+evalOp f [VBool   i, VBool   j] | isBoolRelOp f = return ((boolRelOps! f) (i,j))
+evalOp f [VBool   b]            | isBoolUnOp  f = return boolUnOps ! f) b)
+evalOp _ vs                     | VHole `elem` vs = return VHole
+evalOp _ vs                     | VStar `elem` vs = return VStar
 evalOp f vs = evalError ("Op " ++ show f ++ " not defined for " ++ show vs)
 
 -- Note [No exceptions in scrutinee]
