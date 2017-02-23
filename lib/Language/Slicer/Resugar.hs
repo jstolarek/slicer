@@ -266,7 +266,7 @@ instance Resugarable Outcome where
     resugarM OHole = return RHole
     resugarM (ORet v) = resugarM v
     resugarM (OExn v) = do e <- resugarM v
-                           return (RRaise e)
+                           return (RException e)
     resugarM OStar
         = resugarError ("Don't know how to resugar stars. " ++
                         "Where did you get this value from?" )
@@ -360,7 +360,7 @@ instance Pretty RExp where
     pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$
                              text "with" <+> pPrint x <+> text "=>" $$
                              nest 2 (pPrint h)
-    pPrint (RException e)  = text "<exception>" <> partial_parensOpt e
+    pPrint (RException e)  = text "<exception>" <+> partial_parensOpt e
 
 instance Pretty RMatch where
     pPrint (RMatch ms) = vcat (punctuate semi (map pp_match ms))
