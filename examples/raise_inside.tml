@@ -13,9 +13,17 @@ let s3 = bwdSlice (t3, raise "foo") in
 let t4 = trace ( Cons (1, raise "foo") ) in
 let s4 = bwdSlice (t4, raise "foo") in
 
-let t5 = trace ( (raise "foo") + 1) in
+let t5 = trace ( (raise "foo") + 1) in 
 let s5 = bwdSlice (t5, raise "foo") in
-let t6 = trace ( (raise "foo") + 1) in
+
+let t6 = trace ( 1 + (raise "foo") ) in
 let s6 = bwdSlice (t6, raise "foo") in
 
-(s1,(s2,(s3,(s4,(s5,s6)))))
+let t7 = trace ( fst (raise "foo")) in
+let s7 = bwdSlice (t7, raise "foo") in
+
+let t8 = trace ( snd (raise "foo")) in
+let s8 = bwdSlice (t8, raise "foo") in
+
+
+(s1,(s2,(s3,(s4,(s5,(s6,(s7,s8)))))))
