@@ -57,6 +57,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
     , "merge"
     , "operators"
     , "proportion"
+    , "raise_inside"
     , "refs"
     , "refs-bslice"
     , "reverse-eval"
@@ -90,9 +91,10 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
     , "sum-eval-trace-slice"
     , "sum-eval-trace"
     , "sum-slice-size"
-    , "T13"
     , "T2"
     , "T9"
+    , "T13"
+    , "T43"
     , "uncurried-componentwise-sum"
     ]
 

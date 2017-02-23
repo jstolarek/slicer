@@ -199,9 +199,9 @@ bwdSliceM value trace = do
                                       RetValue)
               | not (isException v) ->
                   do p <- storeDerefM l
+                     storeUpdateHoleM l
                      (rho2, e2, t2') <- bwdSliceM p t2
                      (rho1, e1, t1') <- bwdSliceM (toValue l) t1
-                     storeUpdateHoleM l
                      return ( rho1 `lub` rho2, EAssign e1 e2
                             , TAssign (Just l) t1' t2')
               | otherwise -> -- isException v == True
