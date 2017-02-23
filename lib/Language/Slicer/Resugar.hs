@@ -259,7 +259,7 @@ instance Resugarable Value where
         = resugarError ("Non-constructor value wrapped in a roll, can't resugar "
                         ++ show v)
     resugarM VStar
-        = resugarError ("Don't know how to desugar stars. " ++
+        = resugarError ("Don't know how to resugar stars. " ++
                         "Where did you get this value from?" )
     resugarM (VStoreLoc _)
         = resugarError ("Cannot resugar store labels")
