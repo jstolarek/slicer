@@ -78,6 +78,13 @@ bwdSliceM value trace = do
         do (rho2, e2, t2') <- bwdSliceM VStar t2
            (rho1, e1, t1') <- bwdSliceM VStar t1
            return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
+    (v, TPair t1 THole) | isException v -> 
+        do (rho1, e1, t1') <- bwdSliceM v t1
+           return (rho1, EPair e1 EHole, TPair t1' THole)
+    (v, TPair t1 t2) | isException v -> 
+        do (rho2, e2, t2') <- bwdSliceM v t2
+           (rho1, e1, t1') <- bwdSliceM VHole t1
+           return (rho1 `lub` rho2, EPair e1 e2, TPair t1' t2')
     (p, TFst t) ->
         do (rho, e', t') <- bwdSliceM (VPair p bot) t
            return (rho, EFst e', TFst t')
@@ -90,11 +97,17 @@ bwdSliceM value trace = do
     (VStar, TInL t) ->
         do (rho, e', t') <- bwdSliceM VStar t
            return (rho, EInL e', TInL t')
+    (v, TInL t) | isException v ->
+        do (rho, e', t') <- bwdSliceM v t
+           return (rho, EInL e', TInL t')
     (VInR p, TInR t) ->
         do (rho, e', t') <- bwdSliceM p t
            return (rho, EInR e', TInR t')
     (VStar, TInR t) ->
         do (rho, e', t') <- bwdSliceM VStar t
+           return (rho, EInR e', TInR t')
+    (v, TInR t) | isException v ->
+        do (rho, e', t') <- bwdSliceM v t
            return (rho, EInR e', TInR t')
     (p, TLet x t THole) -> -- JSTOLAREK: This case should be redundant
         do (rho, e1, t1') <- bwdSliceM p t
@@ -157,6 +170,9 @@ bwdSliceM value trace = do
            return (rho, ERoll tv e, TRoll tv' t')
     (VStar, TRoll tv' t) ->
         do (rho, e, t') <- bwdSliceM VStar t
+           return (rho, ERoll tv' e, TRoll tv' t')
+    (v, TRoll tv' t) | isException v ->
+        do (rho, e, t') <- bwdSliceM v t
            return (rho, ERoll tv' e, TRoll tv' t')
     (p, TUnroll tv t) ->
         do (rho, e, t') <- bwdSliceM (VRoll tv p) t
