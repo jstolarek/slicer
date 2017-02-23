@@ -1,2 +1,2 @@
 Running ../../examples/raise_inside.tml
-val it = ((raise "foo", _), ((_, raise "foo"), (Cons (raise "foo", _), (Cons (_, raise "foo"), ((raise "foo") + _, _ + (raise "foo")))))) : (trace((<exn> * int)) * (trace((int * <exn>)) * (trace(intlist) * (trace(intlist) * (trace(int) * trace(int))))))
+val it = ((raise "foo", _), ((_, raise "foo"), (Cons (raise "foo", _), (Cons (_, raise "foo"), ((raise "foo") + _, (1 + (raise "foo"), (fst (raise "foo"), snd (raise "foo")))))))) : (trace((<exn> * int)) * (trace((int * <exn>)) * (trace(intlist) * (trace(intlist) * (trace(int) * (trace(int) * (trace(<exn>) * trace(<exn>))))))))
