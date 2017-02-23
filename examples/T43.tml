@@ -1,0 +1,7 @@
+let t = trace (
+    let a = ref 1 in
+    let b = ref 1 in
+    let c = ref 1 in
+    b := !b + !a - !c;;
+    !b) in
+bwdSlice (t, 1)
