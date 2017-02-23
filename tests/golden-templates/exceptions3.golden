@@ -4,4 +4,4 @@ val it = try
               then _
               else raise "foo") ;; _
 with x =>
-  x = "foo" : trace(bool)
+  x == "foo" : trace(bool)

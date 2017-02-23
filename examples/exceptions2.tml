@@ -5,6 +5,6 @@ let t = trace(
     (raise (if false then "bar" else (raise "foo"))) ;;
     n:=42 ;;
     false
-  with x => x = "foo"
+  with x => x == "foo"
 ) in
 bwdSlice (t, true)
