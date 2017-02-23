@@ -32,7 +32,7 @@ instance Show Primitive where
     show OpDiv             = "/"
     show OpMod             = "%"
     -- Integer and boolean comparisons
-    show OpEq              = "="
+    show OpEq              = "=="
     show OpNeq             = "/="
     -- Integer comparisons
     show OpLt              = "<"

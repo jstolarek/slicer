@@ -13,7 +13,7 @@ let filter =
                    else (filter f (snd x))
 in
 let equalsthree =
-    fun equalsthree (x : int) : bool => (x = 3)
+    fun equalsthree (x : int) : bool => (x == 3)
 in
 let t = trace(filter equalsthree xs) in
 let u = visualize ("filter.pdf", t) in

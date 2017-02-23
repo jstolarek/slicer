@@ -133,7 +133,7 @@ tyVar :: CharParser st TyVar
 tyVar = TV `liftM` identifier token_
 
 equals :: CharParser st ()
-equals = reservedOp token_ (show OpEq)
+equals = reservedOp token_ "="
 
 typeAnnotation :: Parser Type
 typeAnnotation = colon token_ >> type_

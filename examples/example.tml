@@ -6,8 +6,8 @@ let f = fun f (x:int) (y:int) : int => x + y - 1 in
 let g = fun g (f:int -> int -> int) (x:int) : int => f x x in
 let times = fun t (x:int) (y:int) :int => x * y in
 let h = fun h (x:int) : int =>
-      if x > 3 then if x = f y z then g times x + x else x
-               else if g f x = z then y else z in
+      if x > 3 then if x == f y z then g times x + x else x
+               else if g f x == z then y else z in
 let map = fun map (f : int -> int) (xs : intlist) : intlist =>
    case xs of
       Nil -> Nil;

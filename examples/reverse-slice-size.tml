@@ -1,7 +1,7 @@
 data intlist = Nil | Cons int * intlist
 
 let mklist = fun mklist (n : int) : intlist =>
-                 if (n > 0 )
+                 if (n > 0)
                  then Cons(n,mklist (n-1))
                  else Nil
 in
@@ -33,7 +33,7 @@ let listeq = fun listeq (xs:intlist) (ys:intlist) : bool =>
              Cons y -> false);
     Cons x -> (case ys of
                Nil -> false;
-               Cons y -> ((fst x) = (fst y)) && listeq (snd x) (snd y))
+               Cons y -> ((fst x) == (fst y)) && listeq (snd x) (snd y))
 in
 let xs = mklist 100 in
 let t = trace(fastreverse xs) in
