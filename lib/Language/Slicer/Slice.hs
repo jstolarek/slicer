@@ -125,9 +125,9 @@ bwdSliceM outcome trace = do
     (_, TOp f ts) -> -- JRC: need to be more careful here, cf issue #47
         do (rho, esA, tsA) <- foldrM bwdSliceArgM (bot, [], []) ts
            return (rho, EOp f esA, TOp f tsA)
-             where tStar THole = OStar
-                   tStar t | isExn t   = OExn VStar
-                   tStar _             = ORet VStar
+             where tStar THole       = OStar
+                   tStar t | isExn t = OExn VStar
+                   tStar _           = ORet VStar
                    bwdSliceArgM t' (rho', es', ts')
                      = do (rho'', e, t) <- bwdSliceM (tStar t') t'
                           return (rho' `lub` rho'', e:es', t:ts')
