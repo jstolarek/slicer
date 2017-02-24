@@ -7,10 +7,10 @@ module Language.Slicer.Core
     ( -- * Abstract syntax
       Syntax(..), Value(..), Outcome(..)
     , Type(..), Ctx, Code(..), Match(..), ReturnType(..)
-    , Exp( EVar, ELet, EUnit, EBool, EInt, EOp, EString, EPair, EFst, ESnd
+    , Exp( EVar, ELet, EUnit, EBool, EInt, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
-    , Trace ( TVar, TLet, TUnit, TBool, TInt, TOp, TString, TPair, TFst, TSnd
+    , Trace ( TVar, TLet, TUnit, TBool, TInt, TString, TPair, TFst, TSnd
             , TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
@@ -215,7 +215,6 @@ data Syntax a = Var Var
               | CBool Bool
               | CInt Int
               | CString String
-              | Op Primitive [a]
               | Pair a a | Fst a | Snd a
               | InL a | InR a
               | Fun (Code Exp)
@@ -229,6 +228,7 @@ data Exp = Exp (Syntax Exp)
          | EIf Exp Exp Exp
          | ECase Exp Match
          | EApp Exp Exp
+         | EOp Primitive [Exp]
            -- run-time tracing
          | ETrace Exp
          -- References
@@ -251,9 +251,6 @@ pattern EBool b = Exp (CBool b)
 
 pattern EInt :: Int -> Exp
 pattern EInt i = Exp (CInt i)
-
-pattern EOp :: Primitive -> [Exp] -> Exp
-pattern EOp op args = Exp (Op op args)
 
 pattern EString :: String -> Exp
 pattern EString s = Exp (CString s)
@@ -292,6 +289,7 @@ data Trace = TExp (Syntax Trace)
            | TIfThen Trace Trace            -- ^ Take "then" branch of if
            | TIfElse Trace Trace            -- ^ Take "else" branch of if
            | TIfExn Trace                   -- ^ Condition raises exception
+           | TOp Bool Primitive [Trace]
            | TCaseL Trace (Maybe Var) Trace -- ^ Take "left constructor"
                                             -- alternative in a case expression
            | TCaseR Trace (Maybe Var) Trace -- ^ Take "right constructor"
@@ -328,7 +326,7 @@ isExn (TUnit)                  = False
 isExn (TBool _)                = False
 isExn (TInt _)                 = False
 isExn (TString _)              = False
-isExn (TOp _ ts)               = any isExn ts
+isExn (TOp f _ ts)             = f || any isExn ts
 isExn (TPair t1 t2)            = isExn t1 || isExn t2
 isExn (TFst t)                 = isExn t
 isExn (TSnd t)                 = isExn t
@@ -388,9 +386,6 @@ pattern TInt i = TExp (CInt i)
 
 pattern TString :: String -> Trace
 pattern TString s = TExp (CString s)
-
-pattern TOp :: Primitive -> [Trace] -> Trace
-pattern TOp op args = TExp (Op op args)
 
 pattern TPair :: Trace -> Trace -> Trace
 pattern TPair t1 t2 = TExp (Pair t1 t2)
@@ -477,7 +472,6 @@ instance FVs a => FVs (Syntax a) where
     fvs (Var x)       = [x]
     fvs (Let x e1 e2) = delete x (fvs e1 `union` fvs e2)
     fvs  Unit         = []
-    fvs (Op _ exps)   = concat (Prelude.map fvs exps)
     fvs (CBool _)     = []
     fvs (CInt _)      = []
     fvs (CString _)   = []
@@ -493,16 +487,17 @@ instance FVs a => FVs (Syntax a) where
     fvs  Hole         = []
 
 instance FVs Exp where
-    fvs (EIf e1 e2 e3)  = fvs e1 `union` fvs e2 `union` fvs e3
-    fvs (ECase e m)     = fvs e `union` fvs m
-    fvs (EApp e1 e2)    = fvs e1 `union` fvs e2
-    fvs (ETrace e)      = fvs e
-    fvs (ERaise e)      = fvs e
+    fvs (EIf e1 e2 e3)    = fvs e1 `union` fvs e2 `union` fvs e3
+    fvs (ECase e m)       = fvs e `union` fvs m
+    fvs (EApp e1 e2)      = fvs e1 `union` fvs e2
+    fvs (EOp _ exps)      = concat (Prelude.map fvs exps)
+    fvs (ETrace e)        = fvs e
+    fvs (ERaise e)        = fvs e
     fvs (ETryWith e x e1) = fvs e `union` (delete x (fvs e1))
-    fvs (ERef e)        = fvs e
-    fvs (EDeref e)      = fvs e
-    fvs (EAssign e1 e2) = fvs e1 `union` fvs e2
-    fvs (Exp e)         = fvs e
+    fvs (ERef e)          = fvs e
+    fvs (EDeref e)        = fvs e
+    fvs (EAssign e1 e2)   = fvs e1 `union` fvs e2
+    fvs (Exp e)           = fvs e
 
 instance FVs Match where
     fvs (Match (x, e1) (y, e2)) =
@@ -520,6 +515,7 @@ instance FVs Trace where
     fvs (TCaseR t v t2)    = fvs t `union` (fvs t2 \\ maybeToList v)
     fvs (TCall t1 t2 _ t)  = fvs t1 `union` fvs t2 `union` fvs t
     fvs (TCallExn t1 t2)   = fvs t1 `union` fvs t2
+    fvs (TOp _ _ exps)     = concat (Prelude.map fvs exps)
     fvs (TRef _ t)         = fvs t
     fvs (TDeref _ t)       = fvs t
     fvs (TAssign _ t1 t2)  = fvs t1 `union` fvs t2
@@ -619,8 +615,6 @@ instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     leq (CBool b) (CBool b')           = b == b'
     leq (CInt i) (CInt j)              = i == j
     leq (CString i) (CString j)        = i == j
-    leq (Op f es) (Op f' es')          | f == f' && length es == length es'
-                                       = all (\(x,y) -> x `leq` y) (zip es es')
     leq Unit Unit                      = True
     leq (Pair e1 e2) (Pair e1' e2')    = e1 `leq` e1' && e2 `leq` e2'
     leq (Fst e) (Fst e')               = e `leq` e'
@@ -641,8 +635,6 @@ instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     lub (Let x e1 e2) (Let x' e1' e2') = Let (x `lub` x') (e1 `lub` e1') (e2 `lub` e2')
     lub (CInt i) (CInt j)              | i == j = CInt i
     lub (CString i) (CString j)        | i == j = CString i
-    lub (Op f es) (Op f' es')          | f == f' && length es == length es'
-                                       = Op f (map (\(x,y) -> x `lub` y) (zip es es'))
     lub Unit Unit                      = Unit
     lub (CBool b) (CBool b')           | b == b'
                                        = CBool b
@@ -666,6 +658,9 @@ instance UpperSemiLattice Exp where
     leq (EIf e e1 e2) (EIf e' e1' e2') = e `leq` e' && e1 `leq` e1' && e2 `leq` e2'
     leq (ECase e m) (ECase e' m')      = e `leq` e' && m `leq` m'
     leq (EApp e1 e2) (EApp e1' e2')    = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EOp op es) (EOp op' es')
+        | op == op' && length es == length es'
+        = all (\(x,y) -> x `leq` y) (zip es es')
     leq (ETrace e) (ETrace e')
         = e `leq` e'
     leq (ERef   e1) (ERef   e2)        = e1 `leq` e2
@@ -684,6 +679,9 @@ instance UpperSemiLattice Exp where
     lub (EIf e e1 e2) (EIf e' e1' e2') = EIf (e `lub` e') (e1 `lub` e1') (e2 `lub` e2')
     lub (ECase e m) (ECase e' m')      = ECase (e `lub` e') (m `lub` m')
     lub (EApp e1 e2) (EApp e1' e2')    = EApp (e1 `lub` e1') (e2 `lub` e2')
+    lub (EOp op es) (EOp op' es')
+        | op == op' && length es == length es'
+        = EOp op (map (\(x,y) -> x `lub` y) (zip es es'))
     lub (ETrace e) (ETrace e')
         = ETrace (e `lub` e')
     lub (ERef   e1) (ERef   e2)        = ERef   (e1 `lub` e2)
@@ -727,6 +725,9 @@ instance UpperSemiLattice Trace where
         = t `leq` t' && t2 `leq` t2'
     leq (TIfExn t) (TIfExn t')
         = t `leq` t'
+    leq (TOp f op es) (TOp f' op' es')
+        | f == f' && op == op' && length es == length es'
+        = all (\(x,y) -> x `leq` y) (zip es es')
     leq (TCaseL t x t1) (TCaseL t' x' t1')
         = t `leq` t' && x == x' && t1 `leq` t1'
     leq (TCaseR t x t2) (TCaseR t'  x' t2')
@@ -755,6 +756,9 @@ instance UpperSemiLattice Trace where
         = TIfElse (t `lub` t') (t2 `lub` t2')
     lub (TIfExn t) (TIfExn t')
         = TIfExn (t `lub` t')
+    lub (TOp f op es) (TOp f' op' es')
+        | f == f' && op == op' && length es == length es'
+        = TOp f op (map (\(x,y) -> x `lub` y) (zip es es'))
     lub (TCaseL t x t1) (TCaseL t' x' t1')
         = TCaseL (t `lub` t') (x `lub` x') (t1 `lub` t1')
     lub (TCaseR t x t2) (TCaseR t' x' t2')
@@ -952,7 +956,7 @@ storeWrites (TPair t1 t2)      =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TSeq t1 t2)       =
     storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TOp _ ts)         =
+storeWrites (TOp _ _ ts)       =
     foldl (\acc t -> acc `unionStoreLabels` storeWrites t) emptyStoreLabels ts
 storeWrites (TFst t)           = storeWrites t
 storeWrites (TSnd t)           = storeWrites t

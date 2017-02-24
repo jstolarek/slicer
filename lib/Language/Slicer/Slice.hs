@@ -122,15 +122,19 @@ bwdSliceM outcome trace = do
                rho2' = unbindEnv  rho2 x
            (rho1, e1, t1') <- bwdSliceM (ORet p1) t1
            return (rho1 `lub` rho2', ELet x e1 e2, TLet x t1' t2')
-    (_, TOp f ts) -> -- JRC: need to be more careful here, cf issue #47
-        do (rho, esA, tsA) <- foldrM bwdSliceArgM (bot, [], []) ts
-           return (rho, EOp f esA, TOp f tsA)
-             where tStar THole       = OStar
-                   tStar t | isExn t = OExn VStar
-                   tStar _           = ORet VStar
-                   bwdSliceArgM t' (rho', es', ts')
-                     = do (rho'', e, t) <- bwdSliceM (tStar t') t'
+    (r, TOp f op ts) -> -- JRC: need to be more careful here, cf issue #47
+        do let scs = if (not (isExn trace))
+                     then map (const (ORet VStar)) ts
+                     else snd (foldr expectedOutcome (False, []) ts)
+               expectedOutcome :: Trace -> (Bool,[Outcome]) -> (Bool, [Outcome])
+               expectedOutcome t (False, ts') | isExn t = (True , r : ts')
+               expectedOutcome _ (False, ts') = (False, OHole       : ts')
+               expectedOutcome _ (True , ts') = (True , ORet VHole  : ts')
+               bwdSliceArgM (t', sc) (rho', es', ts')
+                     = do (rho'', e, t) <- bwdSliceM sc t'
                           return (rho' `lub` rho'', e:es', t:ts')
+           (rho, esA, tsA) <- foldrM bwdSliceArgM (bot, [], []) (zip ts scs)
+           return (rho, EOp op esA, TOp f op tsA)
     (p1, TIfThen t t1) ->
         do (rho1, e1, t1') <- bwdSliceM p1 t1
            (rho , e , t' ) <- bwdSliceM (ORet VStar) t
@@ -231,6 +235,7 @@ bwdSliceM outcome trace = do
     (OExn v, TSeq t1 THole) ->
         do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho1, ESeq e1 EHole, TSeq t1' THole)
+
     (r, TSeq t1 t2) ->
         do (rho2, e2, t2') <- bwdSliceM r t2
            (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
@@ -244,5 +249,16 @@ bwdSliceM outcome trace = do
                rho2' = unbindEnv  rho2 x
            (rho1, e1, t1') <- bwdSliceM (OExn p1) t1
            return (rho1 `lub` rho2', ETryWith e1 x e2, TTryWith t1' x t2')
+
+    -- JSTOLAREK: hacking OHole rules
+    (OHole, THole)
+        -> return (bot, bot, bot)
+    (OHole, TDeref (Just l) t)  ->
+        do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
+           storeUpdateHoleM l
+           return (rho, EDeref e, TDeref (Just l) t')
+    (OHole, TInt v) -> return (bot, EInt v, TInt v)
+
+
     _ -> error $ "Cannot slice outcome " ++ show outcome ++
                  " from trace " ++ show trace

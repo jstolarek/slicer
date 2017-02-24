@@ -95,6 +95,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
     , "T9"
     , "T13"
     , "T43"
+    , "T47"
     , "uncurried-componentwise-sum"
     ]
 

@@ -72,6 +72,7 @@ instance Uneval Trace Exp where
     uneval (TIfThen t t1)    = EIf (uneval t) (uneval t1) bot
     uneval (TIfElse t t2)    = EIf (uneval t) bot (uneval t2)
     uneval (TIfExn t)        = EIf (uneval t) bot bot
+    uneval (TOp _ f es)      = EOp f (map uneval es)
     uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)
     uneval (TCallExn t1 t2)  = EApp (uneval t1) (uneval t2)
     uneval (TRef _ t)        = ERef (uneval t)
@@ -92,7 +93,6 @@ instance Uneval a b => Uneval (Syntax a) (Syntax b) where
     uneval (CString s)   = CString s
     uneval (Fun k)       = Fun k
     uneval (Let x e1 e2) = Let x (uneval e1) (uneval e2)
-    uneval (Op f es)     = Op f (map uneval es)
     uneval (Pair e1 e2)  = Pair (uneval e1) (uneval e2)
     uneval (Fst e)       = Fst (uneval e)
     uneval (Snd e)       = Snd (uneval e)
@@ -127,9 +127,6 @@ instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
     resugarM (CBool   b) = return (RBool   b)
     resugarM (CInt    i) = return (RInt    i)
     resugarM (CString s) = return (RString s)
-    resugarM (Op f args)
-        = do args' <- mapM resugarM args
-             return (ROp f args')
     resugarM (Pair e1 e2)
         = do e1' <- resugarM e1
              e2' <- resugarM e2
@@ -194,6 +191,9 @@ instance Resugarable Exp where
         = do e1' <- resugarM e1
              e2' <- resugarM e2
              return (RApp e1' e2')
+    resugarM (EOp f args)
+        = do args' <- mapM resugarM args
+             return (ROp f args')
     resugarM (ETrace e)
         = do e' <- resugarM e
              return (RTrace e')

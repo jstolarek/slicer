@@ -75,12 +75,6 @@ instance (Visualizable a, Show a) => Visualizable (Syntax a) where
            return i
     graphDiff (Fun (Rec _ _ funBody _)) (Fun (Rec _ _ funBody' _)) =
         graphDiff funBody funBody'
-    graphDiff (Op f ts) (Op f' ts')
-        | f == f' =
-        do i <- node (show f)
-           idxs <- mapM (uncurry graphDiff) (reverse (zip ts ts'))
-           mapM_ (edge i) idxs
-           return i
     graphDiff (Pair t1 t2) (Pair t1' t2') =
         do i <- node "pair"
            i2 <- graphDiff t2 t2'
@@ -126,6 +120,12 @@ instance Visualizable Exp where
       j <- graphDiff e2 e2'
       edge i j
       return i
+    graphDiff (EOp f ts) (EOp f' ts')
+        | f == f' =
+        do i <- node (show f)
+           idxs <- mapM (uncurry graphDiff) (reverse (zip ts ts'))
+           mapM_ (edge i) idxs
+           return i
     graphDiff (EIf c e1 e2) (EIf c' e1' e2') = do
       i <- node "if"
       l <- graphDiff c c'
@@ -158,6 +158,12 @@ instance Visualizable Trace where
     graphDiff t1 t2 | isTHole t2 = withColor leftColor  (graphDiff t1 t1)
     graphDiff t1 t2 | isTHole t1 = withColor rightColor (graphDiff t2 t2)
     graphDiff (TExp e) (TExp e') = graphDiff e e'
+    graphDiff (TOp _ f ts) (TOp _ f' ts')
+        | f == f' =
+        do i <- node (show f)
+           idxs <- mapM (uncurry graphDiff) (reverse (zip ts ts'))
+           mapM_ (edge i) idxs
+           return i
     graphDiff (TIfThen t t1) (TIfThen t' t1') =
         do i <- node "if/t"
            k <- graphDiff t1 t1'
