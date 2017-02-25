@@ -60,6 +60,10 @@ bwdSliceM outcome trace = do
         return (bot, EInt i, TInt i)
     (ORet VStar, TInt i) ->
         return (bot, EInt i, TInt i)
+    (ORet (VDouble i), TDouble i') | i == i' ->
+        return (bot, EDouble i, TDouble i)
+    (ORet VStar, TDouble i) ->
+        return (bot, EDouble i, TDouble i)
     (ORet (VString s), TString s') | s == s' ->
         return (bot, EString s, TString s)
     (ORet VStar, TString s) ->
@@ -258,7 +262,7 @@ bwdSliceM outcome trace = do
            storeUpdateHoleM l
            return (rho, EDeref e, TDeref (Just l) t')
     (OHole, TInt v) -> return (bot, EInt v, TInt v)
-
+    (OHole, TDouble v) -> return (bot, EDouble v, TDouble v)
 
     _ -> error $ "Cannot slice outcome " ++ show outcome ++
                  " from trace " ++ show trace

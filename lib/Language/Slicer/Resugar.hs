@@ -247,6 +247,7 @@ instance Resugarable Value where
                Nothing -> resugarError ("Unknown data type: " ++ show dataty)
     resugarM (VClosure v _) = resugarM (EFun v)
     resugarM (VExp v _)     = resugarM v
+    resugarM (VStoreLoc _)  = return (RRef RHole)
     resugarM (VTrace _ t _ _)
         = do e <- resugarM t
              return (RTrace e)
@@ -262,8 +263,6 @@ instance Resugarable Value where
     resugarM VStar
         = resugarError ("Don't know how to resugar stars. " ++
                         "Where did you get this value from?" )
-    resugarM (VStoreLoc _)
-        = resugarError ("Cannot resugar store labels")
 
 
 instance Resugarable Outcome where
