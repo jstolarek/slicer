@@ -29,7 +29,10 @@ lookupOp op tys | tys == [IntTy   , IntTy   ] && isCommonOp  op = return BoolTy
 lookupOp op tys | tys == [BoolTy  , BoolTy  ] && isCommonOp  op = return BoolTy
 lookupOp op tys | tys == [StringTy, StringTy] && isCommonOp  op = return BoolTy
 lookupOp op tys | tys == [IntTy   , IntTy   ] && isIntBinOp  op = return IntTy
-lookupOp op tys | tys == [IntTy   , IntTy   ] && isIntRelOp  op = return BoolTy
+lookupOp op tys | tys == [DoubleTy, DoubleTy] && isDoubleBinOp op =
+    return DoubleTy
+lookupOp op tys | tys == [IntTy   , IntTy   ] && isOrdOp     op = return BoolTy
+lookupOp op tys | tys == [DoubleTy, DoubleTy] && isOrdOp     op = return BoolTy
 lookupOp op tys | tys == [BoolTy  , BoolTy  ] && isBoolRelOp op = return BoolTy
 lookupOp op tys | tys == [BoolTy  ]           && isBoolUnOp  op = return BoolTy
 -- built-in primitives.  No exceptions allowed here, thus we use direct pattern
@@ -194,6 +197,7 @@ desugarTy A.IntTy            = IntTy
 desugarTy A.BoolTy           = BoolTy
 desugarTy A.UnitTy           = UnitTy
 desugarTy A.StringTy         = StringTy
+desugarTy A.DoubleTy         = DoubleTy
 desugarTy A.ExnTy            = ExnTy
 desugarTy (A.RefTy ty)       = RefTy (desugarTy ty)
 desugarTy (A.PairTy ty1 ty2) = PairTy (desugarTy ty1) (desugarTy ty2)

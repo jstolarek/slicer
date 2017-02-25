@@ -58,17 +58,18 @@ isCompilerMode = do
 -- Some constants for keywords, etc.  Note that strings tokens for operators and
 -- other builtin primitives are defined in the Show instance for the Primitive
 -- data type
-strAssign, strBool, strCase, strCaseClauseSep, strData, strDeref, strElse,
-      strFalse, strFst, strFun, strFunBodySep, strHole, strIf, strIn, strInL,
-      strInR, strInt, strLet, strOf, strRaise, strRef, strRoll, strSeq, strSnd,
-      strString, strThen, strTrace, strTrue, strTry, strUnit, strUnitVal,
-      strUnroll, strWith :: String
+strAssign, strBool, strCase, strCaseClauseSep, strData, strDeref, strDouble,
+      strElse, strFalse, strFst, strFun, strFunBodySep, strHole, strIf, strIn,
+      strInL, strInR, strInt, strLet, strOf, strRaise, strRef, strRoll, strSeq,
+      strSnd, strString, strThen, strTrace, strTrue, strTry, strUnit,
+      strUnitVal,  strUnroll, strWith :: String
 strAssign        = ":="
 strBool          = "bool"
 strCase          = "case"
 strCaseClauseSep = "->" -- separate case clause from constructor pattern
 strData          = "data"
 strDeref         = "!"
+strDouble        = "double"
 strElse          = "else"
 strFalse         = "false"
 strFst           = "fst"
@@ -153,11 +154,14 @@ type_ = flip buildExpressionParser simpleType
 
 -- We don't allow direct use of recursive types in the concrete grammar.
 simpleType :: Parser Type
-simpleType = boolTy <|> intTy <|> stringTy <|> unitTy <|> refTy <|> typeVar <|>
-             parensType
+simpleType = boolTy <|> intTy <|> doubleTy <|> stringTy <|> unitTy <|> refTy <|>
+             typeVar <|> parensType
    where
       intTy :: Parser Type
       intTy = keyword strInt >> return IntTy
+
+      doubleTy :: Parser Type
+      doubleTy = keyword strDouble >> return DoubleTy
 
       stringTy :: Parser Type
       stringTy = keyword strString >> return StringTy
@@ -216,11 +220,11 @@ appChain = chainl1 simpleExp (return App)
 -- let-bindings. lp stands for "let parser"
 simpleExp :: Parser Exp
 simpleExp =
-   unitVal <|> try int <|> string_ <|> true <|> false <|> if_ <|> try ctr <|>
-   try var <|> fun <|> try (parenthesise exp) <|> try let_ <|> pair <|> fst_ <|>
-   snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|> pslice_ <|>
-   traceval_ <|> visualize <|> visualize2 <|>
-   profile_ <|> profileDiff_ <|> treesize_ <|>
+   unitVal <|> try double <|> try int <|> string_ <|> true <|> false <|> if_ <|>
+   try ctr <|> try var <|> fun <|> try (parenthesise exp) <|> try let_ <|>
+   pair <|> fst_ <|> snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|>
+   pslice_ <|> traceval_ <|> visualize <|> visualize2 <|> profile_ <|>
+   profileDiff_ <|> treesize_ <|>
    -- references
    ref_ <|>
    -- exceptions
@@ -253,6 +257,10 @@ ctr = do c <- constr
 int :: Parser Exp
 int = (CInt . fromIntegral) `liftM` natural token_ <|>
       (parenthesise (char '-' >> (CInt . negate . fromIntegral) `liftM` natural token_))
+
+double :: Parser Exp
+double = CDouble `liftM` float token_ <|>
+         (parenthesise (char '-' >> (CDouble . negate) `liftM` float token_))
 
 string_ :: Parser Exp
 string_ = CString `liftM` stringLiteral token_
