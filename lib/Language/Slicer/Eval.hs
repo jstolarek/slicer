@@ -38,6 +38,7 @@ evalM (EBool b)       = return (ORet $ VBool b)
 evalM (EIf e e1 e2)   = do cond <- evalM' e
                            evalIf cond e1 e2
 evalM (EInt i)        = return (ORet $ VInt i)
+evalM (EDouble d)     = return (ORet $ VDouble d)
 evalM (EString s)     = return (ORet $ VString s)
 evalM (EOp f exps)    = do rs <- evalOpArgs exps
                            evalTraceOp f rs
@@ -206,7 +207,11 @@ evalOpExn f rs =
 evalOp :: Primitive -> [Value] -> EvalM Outcome
 evalOp OpDiv [_    , VInt    0]
     = return (OExn (VString "Division by zero"))
+evalOp OpDiv [_    , VDouble 0.0]
+    = return (OExn (VString "Division by zero"))
 evalOp f [VInt    i, VInt    j] | isCommonOp  f
+    = return (ORet ((commonOps ! f) (i,j)))
+evalOp f [VDouble i, VDouble j] | isCommonOp  f
     = return (ORet ((commonOps ! f) (i,j)))
 evalOp f [VBool   i, VBool   j] | isCommonOp  f
     = return (ORet ((commonOps ! f) (i,j)))
@@ -214,8 +219,12 @@ evalOp f [VString i, VString j] | isCommonOp  f
     = return (ORet ((commonOps ! f) (i,j)))
 evalOp f [VInt    i, VInt    j] | isIntBinOp  f
     = return (ORet ((intBinOps ! f) (i,j)))
-evalOp f [VInt    i, VInt    j] | isIntRelOp  f
-    = return (ORet ((intRelOps ! f) (i,j)))
+evalOp f [VDouble i, VDouble j] | isDoubleBinOp  f
+    = return (ORet ((doubleBinOps ! f) (i,j)))
+evalOp f [VInt    i, VInt    j] | isOrdOp  f
+    = return (ORet ((ordOps ! f) (i,j)))
+evalOp f [VDouble i, VDouble j] | isOrdOp  f
+    = return (ORet ((ordOps ! f) (i,j)))
 evalOp f [VBool   i, VBool   j] | isBoolRelOp f
     = return (ORet ((boolRelOps! f) (i,j)))
 evalOp f [VBool   b]            | isBoolUnOp  f

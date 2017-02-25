@@ -26,8 +26,8 @@ module Language.Slicer.Core
     , Pattern(extract), Valuable(..)
 
       -- * Built-in operators
-    , commonOps, intBinOps, intRelOps, boolRelOps, boolUnOps
-    , isCommonOp, isIntBinOp, isIntRelOp, isBoolRelOp, isBoolUnOp
+    , commonOps, intBinOps, doubleBinOps, ordOps, boolRelOps, boolUnOps
+    , isCommonOp, isIntBinOp, isDoubleBinOp, isOrdOp, isBoolRelOp, isBoolUnOp
 
       -- * Lables
     , Lab( unL ), mkL
@@ -1015,8 +1015,16 @@ intBinOps = fromList
    , (OpMod  , toValue . uncurry mod)
    ]
 
-intRelOps :: Map Primitive ((Int, Int) -> Value)
-intRelOps = fromList
+doubleBinOps :: Map Primitive ((Double, Double) -> Value)
+doubleBinOps = fromList
+   [ (OpPlus , toValue . uncurry (+))
+   , (OpMinus, toValue . uncurry (-))
+   , (OpTimes, toValue . uncurry (*))
+   , (OpDiv  , toValue . uncurry (/))
+   ]
+
+ordOps :: Ord a => Map Primitive ((a, a) -> Value)
+ordOps = fromList
    [ (OpLt , toValue . uncurry (<) )
    , (OpGt , toValue . uncurry (>) )
    , (OpLeq, toValue . uncurry (<=))
@@ -1040,8 +1048,11 @@ isCommonOp op = op `member` (commonOps :: Map Primitive (((), ()) -> Value))
 isIntBinOp :: Primitive -> Bool
 isIntBinOp op = op `member` intBinOps
 
-isIntRelOp :: Primitive -> Bool
-isIntRelOp op = op `member` intRelOps
+isDoubleBinOp :: Primitive -> Bool
+isDoubleBinOp op = op `member` doubleBinOps
+
+isOrdOp :: Primitive -> Bool
+isOrdOp op = op `member` (ordOps :: Map Primitive (((), ()) -> Value))
 
 isBoolRelOp :: Primitive -> Bool
 isBoolRelOp op = op `member` boolRelOps
