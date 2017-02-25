@@ -62,7 +62,8 @@ strAssign, strBool, strCase, strCaseClauseSep, strData, strDeref, strDouble,
       strElse, strFalse, strFst, strFun, strFunBodySep, strHole, strIf, strIn,
       strInL, strInR, strInt, strLet, strOf, strRaise, strRef, strRoll, strSeq,
       strSnd, strString, strThen, strTrace, strTrue, strTry, strUnit,
-      strUnitVal,  strUnroll, strWith :: String
+      strUnitVal,  strUnroll, strWith,
+      strArr, strGet, strSet, strWhile, strDo :: String
 strAssign        = ":="
 strBool          = "bool"
 strCase          = "case"
@@ -97,7 +98,11 @@ strUnit          = "unit"
 strUnitVal       = "()"
 strUnroll        = "unroll"
 strWith          = "with"
-
+strArr           = "array"
+strGet           = "get"
+strSet           = "set"
+strWhile         = "while"
+strDo            = "do"
 
 -- We don't allow explicit rolls, unrolls, inls or inrs in the concrete syntax,
 -- but we still reserve them as keywords.
@@ -106,6 +111,7 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strIf, strIn, strInL, strInR, strInt, strLet, strOf, strRaise
            , strRef, strRoll, strSnd, strThen, strTrace, strTrue, strTry
            , strUnit, strUnroll, strWith
+           , strArr, strGet, strSet, strWhile, strDo
            ] ++ map show
            [ PrimVal, PrimTraceSlice, PrimBwdSlice
            , PrimVisualize, PrimVisualizeDiff, PrimProfile, PrimProfileDiff
@@ -154,8 +160,8 @@ type_ = flip buildExpressionParser simpleType
 
 -- We don't allow direct use of recursive types in the concrete grammar.
 simpleType :: Parser Type
-simpleType = boolTy <|> intTy <|> doubleTy <|> stringTy <|> unitTy <|> refTy <|>
-             typeVar <|> parensType
+simpleType = boolTy <|> intTy <|> doubleTy <|> stringTy <|> unitTy <|>
+             refTy <|> arrTy <|> typeVar <|> parensType
    where
       intTy :: Parser Type
       intTy = keyword strInt >> return IntTy
@@ -174,6 +180,9 @@ simpleType = boolTy <|> intTy <|> doubleTy <|> stringTy <|> unitTy <|> refTy <|>
 
       refTy :: Parser Type
       refTy = keyword strRef >> simpleType >>= return . RefTy
+
+      arrTy :: Parser Type
+      arrTy = keyword strArr >> simpleType >>= return . ArrTy
 
       typeVar :: Parser Type
       typeVar = tyVar >>= return . TyVar
@@ -225,8 +234,11 @@ simpleExp =
    pair <|> fst_ <|> snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|>
    pslice_ <|> traceval_ <|> visualize <|> visualize2 <|> profile_ <|>
    profileDiff_ <|> treesize_ <|>
+   while_ <|>
    -- references
    ref_ <|>
+   -- arrays
+   arr_ <|> arrget_ <|> arrset_ <|> 
    -- exceptions
    tryWith_ <|> raise_
 
@@ -288,6 +300,12 @@ if_ = do
    e1 <- keyword strThen >> exp
    e2 <- keyword strElse >> exp
    return (If e e1 e2)
+
+while_ :: Parser Exp
+while_ = do
+   e  <- keyword strWhile   >> exp
+   e1 <- keyword strDo >> exp
+   return (While e e1)
 
 let_ :: Parser Exp
 let_ = do
@@ -361,6 +379,33 @@ assign_ = reservedOp token_ strAssign >> return Assign
 -- Sequencing operator
 seq_ :: Parser (Exp -> Exp -> Exp)
 seq_ = reservedOp token_ strSeq >> return Seq
+
+-- Creating a new array
+arr_ :: Parser Exp
+arr_ = do keyword strArr
+          parenthesise $ do e1 <- exp
+                            _  <- comma token_
+                            e2 <- exp
+                            return (Arr e1 e2)
+
+-- Get from array
+arrget_ :: Parser (Exp)
+arrget_ = do keyword strGet 
+             parenthesise $ do e1 <- exp
+                               _  <- comma token_
+                               e2 <- exp
+                               return (ArrGet e1 e2)
+
+-- Updating array
+arrset_ :: Parser (Exp)
+arrset_ = do keyword strSet 
+             parenthesise $ do e1 <- exp
+                               _  <- comma token_
+                               e2 <- exp
+                               _  <-comma token_
+                               e3 <- exp
+                               return (ArrSet e1 e2 e3)
+
 
 -- Raise exception
 raise_ :: Parser Exp

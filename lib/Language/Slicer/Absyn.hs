@@ -95,7 +95,10 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Con Con Exp | Case Exp Match
          | Fun Code | App Exp Exp
          -- References
-         | Ref Exp  | Deref Exp | Assign Exp Exp | Seq Exp Exp
+         | Ref Exp  | Deref Exp | Assign Exp Exp
+         | Seq Exp Exp | While Exp Exp
+         -- Arrays
+         | Arr Exp Exp | ArrGet Exp Exp | ArrSet Exp Exp Exp
          -- Exceptions
          | Raise Exp | Catch Exp Var Exp
          -- run-time tracing
@@ -109,6 +112,8 @@ data Type = IntTy | DoubleTy | BoolTy | UnitTy | StringTy
           | TyVar TyVar
           -- References
           | RefTy Type
+          -- References
+          | ArrTy Type
           -- Exception type
           | ExnTy
           -- Trace types
@@ -129,6 +134,7 @@ instance Eq Type where
     FunTy  t1 t2 == FunTy  t1' t2' = t1 == t1' && t2 == t2'
     TyVar t      == TyVar t'       = t == t'
     RefTy t      == RefTy t'       = t == t'
+    ArrTy t      == ArrTy t'       = t == t'
     TraceTy t    == TraceTy t'     = t == t'
     _            == _              = False
 
