@@ -245,10 +245,11 @@ trace (EIf e e1 e2)  = do e' <- trace' e
                           traceIf e' e1 e2
 trace (EInt i)       = return (ORet $ VInt i, TInt i)
 trace (EString s)    = return (ORet $ VString s, TString s)
-trace (EOp f exps)   = do vts <- traceOpArgs exps
+trace (EOp op exps)  = do vts <- traceOpArgs exps
                           let (vs,ts) = unzip vts
-                          v <- evalTraceOp f vs
-                          return (v, TOp f ts)
+                          v <- evalTraceOp op vs
+                          let f = case v of OExn _ -> True; _ -> False
+                          return (v, TOp f op ts)
 trace (EPair e1 e2)  = do (v1, t1) <- trace' e1
                           (v2, t2) <- withExnTrace v1 (trace' e2)
                           return (v2 >-< ORet ( VPair (getVal v1) (getVal v2)),
@@ -328,12 +329,13 @@ trace' e = do (v, t) <- trace e
 
 traceOpArgs :: [Exp] -> EvalM [(Outcome, Trace)]
 traceOpArgs []  = return []
-traceOpArgs (x:xs) = do (r,t) <- trace' x
-                        case r of
-                          OExn _ -> return ((r,t) : map (const (OHole, THole)) xs)
-                          ORet _ -> do xs' <- traceOpArgs xs
-                                       return ((r,t) : xs')
-                          _ -> return ((OHole,THole) : map (const (OHole, THole)) xs)
+traceOpArgs (x:xs) =
+    do (r, t) <- trace' x
+       case r of
+         OExn _ -> return ((r, t) : map (const (OHole, THole)) xs)
+         ORet _ -> do xs' <- traceOpArgs xs
+                      return ((r, t) : xs')
+         _ -> return ((OHole, THole) : map (const (OHole, THole)) xs)
 
 traceCall :: (Outcome, Trace) -> (Outcome, Trace) -> EvalM (Outcome, Trace)
 traceCall (OExn v, t) _

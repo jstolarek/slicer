@@ -1,0 +1,2 @@
+Running ../../examples/T52.tml
+val it = _ + (2 / 0) : trace(int)

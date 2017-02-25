@@ -70,5 +70,7 @@ tests =
       , "T9"
       , "T13"
       , "T43"
+      , "T47"
+      , "T52"
       , "uncurried-componentwise-sum"
       ] )
