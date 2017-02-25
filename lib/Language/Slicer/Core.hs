@@ -7,11 +7,11 @@ module Language.Slicer.Core
     ( -- * Abstract syntax
       Syntax(..), Value(..), Outcome(..)
     , Type(..), Ctx, Code(..), Match(..), ReturnType(..)
-    , Exp( EVar, ELet, EUnit, EBool, EInt, EString, EPair, EFst, ESnd
+    , Exp( EVar, ELet, EUnit, EBool, EInt, EDouble, EString, EPair, EFst, ESnd
          , EInL, EInR, EFun, ERoll, EUnroll, EHole, ESeq
          , .. )
-    , Trace ( TVar, TLet, TUnit, TBool, TInt, TString, TPair, TFst, TSnd
-            , TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
+    , Trace ( TVar, TLet, TUnit, TBool, TInt, TDouble, TString, TPair, TFst
+            , TSnd, TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
     , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
@@ -53,7 +53,7 @@ import qualified Data.Set as S
 import           GHC.Generics       ( Generic                                 )
 import           Text.PrettyPrint.HughesPJClass
 
-data Type = IntTy | BoolTy | UnitTy | StringTy
+data Type = IntTy | BoolTy | UnitTy | StringTy | DoubleTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
           | RecTy TyVar Type | TyVar TyVar
           | HoleTy
@@ -73,6 +73,7 @@ instance Eq Type where
     BoolTy       == BoolTy         = True
     UnitTy       == UnitTy         = True
     StringTy     == StringTy       = True
+    DoubleTy     == DoubleTy       = True
     PairTy t1 t2 == PairTy t1' t2' = t1 == t1' && t2 == t2'
     SumTy  t1 t2 == SumTy  t1' t2' = t1 == t1' && t2 == t2'
     FunTy  t1 t2 == FunTy  t1' t2' = t1 == t1' && t2 == t2'
@@ -139,6 +140,7 @@ instance UpperSemiLattice Type where
     leq  BoolTy           BoolTy            = True
     leq  UnitTy           UnitTy            = True
     leq  StringTy         StringTy          = True
+    leq  DoubleTy         DoubleTy          = True
     leq  ExnTy            ExnTy             = True
     leq (PairTy ty1 ty2) (PairTy ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
     leq (SumTy  ty1 ty2) (SumTy  ty1' ty2') = ty1 `leq` ty1' && ty2 `leq` ty2'
@@ -154,6 +156,7 @@ instance UpperSemiLattice Type where
     lub IntTy    IntTy    = IntTy
     lub BoolTy   BoolTy   = BoolTy
     lub UnitTy   UnitTy   = UnitTy
+    lub DoubleTy DoubleTy = DoubleTy
     lub StringTy StringTy = StringTy
     lub ExnTy    ExnTy    = ExnTy
     lub (TyVar a)    (TyVar b)      | a == b  = TyVar a
@@ -174,6 +177,7 @@ instance UpperSemiLattice Type where
 instance Pretty Type where
     pPrint BoolTy   = text "bool"
     pPrint IntTy    = text "int"
+    pPrint DoubleTy = text "double"
     pPrint StringTy = text "string"
     pPrint UnitTy   = text "unit"
     pPrint HoleTy   = text "_"
@@ -215,6 +219,7 @@ data Syntax a = Var Var
               | CBool Bool
               | CInt Int
               | CString String
+              | CDouble Double
               | Pair a a | Fst a | Snd a
               | InL a | InR a
               | Fun (Code Exp)
@@ -251,6 +256,9 @@ pattern EBool b = Exp (CBool b)
 
 pattern EInt :: Int -> Exp
 pattern EInt i = Exp (CInt i)
+
+pattern EDouble :: Double -> Exp
+pattern EDouble d = Exp (CDouble d)
 
 pattern EString :: String -> Exp
 pattern EString s = Exp (CString s)
@@ -384,6 +392,9 @@ pattern TBool b = TExp (CBool b)
 pattern TInt :: Int -> Trace
 pattern TInt i = TExp (CInt i)
 
+pattern TDouble :: Double -> Trace
+pattern TDouble d = TExp (CDouble d)
+
 pattern TString :: String -> Trace
 pattern TString s = TExp (CString s)
 
@@ -427,7 +438,7 @@ data Match = Match { inL :: (Maybe Var, Exp)
                    , inR :: (Maybe Var, Exp) }
                    deriving (Show, Eq, Ord, Generic, NFData)
 
-data Value = VBool Bool | VInt Int | VUnit | VString String
+data Value = VBool Bool | VInt Int | VDouble Double | VUnit | VString String
            | VPair Value Value
            | VInL Value | VInR Value
            | VRoll TyVar Value
@@ -460,6 +471,9 @@ instance Valuable Int where
 instance Valuable Bool where
     toValue b = VBool b
 
+instance Valuable Double where
+    toValue d = VDouble d
+
 instance Valuable () where
     toValue () = VUnit
 
@@ -474,6 +488,7 @@ instance FVs a => FVs (Syntax a) where
     fvs  Unit         = []
     fvs (CBool _)     = []
     fvs (CInt _)      = []
+    fvs (CDouble _)   = []
     fvs (CString _)   = []
     fvs (Pair e1 e2)  = fvs e1 `union` fvs e2
     fvs (Fst e)       = fvs e
@@ -531,6 +546,7 @@ promote VHole               = VStar
 promote VUnit               = VUnit
 promote (VBool b)           = VBool b
 promote (VInt i)            = VInt i
+promote (VDouble d)         = VDouble d
 promote (VString s)         = VString s
 promote (VPair v1 v2)       = VPair (promote v1) (promote v2)
 promote (VInL v)            = VInL (promote v)
@@ -557,6 +573,7 @@ instance UpperSemiLattice Value where
     leq VUnit VUnit                    = True
     leq (VBool b) (VBool b')           = b == b'
     leq (VInt i) (VInt i')             = i == i'
+    leq (VDouble d) (VDouble d')       = d == d'
     leq (VString i) (VString i')       = i == i'
     leq (VPair v1 v2) (VPair v1' v2')  = v1 `leq` v1' && v2 `leq` v2'
     leq (VInL v) (VInL v')             = v `leq` v'
@@ -575,6 +592,7 @@ instance UpperSemiLattice Value where
     lub  VUnit         VUnit           = VUnit
     lub (VBool b)     (VBool b')       | b == b' = VBool b
     lub (VInt i)      (VInt i')        | i == i' = VInt i
+    lub (VDouble d) (VDouble d')       | d == d' = VDouble d
     lub (VString i)   (VString i')     | i == i' = VString i
     lub (VPair v1 v2) (VPair v1' v2')  = VPair (v1 `lub` v1') (v2 `lub` v2')
     lub (VInL v)      (VInL v')        = VInL (v `lub` v')
@@ -614,6 +632,7 @@ instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     leq (Let x e1 e2) (Let x' e1' e2') = x `leq` x' && e1 `leq` e1' && e2 `leq` e2'
     leq (CBool b) (CBool b')           = b == b'
     leq (CInt i) (CInt j)              = i == j
+    leq (CDouble d) (CDouble d')       = d == d'
     leq (CString i) (CString j)        = i == j
     leq Unit Unit                      = True
     leq (Pair e1 e2) (Pair e1' e2')    = e1 `leq` e1' && e2 `leq` e2'
@@ -633,8 +652,9 @@ instance (UpperSemiLattice a, Show a) => UpperSemiLattice (Syntax a) where
     lub e Hole                         = e
     lub (Var x) (Var x')               = Var (x `lub` x')
     lub (Let x e1 e2) (Let x' e1' e2') = Let (x `lub` x') (e1 `lub` e1') (e2 `lub` e2')
-    lub (CInt i) (CInt j)              | i == j = CInt i
-    lub (CString i) (CString j)        | i == j = CString i
+    lub (CInt i) (CInt j)              | i == j  = CInt i
+    lub (CDouble d) (CDouble d')       | d == d' = CDouble d
+    lub (CString i) (CString j)        | i == j  = CString i
     lub Unit Unit                      = Unit
     lub (CBool b) (CBool b')           | b == b'
                                        = CBool b
@@ -788,6 +808,7 @@ instance Pattern Value where
     match VUnit          VUnit         VUnit          = True
     match (VBool bp)    (VBool b)     (VBool b')      = bp == b && bp == b'
     match (VInt ip)     (VInt i)      (VInt i')       = ip == i && ip == i'
+    match (VDouble dp)  (VDouble d)   (VDouble d')    = dp == d && dp == d'
     match (VString ip)  (VString i)   (VString i')    = ip == i && ip == i'
     match (VPair p1 p2) (VPair v1 v2) (VPair v1' v2') = match p1 v1 v1' && match p2 v2 v2'
     match (VInL p)      (VInL v)      (VInL v')       = match p v v'
@@ -803,6 +824,7 @@ instance Pattern Value where
     extract  VUnit          VUnit          = VUnit
     extract (VBool bp)     (VBool b)       | bp == b = VBool b
     extract (VInt ip)      (VInt i)        | ip == i = VInt i
+    extract (VDouble dp)   (VDouble d)     | dp == d = VDouble d
     extract (VString ip)   (VString i)     | ip == i = VString i
     extract (VPair p1 p2)  (VPair v1 v2)   = VPair (extract p1 v1)
                                                    (extract p2 v2)

@@ -33,7 +33,8 @@ import           Text.PrettyPrint.HughesPJClass
 data RExp = RVar Var | RLet Var RExp RExp
           | RUnit
           | RBool Bool | RIf RExp RExp RExp
-          | RInt Int | ROp Primitive [RExp]
+          | RInt Int | RDouble Double
+          | ROp Primitive [RExp]
           | RString String
           | RPair RExp RExp | RFst RExp | RSnd RExp
           | RCon Con RExp | RCase RExp RMatch
@@ -90,6 +91,7 @@ instance Uneval a b => Uneval (Syntax a) (Syntax b) where
     uneval Hole          = Hole
     uneval (CBool b)     = CBool b
     uneval (CInt i)      = CInt i
+    uneval (CDouble d)   = CDouble d
     uneval (CString s)   = CString s
     uneval (Fun k)       = Fun k
     uneval (Let x e1 e2) = Let x (uneval e1) (uneval e2)
@@ -126,6 +128,7 @@ instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
     resugarM  Unit = return RUnit
     resugarM (CBool   b) = return (RBool   b)
     resugarM (CInt    i) = return (RInt    i)
+    resugarM (CDouble d) = return (RDouble d)
     resugarM (CString s) = return (RString s)
     resugarM (Pair e1 e2)
         = do e1' <- resugarM e1
@@ -224,6 +227,7 @@ instance Resugarable Value where
     resugarM VUnit       = return RUnit
     resugarM (VBool b)   = return (RBool b)
     resugarM (VInt i)    = return (RInt i)
+    resugarM (VDouble d) = return (RDouble d)
     resugarM (VString s) = return (RString s)
     resugarM (VPair v1 v2)
         = do e1 <- resugarM v1
@@ -325,6 +329,7 @@ instance Pretty RExp where
     pPrint RHole       = text "_"
     pPrint RUnit       = text "()"
     pPrint (RInt    i) = int i
+    pPrint (RDouble d) = double d
     pPrint (RString s) = text (show s)
     pPrint (RBool b)   = if b then text "true" else text "false"
     pPrint (RVar    x) = pPrint x
@@ -378,6 +383,7 @@ parenth :: RExp -> Bool
 parenth RHole       = False
 parenth (RBool _)   = False
 parenth (RInt _)    = False
+parenth (RDouble _) = False
 parenth (RString _) = False
 parenth RUnit       = False
 parenth (RPair _ _) = False
