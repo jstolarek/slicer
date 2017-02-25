@@ -253,6 +253,7 @@ trace (EBool b)      = return (ORet $ VBool b, TBool b)
 trace (EIf e e1 e2)  = do e' <- trace' e
                           traceIf e' e1 e2
 trace (EInt i)       = return (ORet $ VInt i, TInt i)
+trace (EDouble i)    = return (ORet $ VDouble i, TDouble i)
 trace (EString s)    = return (ORet $ VString s, TString s)
 trace (EOp op exps)  = do vts <- traceOpArgs exps
                           let (vs,ts) = unzip vts
