@@ -14,7 +14,7 @@ module Language.Slicer.Core
             , TSnd, TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
+    , isRefTy, isArrTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
     , isRaise, isExn, isTHole
 
     , getVal, getExn
@@ -59,6 +59,8 @@ data Type = IntTy | BoolTy | UnitTy | StringTy | DoubleTy
           | HoleTy
           -- Reference type
           | RefTy Type
+          -- Array type
+          | ArrTy Type
           -- Exception type
           | ExnTy
           -- Trace types
@@ -80,6 +82,7 @@ instance Eq Type where
     RecTy  t1 t2 == RecTy  t1' t2' = t1 == t1' && t2 == t2'
     TyVar t      == TyVar t'       = t == t'
     RefTy t      == RefTy t'       = t == t'
+    ArrTy t      == ArrTy t'       = t == t'
     TraceTy t    == TraceTy t'     = t == t'
     _            == _              = False
 
@@ -88,6 +91,12 @@ isRefTy :: Type -> Bool
 isRefTy (RefTy _) = True
 isRefTy ExnTy     = True
 isRefTy _         = False
+
+-- | Is array type?
+isArrTy :: Type -> Bool
+isArrTy (ArrTy _) = True
+isArrTy ExnTy     = True
+isArrTy _         = False
 
 -- | Is function type?
 isFunTy :: Type -> Bool
@@ -119,6 +128,7 @@ fstTy (PairTy t _) = t
 fstTy (SumTy  t _) = t
 fstTy (FunTy  t _) = t
 fstTy (RefTy  t  ) = t
+fstTy (ArrTy  t  ) = t
 fstTy (TraceTy t ) = t
 fstTy _  =
     error "Impossible happened: type does not have a first component"
@@ -148,6 +158,7 @@ instance UpperSemiLattice Type where
     leq (RecTy  a ty   ) (RecTy  a' ty'   ) = a == a' && ty `leq` ty'
     leq (TyVar  a      ) (TyVar  b        ) = a == b
     leq (RefTy   ty    ) (RefTy   ty'     ) = ty `leq` ty'
+    leq (ArrTy   ty    ) (ArrTy   ty'     ) = ty `leq` ty'
     leq (TraceTy ty    ) (TraceTy ty'     ) = ty `leq` ty'
     leq _                _                  = error "UpperSemiLattice Type: leq"
 
@@ -169,6 +180,8 @@ instance UpperSemiLattice Type where
         = FunTy (ty1 `lub` ty1') (ty2 `lub` ty2')
     lub (RefTy ty) (RefTy ty')
         = RefTy (ty `lub` ty')
+    lub (ArrTy ty) (ArrTy ty')
+        = ArrTy (ty `lub` ty')
     lub (TraceTy ty) (TraceTy ty')
         = TraceTy (ty `lub` ty')
     lub a b = error $ "UpperSemiLattice Type: error taking lub of " ++
@@ -191,6 +204,7 @@ instance Pretty Type where
     pPrint (TyVar v) = pPrint v
     pPrint (RecTy a ty) = text "rec" <+> pPrint a <+> text "." <+> pPrint ty
     pPrint (RefTy ty)   = text "ref" <> parens (pPrint ty)
+    pPrint (ArrTy ty)   = text "array" <> parens (pPrint ty)
     pPrint (TraceTy ty) = text "trace" <> parens (pPrint ty)
 
 type Ctx = Env Type
@@ -238,6 +252,9 @@ data Exp = Exp (Syntax Exp)
          | ETrace Exp
          -- References
          | ERef Exp | EDeref Exp | EAssign Exp Exp
+         | EWhile Exp Exp
+         -- Arrays
+         | EArr Exp Exp | EArrGet Exp Exp | EArrSet Exp Exp Exp
          -- Exceptions
          | ERaise Exp | ETryWith Exp Var Exp
            deriving (Show, Eq, Ord, Generic, NFData)
@@ -513,6 +530,10 @@ instance FVs Exp where
     fvs (ERef e)          = fvs e
     fvs (EDeref e)        = fvs e
     fvs (EAssign e1 e2)   = fvs e1 `union` fvs e2
+    fvs (EWhile e1 e2)    = fvs e1 `union` fvs e2
+    fvs (EArr e1 e2)      = fvs e1 `union` fvs e2
+    fvs (EArrGet e1 e2)   = fvs e1 `union` fvs e2
+    fvs (EArrSet e1 e2 e3)= fvs e1 `union` fvs e2 `union` fvs e3
     fvs (Exp e)           = fvs e
 
 instance FVs Match where
@@ -688,6 +709,14 @@ instance UpperSemiLattice Exp where
     leq (EDeref e1) (EDeref e2)        = e1 `leq` e2
     leq (EAssign e1 e2) (EAssign e1' e2')
         = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EWhile e1 e2) (EWhile e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EArr   e1 e2) (EArr   e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EArrGet e1 e2) (EArrGet e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EArrSet e1 e2 e3) (EArrSet e1' e2' e3')
+        = e1 `leq`  e1' && e2 `leq` e2' && e3 `leq` e3'
     leq (ERaise e1) (ERaise e2)        = e1 `leq` e2
     leq (ETryWith e1 x e2) (ETryWith e1' x' e2')
         = e1 `leq` e1' && x `leq` x' && e2 `leq` e2'
@@ -709,6 +738,13 @@ instance UpperSemiLattice Exp where
     lub (EDeref e1) (EDeref e2)        = EDeref (e1 `lub` e2)
     lub (EAssign e1 e2) (EAssign e1' e2')
         = EAssign (e1 `lub` e1') (e2 `lub` e2')
+    lub (EWhile e1 e2) (EWhile e1' e2')
+        = EWhile (e1 `lub` e1') (e2 `lub` e2')
+    lub (EArr e1 e2) (EArr e1' e2')    = EArr   (e1 `lub` e1') (e2 `lub` e2')
+    lub (EArrGet e1 e2) (EArrGet e1' e2')
+        = EArrGet (e1 `lub` e1') (e2 `lub` e2')
+    lub (EArrSet e1 e2 e3) (EArrSet e1' e2' e3')
+        = EArrSet (e1 `lub` e1') (e2 `lub` e2') (e3 `lub` e3')
     lub (ERaise e1) (ERaise e2)        = ERaise (e1 `lub` e2)
     lub (ETryWith e1 x e2) (ETryWith e1' x' e2')
         = ETryWith (e1 `lub` e1') (x `lub` x') (e2 `lub` e2')

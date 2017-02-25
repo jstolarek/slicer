@@ -176,6 +176,50 @@ desugarM (A.Seq e1 e2)
                                     ++ " but it shold have unit type.")
          (e2', t2) <- desugarM e2
          return (ESeq e1' e2', t2)
+desugarM (A.While e1 e2)
+    = do (e1', t1) <- desugarM e1
+         unless (t1 == BoolTy) $ typeError ("While loop test  "
+                                    ++ show e1 ++ " has type " ++ show t1
+                                    ++ " but it shold have bool type.")
+         (e2', t2) <- desugarM e2
+         unless (t2 == UnitTy) $ typeError ("While loop body "
+                                    ++ show e2 ++ " has type " ++ show t2
+                                    ++ " but it shold have unit type.")
+         return (EWhile e1' e2', t2)
+-- | Arrays
+desugarM (A.Arr e1 e2)
+    = do (e1', t1) <- desugarM e1
+         (e2', t2) <- desugarM e2
+         unless (t2 == IntTy) $ typeError ("Array length has type "
+                                            ++ show t2
+                                            ++ "but should have int type.")
+         return (EArr e1' e2', ArrTy t1)
+desugarM (A.ArrGet e1 e2)
+    = do (e1', t1) <- desugarM e1
+         unless (isArrTy t1) $
+                desugarError ("Dereferenced expression (" ++ show e1 ++
+                             ") does not have a reference type")
+         (e2', t2) <- desugarM e2
+         unless (t2 == IntTy) $
+                desugarError ("Dereferenced expression index (" ++ show e2 ++
+                             ") has type " ++ show t2 ++ " but should have type int.")
+         return (EArrGet e1' e2', fstTy t1)
+desugarM (A.ArrSet e1 e2 e3)
+    = do (e1', t1) <- desugarM e1
+         unless (isArrTy t1) $
+                desugarError ("Dereferenced expression (" ++ show e1 ++
+                             ") does not have array type")
+         (e2', t2) <- desugarM e2
+         unless (t2 == IntTy) $
+                desugarError ("Dereferenced expression index (" ++ show e2 ++
+                             ") has type " ++ show t2 ++ " but should have type int.")
+         (e3', t3) <- desugarM e3
+         let t1' = fstTy t1
+         unless (t1' == t3) $ typeError ("Cannot assign expression of type: "
+                                    ++ show t3  ++ " to array of type "
+                                    ++ show t1' ++ ". Offending expression is: "
+                                    ++ show e3)
+         return (EArrSet e1' e2' e3', UnitTy)
 -- Exceptions
 desugarM (A.Raise e)
     = do (e', t) <- desugarM e
@@ -200,6 +244,7 @@ desugarTy A.StringTy         = StringTy
 desugarTy A.DoubleTy         = DoubleTy
 desugarTy A.ExnTy            = ExnTy
 desugarTy (A.RefTy ty)       = RefTy (desugarTy ty)
+desugarTy (A.ArrTy ty)       = RefTy (desugarTy ty)
 desugarTy (A.PairTy ty1 ty2) = PairTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.SumTy  ty1 ty2) = SumTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.FunTy  ty1 ty2) = FunTy (desugarTy ty1) (desugarTy ty2)

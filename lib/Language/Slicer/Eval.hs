@@ -96,6 +96,8 @@ evalM (EAssign e1 e2) = do r1 <- evalM' e1
                              _ -> return OHole
 evalM (ESeq e1 e2)    = do r1 <- evalM' e1
                            withExn r1 (evalM' e2)
+evalM (EWhile e1 e2)  = do cond <- evalM e1
+                           evalWhile cond e1 e2
 -- Exceptions.  See Note [Evaluation of exceptions]
 evalM (ERaise e)      = do r <- evalM' e
                            case r of
@@ -143,6 +145,13 @@ evalIf (ORet (VBool False)) _  e2 = evalM' e2
 evalIf (OExn v) _ _               = return (OExn v)
 evalIf _ _ _ = evalError "evalIf: condition is not a VBool value"
 
+evalWhile :: Outcome -> Exp -> Exp -> EvalM Outcome
+evalWhile (ORet (VBool True)) e1 e2   = do r1 <- evalM' e2
+                                           r2 <- withExn r1 (evalM' e1)
+                                           evalWhile r2 e1 e2
+evalWhile (ORet (VBool False)) e1 e2  = return (ORet VUnit)
+evalWhile (OExn v) _ _                = return (OExn v)
+evalWhile _ _ _ = evalError "evalWhile: condition is not a VBool value"
 
 evalOpArgs :: [Exp] -> EvalM [Outcome]
 evalOpArgs []  = return []

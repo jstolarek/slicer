@@ -42,7 +42,10 @@ data RExp = RVar Var | RLet Var RExp RExp
           | RTrace RExp
           | RHole
           -- References
-          | RRef RExp | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
+          | RRef RExp | RDeref RExp | RAssign RExp RExp
+          | RSeq RExp RExp | RWhile RExp RExp
+          -- Arrays
+          | RArr RExp RExp | RArrGet RExp RExp | RArrSet RExp RExp RExp
           -- Exceptions
           | RRaise RExp | RCatch RExp Var RExp | RException RExp
             deriving (Show, Eq, Ord, Generic, NFData)
@@ -210,6 +213,23 @@ instance Resugarable Exp where
         = do e1' <- resugarM e1
              e2' <- resugarM e2
              return (RAssign e1' e2')
+    resugarM (EWhile e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RWhile e1' e2')
+    resugarM (EArr e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RArr e1' e2')
+    resugarM (EArrGet e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RArrGet e1' e2')
+    resugarM (EArrSet e1 e2 e3)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             e3' <- resugarM e3
+             return (RArrSet e1' e2' e3')
     resugarM (ERaise e)
         = do e' <- resugarM e
              return (RRaise e')
@@ -358,7 +378,11 @@ instance Pretty RExp where
     pPrint (RRef e)        = text "ref" <+> partial_parensOpt e
     pPrint (RDeref e)      = text "!" <> partial_parensOpt e
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
+    pPrint (RArr e1 e2)    = text "array" <> parens (pPrint e1 <> comma <+> pPrint e2) 
+    pPrint (RArrGet e1 e2) = text "get" <> parens (pPrint e1  <> comma <+> pPrint e2)
+    pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+> pPrint e2 <> comma <+> pPrint e3)
     pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2
+    pPrint (RWhile e1 e2)  = text "while" <+> pPrint e1 <+> text "do" <+> pPrint e2
     pPrint (RTrace e)      = text "trace" <+> partial_parensOpt e
     pPrint (RRaise e)      = text "raise" <+> partial_parensOpt e
     pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$
