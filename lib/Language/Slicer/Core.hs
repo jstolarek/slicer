@@ -992,6 +992,7 @@ storeWrites (TVar _)           = emptyStoreLabels
 storeWrites (TBool _)          = emptyStoreLabels
 storeWrites (TInt _)           = emptyStoreLabels
 storeWrites (TString _)        = emptyStoreLabels
+storeWrites (TDouble _)        = emptyStoreLabels
 storeWrites (TFun _)           = emptyStoreLabels
 storeWrites THole              = emptyStoreLabels
 storeWrites (TExp e)
