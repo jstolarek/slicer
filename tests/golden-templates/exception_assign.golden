@@ -1,0 +1,3 @@
+Running ../../examples/exception_assign.tml
+val it = let x = ref 42
+in _ ;; !x : trace(int)

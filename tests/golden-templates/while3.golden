@@ -1,0 +1,4 @@
+Running ../../examples/while3.tml
+val it = let x = ref 10
+in let y = _
+   in while (100 / !x) /= 0 do _ ;; x := !x - 1 ;; _ : trace(int)

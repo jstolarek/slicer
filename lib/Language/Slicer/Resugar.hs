@@ -42,7 +42,10 @@ data RExp = RVar Var | RLet Var RExp RExp
           | RTrace RExp
           | RHole
           -- References
-          | RRef RExp | RDeref RExp | RAssign RExp RExp | RSeq RExp RExp
+          | RRef RExp | RDeref RExp | RAssign RExp RExp
+          | RSeq RExp RExp | RWhile RExp RExp
+          -- Arrays
+          | RArr RExp RExp | RArrGet RExp RExp | RArrSet RExp RExp RExp
           -- Exceptions
           | RRaise RExp | RCatch RExp Var RExp | RException RExp
             deriving (Show, Eq, Ord, Generic, NFData)
@@ -79,6 +82,11 @@ instance Uneval Trace Exp where
     uneval (TRef _ t)        = ERef (uneval t)
     uneval (TDeref _ t)      = EDeref (uneval t)
     uneval (TAssign _ t1 t2) = EAssign (uneval t1) (uneval t2)
+    uneval (TArr _ t1 t2)    = EArr (uneval t1) (uneval t2)
+    uneval (TArrGet _ t1 t2) = EArrGet (uneval t1) (uneval t2)
+    uneval (TArrSet _ t1 t2 t3) = EArrSet (uneval t1) (uneval t2) (uneval t3)
+    uneval (TWhileDone t)    = EWhile (uneval t) bot
+    uneval (TWhileStep t1 t2 _) = (EWhile (uneval t1) (uneval t2))
     uneval (TRaise t)        = ERaise (uneval t)
     uneval (TTry t)          = ETryWith (uneval t) bot bot
     uneval (TTryWith t x h)  = ETryWith (uneval t) x (uneval h)
@@ -210,6 +218,23 @@ instance Resugarable Exp where
         = do e1' <- resugarM e1
              e2' <- resugarM e2
              return (RAssign e1' e2')
+    resugarM (EWhile e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RWhile e1' e2')
+    resugarM (EArr e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RArr e1' e2')
+    resugarM (EArrGet e1 e2)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             return (RArrGet e1' e2')
+    resugarM (EArrSet e1 e2 e3)
+        = do e1' <- resugarM e1
+             e2' <- resugarM e2
+             e3' <- resugarM e3
+             return (RArrSet e1' e2' e3')
     resugarM (ERaise e)
         = do e' <- resugarM e
              return (RRaise e')
@@ -248,6 +273,7 @@ instance Resugarable Value where
     resugarM (VClosure v _) = resugarM (EFun v)
     resugarM (VExp v _)     = resugarM v
     resugarM (VStoreLoc _)  = return (RRef RHole)
+    resugarM (VArrLoc _ n)  = return (RArr (RInt (toInteger n)) RHole)
     resugarM (VTrace _ t _ _)
         = do e <- resugarM t
              return (RTrace e)
@@ -358,7 +384,11 @@ instance Pretty RExp where
     pPrint (RRef e)        = text "ref" <+> partial_parensOpt e
     pPrint (RDeref e)      = text "!" <> partial_parensOpt e
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
+    pPrint (RArr e1 e2)    = text "array" <> parens (pPrint e1 <> comma <+> pPrint e2) 
+    pPrint (RArrGet e1 e2) = text "get" <> parens (pPrint e1  <> comma <+> pPrint e2)
+    pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+> pPrint e2 <> comma <+> pPrint e3)
     pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2
+    pPrint (RWhile e1 e2)  = text "while" <+> pPrint e1 <+> text "do" <+> pPrint e2
     pPrint (RTrace e)      = text "trace" <+> partial_parensOpt e
     pPrint (RRaise e)      = text "raise" <+> partial_parensOpt e
     pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$

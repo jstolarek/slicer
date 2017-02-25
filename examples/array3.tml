@@ -1,0 +1,4 @@
+let t = trace (let x = array(2,0) in
+set(x,0,17);;
+set(x,1,42);;
+get(x,0) + get(x,1)) in bwdSlice(t,59)

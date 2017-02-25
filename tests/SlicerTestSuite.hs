@@ -11,11 +11,15 @@ tests :: TestTree
 tests =
     testGroup "Run TML files" (map runTMLTest
       [ "abs"
+      , "array"
+      , "array2"
+      , "array3"
       , "copy-list"
       , "curried-componentwise-sum"
       , "curried-pointwise-sum"
       , "curried-pointwise-sum-two"
       , "example"
+      , "exception_assign"
       , "exceptions"
       , "exceptions2"
       , "exceptions3"
@@ -75,4 +79,8 @@ tests =
       , "T56"
       , "T59"
       , "uncurried-componentwise-sum"
+      , "while"
+      , "while2"
+      , "while3"
+      , "while4"
       ] )

@@ -94,8 +94,42 @@ evalM (EAssign e1 e2) = do r1 <- evalM' e1
                                  do updateRef v1 v2
                                     return (ORet VUnit)
                              _ -> return OHole
+-- Arrays
+evalM (EArr e1 e2)    = do r1 <- evalM' e1
+                           r2 <- withExn r1 (evalM' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v)
+                             (_,OExn v) -> return (OExn v)
+                             (ORet (VInt i), ORet v) ->
+                               do v' <- newArr (fromInteger i) v
+                                  return (ORet v')
+                             _ -> return OHole
+evalM (EArrGet e1 e2) = do r1 <- evalM' e1
+                           r2 <- withExn r1 (evalM' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v)
+                             (_,OExn v) -> return (OExn v)
+                             (ORet vl, ORet (VInt i)) ->
+                               do v' <- getArr vl (fromInteger i)
+                                  return (ORet v')
+                             _ -> return OHole
+evalM (EArrSet e1 e2 e3)
+                      = do r1 <- evalM' e1
+                           r2 <- withExn r1 (evalM' e2)
+                           r3 <- withExn r2 (evalM' e3)
+                           case (r1,r2,r3) of
+                             (OExn v1, _, _) -> return (OExn v1)
+                             (_, OExn v2, _) -> return (OExn v2)
+                             (_, _, OExn v3) -> return (OExn v3)
+                             (ORet vl, ORet (VInt i) , ORet v) ->
+                                 do updateArr vl (fromInteger i) v
+                                    return (ORet VUnit)
+                             _ -> return OHole
+-- Sequential composition and WHILE
 evalM (ESeq e1 e2)    = do r1 <- evalM' e1
                            withExn r1 (evalM' e2)
+evalM (EWhile e1 e2)  = do cond <- evalM e1
+                           evalWhile cond e1 e2
 -- Exceptions.  See Note [Evaluation of exceptions]
 evalM (ERaise e)      = do r <- evalM' e
                            case r of
@@ -143,6 +177,13 @@ evalIf (ORet (VBool False)) _  e2 = evalM' e2
 evalIf (OExn v) _ _               = return (OExn v)
 evalIf _ _ _ = evalError "evalIf: condition is not a VBool value"
 
+evalWhile :: Outcome -> Exp -> Exp -> EvalM Outcome
+evalWhile (ORet (VBool True)) e1 e2   = do r1 <- evalM' e2
+                                           r2 <- withExn r1 (evalM' e1)
+                                           evalWhile r2 e1 e2
+evalWhile (ORet (VBool False)) _ _    = return (ORet VUnit)
+evalWhile (OExn v) _ _                = return (OExn v)
+evalWhile _ _ _ = evalError "evalWhile: condition is not a VBool value"
 
 evalOpArgs :: [Exp] -> EvalM [Outcome]
 evalOpArgs []  = return []
@@ -303,12 +344,12 @@ trace (EDeref e)     = do (r, t) <- trace' e
                              OExn v -> return (OExn v, TDeref Nothing t)
                              ORet v@(VStoreLoc l) ->
                                  do v' <- getRef v
-                                    return (ORet v', TDeref (Just l) t )
+                                    return (ORet v', TDeref (Just l) t  )
                              _ -> return (OHole,THole)
 trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           case (r1,r2) of
-                             (OExn v,_)  ->
+                             (OExn v,_) ->
                                  return (OExn v, TAssign Nothing t1 THole)
                              (_, OExn v) ->
                                  return (OExn v, TAssign Nothing t1 t2)
@@ -316,9 +357,49 @@ trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                                  do updateRef v1 v2
                                     return (ORet VUnit, TAssign (Just l) t1 t2)
                              _ -> return (OHole, THole)
+-- Arrays
+trace (EArr e1 e2)    = do (r1,t1) <- trace' e1
+                           (r2,t2) <- withExnTrace r1 (trace' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v,TArr Nothing t1 THole)
+                             (_,OExn v) -> return (OExn v, TArr Nothing t1 t2)
+                             (ORet (VInt i), ORet v) ->
+                               let dim = fromInteger i in
+                               do v'@(VArrLoc l _) <- newArr dim v
+                                  return (ORet v', TArr (Just (l,dim)) t1 t2)
+                             _ -> return (OHole,THole)
+trace (EArrGet e1 e2) = do (r1,t1) <- trace' e1
+                           (r2,t2) <- withExnTrace r1 (trace' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v, TArrGet Nothing t1 THole)
+                             (_,OExn v) -> return (OExn v, TArrGet Nothing t1 t2)
+                             (ORet vl@(VArrLoc l _), ORet (VInt i)) ->
+                               let idx = fromInteger i in
+                               do v' <- getArr vl idx
+                                  return ( ORet v', TArrGet (Just (l,idx)) t1 t2)
+                             _ -> return (OHole,THole)
+trace (EArrSet e1 e2 e3)
+                      = do (r1,t1) <- trace' e1
+                           (r2,t2) <- withExnTrace r1 (trace' e2)
+                           (r3,t3) <- withExnTrace r2 (trace' e3)
+                           case (r1,r2,r3) of
+                             (OExn v1, _, _) -> return ( OExn v1
+                                                       , TArrSet Nothing t1 THole THole)
+                             (_, OExn v2, _) -> return ( OExn v2
+                                                       , TArrSet Nothing t1 t2 THole)
+                             (_, _, OExn v3) -> return (OExn v3
+                                                       , TArrSet Nothing t1 t2 t3)
+                             (ORet vl@(VArrLoc l _), ORet (VInt i) , ORet v) ->
+                                 let idx = fromInteger i in 
+                                 do updateArr vl idx v
+                                    return (ORet VUnit, TArrSet (Just (l,idx)) t1 t2 t3)
+                             _ -> return (OHole,THole)
+-- Sequential composition and WHILE
 trace (ESeq e1 e2)   = do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           return (r1 >-< r2, TSeq t1 t2)
+trace (EWhile e1 e2)  = do cond <- trace e1
+                           traceWhile cond e1 e2
 -- exceptions
 trace (ERaise e)     = do (r, t) <- trace' e
                           case r of
@@ -381,6 +462,25 @@ traceIf (ORet (VBool False), t) _ e2 = do (v2, t2) <- trace' e2
                                           return (v2, TIfElse t t2)
 traceIf (OExn v,t) _ _ = return (OExn v, TIfExn t)
 traceIf _ _ _ = evalError "traceIf: condition is not a VBool value"
+
+-- JRC: tricky, reconsider
+traceWhile :: (Outcome,Trace) -> Exp -> Exp -> EvalM (Outcome,Trace)
+traceWhile (ORet (VBool True),t1) e1 e2   = do (r2,t2) <- trace' e2
+                                               (r,t) <-   withExnTrace r2 (trace' e1)
+                                               (r3,t3) <- traceWhile (r,t) e1 e2
+                                               case (r2,r,r3) of
+                                                 (OExn v, _, _) ->
+                                                   return ( OExn v
+                                                          , TWhileStep t1 t2 THole)
+                                                 (_, OExn v, _) ->
+                                                   return ( OExn v
+                                                          , TWhileStep t1 t2 (TWhileDone t))
+                                                 (_, _, res) ->
+                                                   return (res, TWhileStep t1 t2 t3)
+traceWhile (ORet (VBool False),t) _ _    = return (ORet VUnit, TWhileDone t)
+traceWhile (OExn v, t) _ _               = return (OExn v, TWhileDone t)
+traceWhile _ _ _ = evalError "traceWhile: condition is not a VBool value"
+
 
 withExn :: Outcome -> EvalM Outcome -> EvalM Outcome
 withExn (OExn v) _  = return (OExn v)
