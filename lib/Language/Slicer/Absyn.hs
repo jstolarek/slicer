@@ -88,7 +88,8 @@ getTyDeclByName decls a = Map.lookup a (tydecls decls)
 data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Unit
          | CBool Bool | If Exp Exp Exp
-         | CInt Int | Op Primitive [Exp]
+         | CInt Int | CDouble Double
+         | Op Primitive [Exp]
          | CString String
          | Pair Exp Exp | Fst Exp | Snd Exp
          | Con Con Exp | Case Exp Match
@@ -103,7 +104,7 @@ data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Hole Type
            deriving (Show, Eq, Ord)
 
-data Type = IntTy | BoolTy | UnitTy | StringTy
+data Type = IntTy | DoubleTy | BoolTy | UnitTy | StringTy
           | PairTy Type Type | SumTy Type Type | FunTy Type Type
           | TyVar TyVar
           -- References
@@ -121,6 +122,7 @@ instance Eq Type where
     IntTy        == IntTy          = True
     BoolTy       == BoolTy         = True
     UnitTy       == UnitTy         = True
+    DoubleTy     == DoubleTy       = True
     StringTy     == StringTy       = True
     PairTy t1 t2 == PairTy t1' t2' = t1 == t1' && t2 == t2'
     SumTy  t1 t2 == SumTy  t1' t2' = t1 == t1' && t2 == t2'
