@@ -333,6 +333,7 @@ isExn (TLet _ t1 t2)           = isExn t1 || isExn t2
 isExn (TUnit)                  = False
 isExn (TBool _)                = False
 isExn (TInt _)                 = False
+isExn (TDouble _)              = False
 isExn (TString _)              = False
 isExn (TOp f _ ts)             = f || any isExn ts
 isExn (TPair t1 t2)            = isExn t1 || isExn t2
@@ -360,7 +361,7 @@ isExn (TAssign _ t1 t2)        = isExn t1 || isExn t2
 isExn (TRaise _)               = True     -- whether or not subtrace raises
 isExn (TTry _)                 = False    -- subtrace is masked
 isExn (TTryWith _ _ t2)        = isExn t2 -- first subtrace is masked
-isExn _                        = error "isExn: this case should be impossible"
+isExn e                        = error ("isExn: this case should be impossible, e = " ++ show e)
 
 
 isTHole :: Trace -> Bool

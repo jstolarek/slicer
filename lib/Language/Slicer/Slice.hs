@@ -236,6 +236,11 @@ bwdSliceM outcome trace = do
     (OExn v, TAssign Nothing t1 THole) ->
         do (rho, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho, EAssign e1 EHole, TAssign Nothing t1' THole)
+    (OExn v, TAssign Nothing t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2, EAssign e1 e2
+                  , TAssign Nothing t1' t2')
     (OExn v, TSeq t1 THole) ->
         do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho1, ESeq e1 EHole, TSeq t1' THole)
