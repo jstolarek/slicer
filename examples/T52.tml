@@ -1,0 +1,1 @@
+bwdSlice ( trace (1 + (2 / 0)), raise "Division by zero" )

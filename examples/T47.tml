@@ -1,0 +1,4 @@
+let t = trace (
+    let x = ref 1 in
+    (x := !x - 1;; 42) + (1 / !x) ) in
+bwdSlice (t, raise "Division by zero" )
