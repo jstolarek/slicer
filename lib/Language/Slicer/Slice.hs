@@ -123,7 +123,7 @@ bwdSliceM outcome trace = do
            (rho1, e1, t1') <- bwdSliceM (ORet p1) t1
            return (rho1 `lub` rho2', ELet x e1 e2, TLet x t1' t2')
     (r, TOp f op ts) -> -- JRC: need to be more careful here, cf issue #47
-        do let scs = if (not (isExn trace))
+        do let scs = if (not (any isExn ts))
                      then map (const (ORet VStar)) ts
                      else snd (foldr expectedOutcome (False, []) ts)
                expectedOutcome :: Trace -> (Bool,[Outcome]) -> (Bool, [Outcome])
