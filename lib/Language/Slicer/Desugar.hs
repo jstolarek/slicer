@@ -70,6 +70,7 @@ desugarM (A.Var x)
            ty     -> return (EVar x, ty)
 desugarM (A.CBool   b) = return (EBool   b, BoolTy  )
 desugarM (A.CInt    i) = return (EInt    i, IntTy   )
+desugarM (A.CDouble d) = return (EDouble d, DoubleTy)
 desugarM (A.CString s) = return (EString s, StringTy)
 desugarM (A.Let x e1 e2)
     = do (e1',ty1) <- desugarM e1
