@@ -72,5 +72,6 @@ tests =
       , "T43"
       , "T47"
       , "T52"
+      , "T56"
       , "uncurried-componentwise-sum"
       ] )

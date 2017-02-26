@@ -88,7 +88,7 @@ getTyDeclByName decls a = Map.lookup a (tydecls decls)
 data Exp = Var Var | Let Var Exp Exp | LetR Var Exp
          | Unit
          | CBool Bool | If Exp Exp Exp
-         | CInt Int | CDouble Double
+         | CInt Integer | CDouble Double
          | Op Primitive [Exp]
          | CString String
          | Pair Exp Exp | Fst Exp | Snd Exp
