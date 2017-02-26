@@ -327,6 +327,8 @@ data Trace = TExp (Syntax Trace)
            -- References.  See Note [Maybe trace labels]
            | TRef (Maybe StoreLabel) Trace | TDeref (Maybe StoreLabel) Trace
            | TAssign (Maybe StoreLabel) Trace Trace
+           -- Loops
+           | TWhileDone Trace | TWhileStep Trace Trace Trace
             -- Exceptions
            | TRaise Trace             -- ^ Raise exception
            | TTry Trace               -- ^ Not throwing an exception in a
@@ -375,6 +377,8 @@ isExn (TSlicedHole _ RetValue) = False
 isExn (TRef _ t)               = isExn t
 isExn (TDeref _ t)             = isExn t
 isExn (TAssign _ t1 t2)        = isExn t1 || isExn t2
+isExn (TWhileDone t)           = isExn t
+isExn (TWhileStep t1 t2 t3)    = isExn t1 || isExn t2 || isExn t3
 isExn (TRaise _)               = True     -- whether or not subtrace raises
 isExn (TTry _)                 = False    -- subtrace is masked
 isExn (TTryWith _ _ t2)        = isExn t2 -- first subtrace is masked
@@ -556,6 +560,8 @@ instance FVs Trace where
     fvs (TRef _ t)         = fvs t
     fvs (TDeref _ t)       = fvs t
     fvs (TAssign _ t1 t2)  = fvs t1 `union` fvs t2
+    fvs (TWhileDone t)     = fvs t
+    fvs (TWhileStep t1 t2 t3) = fvs t1 `union` fvs t2 `union` fvs t3
     fvs (TRaise t)         = fvs t
     fvs (TTry t)           = fvs t
     fvs (TTryWith t1 x t2) = fvs t1 `union` (delete x (fvs t2))
@@ -797,6 +803,10 @@ instance UpperSemiLattice Trace where
     leq (TDeref l t) (TDeref l' t') | l == l' = t `leq` t'
     leq (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
         = t1 `leq` t1' && t2 `leq` t2'
+
+    leq (TWhileDone t) (TWhileDone t') = t `leq` t'
+    leq (TWhileStep t1 t2 t3) (TWhileStep t1' t2' t3')
+        = t1 `leq` t1' && t2 `leq` t2' && t3 `leq` t3'
     leq (TRaise t) (TRaise t') = t `leq` t'
     leq (TTry t) (TTry t') = t `leq` t'
     leq (TTryWith t1 x t2) (TTryWith t1' x' t2')
@@ -828,6 +838,9 @@ instance UpperSemiLattice Trace where
     lub (TDeref l t) (TDeref l' t') | l == l' = TDeref l (t `lub` t')
     lub (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
         = TAssign l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TWhileDone t) (TWhileDone t') = TWhileDone(t `lub` t')
+    lub (TWhileStep t1 t2 t3) (TWhileStep t1' t2' t3')
+        = TWhileStep(t1 `lub` t1') (t2 `lub` t2') (t3 `lub` t3')
     lub (TRaise t) (TRaise t') = TRaise (t `lub` t')
     lub (TTry t) (TTry t') = TTry (t `lub` t')
     lub (TTryWith t1 x t2) (TTryWith t1' x' t2')
@@ -1005,6 +1018,10 @@ storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
 storeWrites (TCallExn t1 t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TDeref _ t)       = storeWrites t
+storeWrites (TWhileDone t)     = storeWrites t
+storeWrites (TWhileStep t1 t2 t3) =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+                   `unionStoreLabels` storeWrites t3
 storeWrites (TRaise t)         = storeWrites t
 storeWrites (TTry t)           = storeWrites t
 storeWrites (TTryWith t1 _ t2) =

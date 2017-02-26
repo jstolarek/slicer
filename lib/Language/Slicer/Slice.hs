@@ -249,6 +249,34 @@ bwdSliceM outcome trace = do
         do (rho2, e2, t2') <- bwdSliceM r t2
            (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
            return (rho1 `lub` rho2, ESeq e1 e2, TSeq t1' t2')
+    (ORet _, TWhileDone t1) ->
+        do (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return (rho1, EWhile e1 EHole, TWhileDone t1')
+    (OExn v, TWhileDone t1) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho1, EWhile e1 EHole, TWhileDone t1')
+    (ORet _, TWhileStep t1 t2 t3) ->
+        do (rho3, e3, t3') <- bwdSliceM (ORet VHole) t3
+           (rho2, e2, t2') <- bwdSliceM (ORet VHole) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2 `lub` rho3,
+                    (EWhile e1 e2) `lub` e3, TWhileStep t1' t2' t3')
+    (OExn v, TWhileStep t1 THole THole) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return ( rho1,
+                    (EWhile e1 EHole), TWhileStep t1' THole THole)
+    (OExn v, TWhileStep t1 t2 THole) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2,
+                    EWhile e1 e2, TWhileStep t1' t2' THole)
+    (OExn v, TWhileStep t1 t2 t3) ->
+        do (rho3, e3, t3') <- bwdSliceM (OExn v) t3
+           (rho2, e2, t2') <- bwdSliceM (ORet VHole) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2 `lub` rho3,
+                    (EWhile e1 e2) `lub` e3, TWhileStep t1' t2' t3')
+
     (ORet v, TTry t) ->
         do (rho, e, t') <- bwdSliceM (ORet v) t
            return (rho, ETryWith e bot bot, TTry t')

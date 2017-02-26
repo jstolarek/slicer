@@ -73,4 +73,6 @@ tests =
       , "T47"
       , "T52"
       , "uncurried-componentwise-sum"
+      , "while"
+      , "while2"
       ] )

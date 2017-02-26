@@ -149,7 +149,7 @@ evalWhile :: Outcome -> Exp -> Exp -> EvalM Outcome
 evalWhile (ORet (VBool True)) e1 e2   = do r1 <- evalM' e2
                                            r2 <- withExn r1 (evalM' e1)
                                            evalWhile r2 e1 e2
-evalWhile (ORet (VBool False)) e1 e2  = return (ORet VUnit)
+evalWhile (ORet (VBool False)) _ _    = return (ORet VUnit)
 evalWhile (OExn v) _ _                = return (OExn v)
 evalWhile _ _ _ = evalError "evalWhile: condition is not a VBool value"
 
@@ -326,6 +326,8 @@ trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
 trace (ESeq e1 e2)   = do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           return (r1 >-< r2, TSeq t1 t2)
+trace (EWhile e1 e2)  = do cond <- trace e1
+                           traceWhile cond e1 e2
 -- exceptions
 trace (ERaise e)     = do (r, t) <- trace' e
                           case r of
@@ -388,6 +390,16 @@ traceIf (ORet (VBool False), t) _ e2 = do (v2, t2) <- trace' e2
                                           return (v2, TIfElse t t2)
 traceIf (OExn v,t) _ _ = return (OExn v, TIfExn t)
 traceIf _ _ _ = evalError "traceIf: condition is not a VBool value"
+
+traceWhile :: (Outcome,Trace) -> Exp -> Exp -> EvalM (Outcome,Trace)
+traceWhile (ORet (VBool True),t1) e1 e2   = do (r2,t2) <- trace' e2
+                                               (r,t) <- withExnTrace r2 (trace' e1)
+                                               (r3,t3) <- withExnTrace r (traceWhile (r,t) e1 e2)
+                                               return (r3, TWhileStep t1 t2 t3)
+traceWhile (ORet (VBool False),t) _ _    = return (ORet VUnit, TWhileDone t)
+traceWhile (OExn v, t) _ _               = return (OExn v, TWhileDone t)
+traceWhile _ _ _ = evalError "traceWhile: condition is not a VBool value"
+
 
 withExn :: Outcome -> EvalM Outcome -> EvalM Outcome
 withExn (OExn v) _  = return (OExn v)
