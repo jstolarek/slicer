@@ -125,6 +125,7 @@ evalM (EArrSet e1 e2 e3)
                                  do updateArr vl i v
                                     return (ORet VUnit)
                              _ -> return OHole
+-- Sequential composition and WHILE
 evalM (ESeq e1 e2)    = do r1 <- evalM' e1
                            withExn r1 (evalM' e2)
 evalM (EWhile e1 e2)  = do cond <- evalM e1
@@ -354,6 +355,41 @@ trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                                   do updateRef v1 v2
                                      return (ORet VUnit, TAssign (Just l) t1 t2)
                              _ -> return (OHole, THole)
+-- Arrays
+trace (EArr e1 e2)    = do (r1,t1) <- trace' e1
+                           (r2,t2) <- withExnTrace r1 (trace' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v,TArr Nothing t1 THole)
+                             (_,OExn v) -> return (OExn v, TArr Nothing t1 t2)
+                             (ORet (VInt i), ORet v) ->
+                               do v'@(VArrLoc l _) <- newArr i v
+                                  return (ORet v', TArr (Just (l,i)) t1 t2)
+                             _ -> return (OHole,THole)
+trace (EArrGet e1 e2) = do (r1,t1) <- trace' e1
+                           (r2,t2) <- withExnTrace r1 (trace' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v, TArrGet Nothing t1 THole)
+                             (_,OExn v) -> return (OExn v, TArrGet Nothing t1 t2)
+                             (ORet vl@(VArrLoc l _), ORet (VInt i)) ->
+                               do v' <- getArr vl i
+                                  return (ORet v', TArr (Just (l,i)) t1 t2)
+                             _ -> return (OHole,THole)
+trace (EArrSet e1 e2 e3)
+                      = do (r1,t1) <- trace' e1
+                           (r2,t2) <- withExnTrace r1 (trace' e2)
+                           (r3,t3) <- withExnTrace r2 (trace' e3)
+                           case (r1,r2,r3) of
+                             (OExn v1, _, _) -> return ( OExn v1
+                                                       , TArrSet Nothing t1 THole THole)
+                             (_, OExn v2, _) -> return ( OExn v2
+                                                       , TArrSet Nothing t1 t2 THole)
+                             (_, _, OExn v3) -> return (OExn v3
+                                                       , TArrSet Nothing t1 t2 t3)
+                             (ORet vl@(VArrLoc l _), ORet (VInt i) , ORet v) ->
+                                 do updateArr vl i v
+                                    return (ORet VUnit, TArrSet (Just (l,i)) t1 t2 t3)
+                             _ -> return (OHole,THole)
+-- Sequential composition and WHILE
 trace (ESeq e1 e2)   = do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           return (r1 >-< r2, TSeq t1 t2)

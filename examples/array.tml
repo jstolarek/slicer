@@ -1,3 +1,5 @@
-let x = array(10,0) in
-set(x,5,5);;
-get(x,5)
+let t = trace (
+  let x = array(10,0) in
+  set(x,5,5);;
+  get(x,5)
+) in t

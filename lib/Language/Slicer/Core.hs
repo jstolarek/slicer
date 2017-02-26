@@ -19,9 +19,11 @@ module Language.Slicer.Core
 
     , getVal, getExn
     -- * Store abstraction
-    , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
+    , Store, StoreLabel, StoreLabels, emptyStore
+    , singletonStoreLabel, singletonArrLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
-    , storeLookupArr, storeCreateArr, storeUpdateArr, storeUpdateArrHole
+    , storeLookupArr, storeCreateArr, storeUpdateArr
+    , storeDerefArrIdx, storeUpdateArrHole, storeUpdateArrIdxHole
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
     , Pattern(extract), Valuable(..)
@@ -328,6 +330,10 @@ data Trace = TExp (Syntax Trace)
            -- References.  See Note [Maybe trace labels]
            | TRef (Maybe StoreLabel) Trace | TDeref (Maybe StoreLabel) Trace
            | TAssign (Maybe StoreLabel) Trace Trace
+           -- Arrays
+           | TArr (Maybe (StoreLabel,Int)) Trace Trace
+           | TArrGet (Maybe (StoreLabel,Int)) Trace Trace
+           | TArrSet (Maybe (StoreLabel,Int)) Trace Trace Trace
            -- Loops
            | TWhileDone Trace | TWhileStep Trace Trace Trace
             -- Exceptions
@@ -378,6 +384,9 @@ isExn (TSlicedHole _ RetValue) = False
 isExn (TRef _ t)               = isExn t
 isExn (TDeref _ t)             = isExn t
 isExn (TAssign _ t1 t2)        = isExn t1 || isExn t2
+isExn (TArr _ t1 t2)           = isExn t1 || isExn t2
+isExn (TArrGet _ t1 t2)        = isExn t1 || isExn t2
+isExn (TArrSet _ t1 t2 t3)     = isExn t1 || isExn t2 || isExn t3
 isExn (TWhileDone t)           = isExn t
 isExn (TWhileStep t1 t2 t3)    = isExn t1 || isExn t2 || isExn t3
 isExn (TRaise _)               = True     -- whether or not subtrace raises
@@ -565,6 +574,9 @@ instance FVs Trace where
     fvs (TRef _ t)         = fvs t
     fvs (TDeref _ t)       = fvs t
     fvs (TAssign _ t1 t2)  = fvs t1 `union` fvs t2
+    fvs (TArr _ t1 t2)     = fvs t1 `union` fvs t2
+    fvs (TArrGet _ t1 t2)  = fvs t1 `union` fvs t2
+    fvs (TArrSet _ t1 t2 t3) = fvs t1 `union` fvs t2 `union` fvs t3
     fvs (TWhileDone t)     = fvs t
     fvs (TWhileStep t1 t2 t3) = fvs t1 `union` fvs t2 `union` fvs t3
     fvs (TRaise t)         = fvs t
@@ -813,6 +825,13 @@ instance UpperSemiLattice Trace where
     leq (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
         = t1 `leq` t1' && t2 `leq` t2'
 
+    leq (TArr l t1 t2) (TArr l' t1' t2') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2'
+    leq (TArrGet l t1 t2) (TArrGet l' t1' t2') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2'
+    leq (TArrSet l t1 t2 t3) (TArrSet l' t1' t2' t3') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2' && t3 `leq` t3'
+
     leq (TWhileDone t) (TWhileDone t') = t `leq` t'
     leq (TWhileStep t1 t2 t3) (TWhileStep t1' t2' t3')
         = t1 `leq` t1' && t2 `leq` t2' && t3 `leq` t3'
@@ -847,6 +866,12 @@ instance UpperSemiLattice Trace where
     lub (TDeref l t) (TDeref l' t') | l == l' = TDeref l (t `lub` t')
     lub (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
         = TAssign l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TArr l t1 t2) (TArr l' t1' t2') | l == l'
+        = TArr l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TArrGet l t1 t2) (TArrGet l' t1' t2') | l == l'
+        = TArrGet l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TArrSet l t1 t2 t3) (TArrSet l' t1' t2' t3') | l == l'
+        = TArrSet l (t1 `lub` t1') (t2 `lub` t2') (t3 `lub` t3')
     lub (TWhileDone t) (TWhileDone t') = TWhileDone(t `lub` t')
     lub (TWhileStep t1 t2 t3) (TWhileStep t1' t2' t3')
         = TWhileStep(t1 `lub` t1') (t2 `lub` t2') (t3 `lub` t3')
@@ -927,7 +952,7 @@ newtype StoreLabel  = StoreLabel Int
     deriving ( Show, Eq, Ord, Generic, NFData )
 
 -- | A set of store labels
-newtype StoreLabels = StoreLabels (S.Set StoreLabel)
+data StoreLabels = StoreLabels (S.Set StoreLabel) (S.Set (StoreLabel,Int))
     deriving ( Show, Eq, Ord, Generic, NFData )
 
 instance Valuable StoreLabel where
@@ -982,6 +1007,16 @@ lookupArray idx (Array arr) = M.lookup idx arr
 updateArray :: Int -> Value -> Array -> Array
 updateArray idx v (Array arr) = Array ( M.insert idx v arr)
 
+-- | Dereference a label.  If label is absent in the store return bottom
+storeDerefArrIdx :: Store -> StoreLabel -> Int -> Value
+storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
+    if (label `M.member` arrs)  
+    then let Array arr = arrs M.! label in
+         if (idx `M.member` arr)
+         then arr M.! idx
+         else bot
+    else bot
+
 -- | Look up an element of an array
 -- | Dereference a label.  If label is absent in the array return bottom
 storeLookupArr :: Store -> StoreLabel -> Int -> Maybe Value
@@ -1004,9 +1039,14 @@ storeUpdateArr (Store refs arrs refCount) (StoreLabel l) idx v =
     let Just arr = M.lookup l arrs in
     Store refs (M.insert l (updateArray idx v arr) arrs) refCount
 
+-- | Update an array label
+storeUpdateArrHole :: Store -> StoreLabel -> Store
+storeUpdateArrHole (Store refs arrs refCount) (StoreLabel label) =
+    (Store refs (M.insert label (Array M.empty) arrs) refCount)
+
 -- | Update a label already present in a store to contain hole
-storeUpdateArrHole :: Store -> StoreLabel -> Int -> Store
-storeUpdateArrHole store label idx =
+storeUpdateArrIdxHole :: Store -> StoreLabel -> Int -> Store
+storeUpdateArrIdxHole store label idx =
     storeUpdateArr store label idx VHole
 
 
@@ -1024,25 +1064,33 @@ isStoreHole (Store refs _ _) (StoreLabel label) =
 
 -- | Check if all store labels are store holes (according to `isStoreHole`)
 allStoreHoles :: Store -> StoreLabels -> Bool
-allStoreHoles store (StoreLabels labels) =
+allStoreHoles store (StoreLabels labels _) =
     F.all (isStoreHole store) labels
 
 -- | An empty set of store labels
 emptyStoreLabels :: StoreLabels
-emptyStoreLabels = StoreLabels S.empty
+emptyStoreLabels = StoreLabels S.empty S.empty
 
 singletonStoreLabel :: StoreLabel -> StoreLabels
-singletonStoreLabel l = StoreLabels (S.singleton l)
+singletonStoreLabel l = StoreLabels (S.singleton l) S.empty
+
+singletonArrLabel :: (StoreLabel,Int) -> StoreLabels
+singletonArrLabel l = StoreLabels S.empty  (S.singleton l)
 
 -- | Insert a label into a set of store labels
 insertStoreLabel :: Maybe StoreLabel -> StoreLabels -> StoreLabels
-insertStoreLabel Nothing   ls              = ls
-insertStoreLabel (Just l) (StoreLabels ls) = StoreLabels (l `S.insert` ls)
+insertStoreLabel Nothing   ls                 = ls
+insertStoreLabel (Just l) (StoreLabels ls as) = StoreLabels (l `S.insert` ls) as
+
+-- | Insert an array label into a set of store labels
+insertArrLabel :: Maybe (StoreLabel,Int) -> StoreLabels -> StoreLabels
+insertArrLabel Nothing   ls                 = ls
+insertArrLabel (Just l) (StoreLabels ls as) = StoreLabels ls (l `S.insert` as)
 
 -- | Union of two store label sets
 unionStoreLabels :: StoreLabels -> StoreLabels -> StoreLabels
-unionStoreLabels (StoreLabels ls1) (StoreLabels ls2) =
-    StoreLabels (ls1 `S.union` ls2)
+unionStoreLabels (StoreLabels ls1 as1) (StoreLabels ls2 as2) =
+    StoreLabels (ls1 `S.union` ls2) (as1 `S.union` as2)
 
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> StoreLabels
@@ -1051,6 +1099,13 @@ storeWrites (TRef l t) =
     l `insertStoreLabel` storeWrites t
 storeWrites (TAssign l t1 t2) =
     l `insertStoreLabel` storeWrites t1 `unionStoreLabels`  storeWrites t2
+-- relevant array assignments
+storeWrites (TArr l t1 t2) =
+    l `insertArrLabel` storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TArrSet l t1 t2 t3) =
+    l `insertArrLabel` storeWrites t1
+      `unionStoreLabels`  storeWrites t2
+      `unionStoreLabels`  storeWrites t3
 -- sliced hole annotated with store labels
 storeWrites (TSlicedHole ls _) = ls
 storeWrites (TIfThen t1 t2)    =
@@ -1069,6 +1124,8 @@ storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
 storeWrites (TCallExn t1 t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TDeref _ t)       = storeWrites t
+storeWrites (TArrGet _ t1 t2)  = 
+    storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TWhileDone t)     = storeWrites t
 storeWrites (TWhileStep t1 t2 t3) =
     storeWrites t1 `unionStoreLabels` storeWrites t2

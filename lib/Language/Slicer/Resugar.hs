@@ -82,6 +82,9 @@ instance Uneval Trace Exp where
     uneval (TRef _ t)        = ERef (uneval t)
     uneval (TDeref _ t)      = EDeref (uneval t)
     uneval (TAssign _ t1 t2) = EAssign (uneval t1) (uneval t2)
+    uneval (TArr _ t1 t2)    = EArr (uneval t1) (uneval t2)
+    uneval (TArrGet _ t1 t2) = EArrGet (uneval t1) (uneval t2)
+    uneval (TArrSet _ t1 t2 t3) = EArrSet (uneval t1) (uneval t2) (uneval t3)
     uneval (TWhileDone t)    = EWhile (uneval t) bot
     uneval (TWhileStep t1 t2 _) = (EWhile (uneval t1) (uneval t2)) -- jrc: ???
     uneval (TRaise t)        = ERaise (uneval t)
