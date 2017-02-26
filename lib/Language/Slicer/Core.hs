@@ -21,6 +21,7 @@ module Language.Slicer.Core
     -- * Store abstraction
     , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
+    , storeLookupArr, storeCreateArr, storeUpdateArr, storeUpdateArrHole
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
     , Pattern(extract), Valuable(..)
@@ -469,12 +470,16 @@ data Value = VBool Bool | VInt Int | VDouble Double | VUnit | VString String
            | VExp Exp (Env Value)
            -- mutable store locations
            | VStoreLoc StoreLabel
+           | VArrLoc StoreLabel Int
            -- run-time traces
            | VTrace Outcome Trace (Env Value) Store
            deriving (Show, Eq, Ord, Generic, NFData)
 
 data Outcome = ORet Value | OExn Value | OHole | OStar
              deriving (Show, Eq, Ord, Generic, NFData)
+
+newtype Array = Array (M.IntMap Value)
+             deriving ( Show, Eq, Ord, Generic, NFData )
 
 getVal :: Outcome -> Value
 getVal (ORet v) = v
@@ -581,9 +586,10 @@ promote (VInL v)            = VInL (promote v)
 promote (VInR v)            = VInR (promote v)
 promote (VRoll tv v)        = VRoll tv (promote v)
 promote (VStoreLoc l)       = VStoreLoc l
+promote (VArrLoc l n)       = VArrLoc l n
 promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace r t env (Store refs refCount)) =
-    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) refCount)
+promote (VTrace r t env (Store refs arrs refCount)) =
+    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) (fmap promoteArray arrs) refCount)
 promote (VExp     e env)    = VExp e (fmap promote env)
 
 promoteOutcome :: Outcome -> Outcome
@@ -591,6 +597,9 @@ promoteOutcome OStar = OStar
 promoteOutcome OHole = OStar
 promoteOutcome (OExn v) = OExn (promote v)
 promoteOutcome (ORet v) = ORet (promote v)
+
+promoteArray :: Array -> Array
+promoteArray (Array arr) = Array (fmap promote arr)
 
 instance UpperSemiLattice Value where
     bot                                = VHole
@@ -925,50 +934,92 @@ instance Valuable StoreLabel where
     toValue = VStoreLoc
 
 -- | Reference store
-data Store = Store (M.IntMap Value) Int
+data Store = Store (M.IntMap Value) (M.IntMap Array) Int
              deriving ( Show, Eq, Ord, Generic, NFData )
 
 -- | Empty reference store
 emptyStore :: Store
-emptyStore = Store M.empty 0
+emptyStore = Store M.empty M.empty 0
 
 -- | Dereference a label.  If label is absent in the store return bottom
 storeDeref :: Store -> StoreLabel -> Value
-storeDeref (Store refs _) (StoreLabel label) =
+storeDeref (Store refs _ _) (StoreLabel label) =
     if (label `M.member` refs)
     then refs M.! label
     else bot
 
 storeLookup :: Store -> StoreLabel -> Maybe Value
-storeLookup (Store refs _) (StoreLabel label) =
+storeLookup (Store refs _ _) (StoreLabel label) =
     M.lookup label refs
 
 -- | Insert new value into a store.  Return new store and label under which the
 -- value was allocated
 storeInsert :: Store -> Value -> (Store, StoreLabel)
-storeInsert (Store refs refCount) v =
-    (Store (M.insert refCount v refs) (refCount + 1), StoreLabel refCount)
+storeInsert (Store refs arrs refCount) v =
+    (Store (M.insert refCount v refs) arrs (refCount + 1), StoreLabel refCount)
 
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
-storeUpdate (Store refs refCount) (StoreLabel l) v =
+storeUpdate (Store refs arrs refCount) (StoreLabel l) v =
     assert (l `M.member` refs)   $
-    Store (M.insert l v refs) refCount
+    Store (M.insert l v refs) arrs refCount
 
 -- | Update a label already present in a store to contain hole
 storeUpdateHole :: Store -> StoreLabel -> Store
 storeUpdateHole store label =
     storeUpdate store label VHole
 
+-- | Array ops
+mkArray :: Int -> Value -> Array
+mkArray dim vInit | dim >= 0 = Array(mkArr dim vInit)
+  where mkArr n _ | n == 0 = M.empty
+        mkArr n v = M.insert (n-1) v (mkArr (n-1) v)
+mkArray dim _ = error ("Cannot make an array of negative length "++ show dim ++" .")
+
+lookupArray :: Int -> Array -> Maybe Value
+lookupArray idx (Array arr) = M.lookup idx arr
+
+updateArray :: Int -> Value -> Array -> Array
+updateArray idx v (Array arr) = Array ( M.insert idx v arr)
+
+-- | Look up an element of an array
+-- | Dereference a label.  If label is absent in the array return bottom
+storeLookupArr :: Store -> StoreLabel -> Int -> Maybe Value
+storeLookupArr (Store _ arrs _) (StoreLabel label) idx =
+    do arr <- M.lookup label arrs
+       lookupArray idx arr 
+
+
+-- | Insert new array into a store.  Return new store and label under which the
+-- array was allocated
+storeCreateArr :: Store -> Int -> Value -> (Store, StoreLabel)
+storeCreateArr (Store refs arrs refCount) dim v =
+    (Store refs (M.insert refCount (mkArray dim v) arrs) (refCount + 1),
+     StoreLabel refCount)
+
+-- | Update a label already present in a store
+storeUpdateArr :: Store -> StoreLabel -> Int -> Value -> Store
+storeUpdateArr (Store refs arrs refCount) (StoreLabel l) idx v =
+    assert (l `M.member` arrs)   $
+    let Just arr = M.lookup l arrs in
+    Store refs (M.insert l (updateArray idx v arr) arrs) refCount
+
+-- | Update a label already present in a store to contain hole
+storeUpdateArrHole :: Store -> StoreLabel -> Int -> Store
+storeUpdateArrHole store label idx =
+    storeUpdateArr store label idx VHole
+
+
+
 -- | Check if a label is allocated in a store
 existsInStore :: Store -> StoreLabel -> Bool
-existsInStore (Store refs _) (StoreLabel label) =
-    label `M.member` refs
+existsInStore (Store refs arrs _) (StoreLabel label) =
+    label `M.member` refs || label `M.member` arrs
 
 -- | Return true if a label does not exists in a store or exsists and points to
 -- a hole
 isStoreHole :: Store -> StoreLabel -> Bool
-isStoreHole (Store refs _) (StoreLabel label) =
+isStoreHole (Store refs _ _) (StoreLabel label) =
     not (label `M.member` refs) || refs M.! label == VHole
 
 -- | Check if all store labels are store holes (according to `isStoreHole`)

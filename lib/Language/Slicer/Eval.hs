@@ -94,6 +94,37 @@ evalM (EAssign e1 e2) = do r1 <- evalM' e1
                                  do updateRef v1 v2
                                     return (ORet VUnit)
                              _ -> return OHole
+-- Arrays
+evalM (EArr e1 e2)    = do r1 <- evalM' e1
+                           r2 <- withExn r1 (evalM' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v)
+                             (_,OExn v) -> return (OExn v)
+                             (ORet (VInt i), ORet v) ->
+                               do v' <- newArr i v
+                                  return (ORet v')
+                             _ -> return OHole
+evalM (EArrGet e1 e2) = do r1 <- evalM' e1
+                           r2 <- withExn r1 (evalM' e2)
+                           case (r1,r2) of
+                             (OExn v,_) -> return (OExn v)
+                             (_,OExn v) -> return (OExn v)
+                             (ORet vl, ORet (VInt i)) ->
+                               do v' <- getArr vl i
+                                  return (ORet v')
+                             _ -> return OHole
+evalM (EArrSet e1 e2 e3)
+                      = do r1 <- evalM' e1
+                           r2 <- withExn r1 (evalM' e2)
+                           r3 <- withExn r2 (evalM' e3)
+                           case (r1,r2,r3) of
+                             (OExn v1, _, _) -> return (OExn v1)
+                             (_, OExn v2, _) -> return (OExn v2)
+                             (_, _, OExn v3) -> return (OExn v3)
+                             (ORet vl, ORet (VInt i) , ORet v) ->
+                                 do updateArr vl i v
+                                    return (ORet VUnit)
+                             _ -> return OHole
 evalM (ESeq e1 e2)    = do r1 <- evalM' e1
                            withExn r1 (evalM' e2)
 evalM (EWhile e1 e2)  = do cond <- evalM e1
