@@ -1,18 +1,20 @@
--- Polynomial that root we are interested in
-let poly  = fun poly  (x : double) : double => x * x * x + 1.0 in
--- Derivative of a polynomial
-let poly' = fun poly' (x : double) : double => 3.0 * x * x in
+let t = trace (
+    -- Polynomial that root we are interested in
+    let poly  = fun poly  (x : double) : double => x * x * x + 1.0 in
+    -- Derivative of a polynomial
+    let poly' = fun poly' (x : double) : double => 3.0 * x * x in
 
-let x = ref 0.0 in
+    let x = ref 0.0 in
 
--- Newton's method.
---   f  : function which root want to find
---   f' : deribative of f
---   n  : number of iterations to perform
-let newton = fun newton (f : double -> double) (f' : double -> double)
-                        (n : int) : double =>
-    if n == 0
-    then !x
-    else x := !x - (f( !x ) / f'( !x )) ;;
-         newton f f' (n - 1) in
-bwdSlice( trace (newton poly poly' 1), raise "Division by zero" )
+    -- Newton's method.
+    --   f  : function which root want to find
+    --   f' : deribative of f
+    --   n  : number of iterations to perform
+    let newton = fun newton (f : double -> double) (f' : double -> double)
+                            (n : int) : double =>
+        if n == 0
+        then !x
+        else x := !x - (f( !x ) / f'( !x )) ;;
+             newton f f' (n - 1) in
+    newton poly poly' 2 ) in
+bwdSlice( t, raise "Division by zero" )
