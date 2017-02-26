@@ -308,11 +308,13 @@ trace (EDeref e)     = do (r, t) <- trace' e
 trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           case (r1,r2) of
-                             (OExn v,_) -> return (OExn v, TAssign Nothing t1 THole)
-                             (_, OExn v) -> return (OExn v, TAssign Nothing t1 t2)
+                             (OExn v,_)  ->
+                                 return (OExn v, TAssign Nothing t1 THole)
+                             (_, OExn v) ->
+                                 return (OExn v, TAssign Nothing t1 t2)
                              (ORet v1@(VStoreLoc l), ORet v2) ->
-                                  do updateRef v1 v2
-                                     return (ORet VUnit, TAssign (Just l) t1 t2)
+                                 do updateRef v1 v2
+                                    return (ORet VUnit, TAssign (Just l) t1 t2)
                              _ -> return (OHole, THole)
 trace (ESeq e1 e2)   = do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
