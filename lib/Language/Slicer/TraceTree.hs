@@ -14,7 +14,7 @@ data TraceTree = TTHole
 
 type TraceForest = [TraceTree]
 
-treesize :: TraceTree -> Int
+treesize :: TraceTree -> Integer
 treesize TTHole              = 1
 treesize (TTTrue   t1 t2   ) = forestsize t1 + forestsize t2 + 1
 treesize (TTFalse  t1 t2   ) = forestsize t1 + forestsize t2 + 1
@@ -22,7 +22,7 @@ treesize (TTInL    t1 t2   ) = forestsize t1 + forestsize t2 + 1
 treesize (TTInR    t1 t2   ) = forestsize t1 + forestsize t2 + 1
 treesize (TTCall _ t1 t2 ts) = forestsize t1 + forestsize t2 + forestsize ts + 1
 
-forestsize :: TraceForest -> Int
+forestsize :: TraceForest -> Integer
 forestsize = sum . map treesize
 
 toTree :: Trace -> TraceForest
