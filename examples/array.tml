@@ -1,0 +1,3 @@
+let x = array(10,0) in
+set(x,5,5);;
+get(x,5)

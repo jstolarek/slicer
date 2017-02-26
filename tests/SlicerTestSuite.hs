@@ -16,6 +16,7 @@ tests =
       , "curried-pointwise-sum"
       , "curried-pointwise-sum-two"
       , "example"
+      , "exception_assign"
       , "exceptions"
       , "exceptions2"
       , "exceptions3"
@@ -75,4 +76,6 @@ tests =
       , "uncurried-componentwise-sum"
       , "while"
       , "while2"
+      , "while3"
+      , "while4"
       ] )
