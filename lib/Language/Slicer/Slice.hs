@@ -215,7 +215,7 @@ bwdSliceM outcome trace = do
            return (rho, EDeref e, TDeref Nothing t')
     (ORet _, TAssign (Just l) t1 t2) ->
         do existsInStore <- existsInStoreM l
-           if  not existsInStore
+           if not existsInStore
            then return ( bot, EHole
                        , TSlicedHole (singletonStoreLabel l) RetValue)
            else do p <- storeDerefM l
@@ -224,15 +224,6 @@ bwdSliceM outcome trace = do
                    (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
                    return ( rho1 `lub` rho2, EAssign e1 e2
                           , TAssign (Just l) t1' t2')
-    (OExn v, TAssign (Just l) t1 t2) ->
-        do existsInStore <- existsInStoreM l
-           if not existsInStore
-           then return (bot, EHole,
-                        TSlicedHole (singletonStoreLabel l) RetValue)
-           else   do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
-                     (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
-                     return ( rho1 `lub` rho2, EAssign e1 e2
-                            , TAssign (Just l) t1' t2')
     (OExn v, TAssign Nothing t1 THole) ->
         do (rho, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho, EAssign e1 EHole, TAssign Nothing t1' THole)
