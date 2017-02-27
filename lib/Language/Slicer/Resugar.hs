@@ -388,7 +388,7 @@ instance Pretty RExp where
     pPrint (RArrGet e1 e2) = text "get" <> parens (pPrint e1  <> comma <+> pPrint e2)
     pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+> pPrint e2 <> comma <+> pPrint e3)
     pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2
-    pPrint (RWhile e1 e2)  = text "while" <+> pPrint e1 <+> text "do" <+> pPrint e2
+    pPrint (RWhile e1 e2)  = parens (text "while" <+> pPrint e1 <+> text "do" <+> pPrint e2)
     pPrint (RTrace e)      = text "trace" <+> partial_parensOpt e
     pPrint (RRaise e)      = text "raise" <+> partial_parensOpt e
     pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$

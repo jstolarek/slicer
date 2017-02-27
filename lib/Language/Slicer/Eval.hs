@@ -121,7 +121,7 @@ evalM (EArrSet e1 e2 e3)
                              (OExn v1, _, _) -> return (OExn v1)
                              (_, OExn v2, _) -> return (OExn v2)
                              (_, _, OExn v3) -> return (OExn v3)
-                             (ORet vl, ORet (VInt i) , ORet v) ->
+                             (ORet vl, ORet (VInt i), ORet v) ->
                                  do updateArr vl (fromInteger i) v
                                     return (ORet VUnit)
                              _ -> return OHole
@@ -130,7 +130,7 @@ evalM (ESeq e1 e2)    = do r1 <- evalM' e1
                            withExn r1 (evalM' e2)
 evalM (EWhile e1 e2)  = do cond <- evalM e1
                            evalWhile cond e1 e2
--- Exceptions.  See Note [Evaluation of exceptions]
+-- Exceptions.
 evalM (ERaise e)      = do r <- evalM' e
                            case r of
                              ORet v -> return (OExn v)
