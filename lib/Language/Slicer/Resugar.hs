@@ -384,7 +384,7 @@ instance Pretty RExp where
     pPrint (RRef e)        = text "ref" <+> partial_parensOpt e
     pPrint (RDeref e)      = text "!" <> partial_parensOpt e
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
-    pPrint (RArr e1 e2)    = text "array" <> parens (pPrint e1 <> comma <+> pPrint e2) 
+    pPrint (RArr e1 e2)    = text "array" <> parens (pPrint e1 <> comma <+> pPrint e2)
     pPrint (RArrGet e1 e2) = text "get" <> parens (pPrint e1  <> comma <+> pPrint e2)
     pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+> pPrint e2 <> comma <+> pPrint e3)
     pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2

@@ -1011,7 +1011,7 @@ updateArray idx v (Array arr) = Array ( M.insert idx v arr)
 -- | Dereference an array element.  If  absent in the store return bottom
 storeDerefArrIdx :: Store -> StoreLabel -> Int -> Value
 storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
-    if (label `M.member` arrs)  
+    if (label `M.member` arrs)
     then let Array arr = arrs M.! label in
          if (idx `M.member` arr)
          then arr M.! idx
@@ -1029,7 +1029,7 @@ storeDerefArr st label n =
 storeLookupArrIdx :: Store -> StoreLabel -> Int -> Maybe Value
 storeLookupArrIdx (Store _ arrs _) (StoreLabel label) idx =
     do arr <- M.lookup label arrs
-       lookupArray idx arr 
+       lookupArray idx arr
 
 
 -- | Insert new array into a store.  Return new store and label under which the
@@ -1045,7 +1045,7 @@ storeUpdateArrIdx (Store refs arrs refCount) (StoreLabel l) idx v =
     assert (l `M.member` arrs)   $
     let arr = case M.lookup l arrs of
                 Just a -> a
-                Nothing -> Array M.empty in 
+                Nothing -> Array M.empty in
     Store refs (M.insert l (updateArray idx v arr) arrs) refCount
 
 
@@ -1114,7 +1114,7 @@ arrWrites Nothing = emptyStoreLabels
 arrWrites (Just (l,dim)) = aW dim
   where aW 0 = emptyStoreLabels
         aW n = insertArrLabel (Just (l,n-1)) (aW (n-1))
-        
+
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> StoreLabels
 -- relevant store assignments
@@ -1147,7 +1147,7 @@ storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
 storeWrites (TCallExn t1 t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TDeref _ t)       = storeWrites t
-storeWrites (TArrGet _ t1 t2)  = 
+storeWrites (TArrGet _ t1 t2)  =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TWhileDone t)     = storeWrites t
 storeWrites (TWhileStep t1 t2 t3) =
