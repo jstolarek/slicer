@@ -383,14 +383,14 @@ trace (EArrSet e1 e2 e3)
                            (r2,t2) <- withExnTrace r1 (trace' e2)
                            (r3,t3) <- withExnTrace r2 (trace' e3)
                            case (r1,r2,r3) of
-                             (OExn v1, _, _) -> return ( OExn v1
-                                                       , TArrSet Nothing t1 THole THole)
-                             (_, OExn v2, _) -> return ( OExn v2
-                                                       , TArrSet Nothing t1 t2 THole)
-                             (_, _, OExn v3) -> return (OExn v3
-                                                       , TArrSet Nothing t1 t2 t3)
+                             (OExn v1, _, _) ->
+                                 return ( OExn v1, TArrSet Nothing t1 THole THole)
+                             (_, OExn v2, _) ->
+                                 return ( OExn v2, TArrSet Nothing t1 t2 THole)
+                             (_, _, OExn v3) ->
+                                 return (OExn v3, TArrSet Nothing t1 t2 t3)
                              (ORet vl@(VArrLoc l _), ORet (VInt i) , ORet v) ->
-                                 let idx = fromInteger i in 
+                                 let idx = fromInteger i in
                                  do updateArr vl idx v
                                     return (ORet VUnit, TArrSet (Just (l,idx)) t1 t2 t3)
                              _ -> return (OHole,THole)
@@ -465,20 +465,16 @@ traceIf _ _ _ = evalError "traceIf: condition is not a VBool value"
 
 -- JRC: tricky, reconsider
 traceWhile :: (Outcome,Trace) -> Exp -> Exp -> EvalM (Outcome,Trace)
-traceWhile (ORet (VBool True),t1) e1 e2   = do (r2,t2) <- trace' e2
-                                               (r,t) <-   withExnTrace r2 (trace' e1)
-                                               (r3,t3) <- traceWhile (r,t) e1 e2
-                                               case (r2,r,r3) of
-                                                 (OExn v, _, _) ->
-                                                   return ( OExn v
-                                                          , TWhileStep t1 t2 THole)
-                                                 (_, OExn v, _) ->
-                                                   return ( OExn v
-                                                          , TWhileStep t1 t2 (TWhileDone t))
-                                                 (_, _, res) ->
-                                                   return (res, TWhileStep t1 t2 t3)
-traceWhile (ORet (VBool False),t) _ _    = return (ORet VUnit, TWhileDone t)
-traceWhile (OExn v, t) _ _               = return (OExn v, TWhileDone t)
+traceWhile (ORet (VBool True), t1) e1 e2 =
+    do (r2, t2) <- trace' e2
+       (r , t ) <- withExnTrace r2 (trace' e1)
+       (r3, t3) <- traceWhile (r,t) e1 e2
+       case (r2,r,r3) of
+         (OExn v, _, _) -> return ( OExn v, TWhileStep t1 t2 THole)
+         (_, OExn v, _) -> return ( OExn v, TWhileStep t1 t2 (TWhileDone t))
+         (_, _, res   ) -> return (res, TWhileStep t1 t2 t3)
+traceWhile (ORet (VBool False),t) _ _ = return (ORet VUnit, TWhileDone t)
+traceWhile (OExn v, t) _ _            = return (OExn v, TWhileDone t)
 traceWhile _ _ _ = evalError "traceWhile: condition is not a VBool value"
 
 
@@ -487,9 +483,9 @@ withExn (OExn v) _  = return (OExn v)
 withExn _ thing     = thing
 
 withExnTrace :: Outcome -> EvalM (Outcome, Trace) -> EvalM (Outcome, Trace)
-withExnTrace (OExn v) _     = return (OExn v, THole)
-withExnTrace _ thing        = thing
+withExnTrace (OExn v) _ = return (OExn v, THole)
+withExnTrace _ thing    = thing
 
 (>-<) :: Outcome -> Outcome -> Outcome
-(>-<) (OExn v1) _  = (OExn v1)
-(>-<) _  v2        = v2
+(>-<) (OExn v1) _ = (OExn v1)
+(>-<) _  v2       = v2

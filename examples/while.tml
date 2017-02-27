@@ -1,8 +1,8 @@
 let t = trace(
   let x = ref 10 in
   let y = ref 0 in
-  let z = ref 1 in 
-  (while !x /= 0 do 
+  let z = ref 1 in
+  (while !x /= 0 do
     y := !y + !x;;
     z := 1000/(!x - 1);;
     x := !x - 1
