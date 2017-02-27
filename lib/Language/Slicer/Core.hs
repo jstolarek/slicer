@@ -19,13 +19,14 @@ module Language.Slicer.Core
 
     , getVal, getExn
     -- * Store abstraction
-    , Store, StoreLabel, StoreLabels, emptyStore
-    , singletonStoreLabel, singletonArrLabel
+    , Store, StoreLabel, StoreLabels, emptyStore, emptyStoreLabels
+    , singletonStoreLabel, maybeSingletonStoreLabel
+    , singletonArrLabel, maybeSingletonArrLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
     , storeLookupArrIdx, storeUpdateArrIdx
     , storeDerefArrIdx, storeUpdateArrHole, storeUpdateArrIdxHole
-    , storeCreateArr, storeDerefArr
-    , existsInStore, storeLookup, storeWrites, allStoreHoles
+    , storeCreateArr, storeDerefArr, arrWrites
+    , existsInStore, storeLookup, allStoreHoles, unionsStoreLabels
 
     , Pattern(extract), Valuable(..)
 
@@ -602,7 +603,8 @@ promote (VStoreLoc l)       = VStoreLoc l
 promote (VArrLoc l n)       = VArrLoc l n
 promote (VClosure k env)    = VClosure k (fmap promote env)
 promote (VTrace r t env (Store refs arrs refCount)) =
-    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) (fmap promoteArray arrs) refCount)
+    VTrace (promoteOutcome r) t (fmap promote env)
+               (Store (fmap promote refs) (fmap promoteArray arrs) refCount)
 promote (VExp     e env)    = VExp e (fmap promote env)
 
 promoteOutcome :: Outcome -> Outcome
@@ -945,7 +947,7 @@ instance (Pattern a, UpperSemiLattice a) => Pattern (Env a) where
         = Env (Map.mapWithKey (\x p -> extract p (lookupEnv' env x)) penv')
 
 --------------------------------------------------------------------------------
---                           REFERENCE STORE                                  --
+--                       REFERENCE AND ARRAY STORE                            --
 --------------------------------------------------------------------------------
 
 -- | Internal labels used during runtime to identify store locations
@@ -1092,13 +1094,16 @@ emptyStoreLabels = StoreLabels S.empty S.empty
 singletonStoreLabel :: StoreLabel -> StoreLabels
 singletonStoreLabel l = StoreLabels (S.singleton l) S.empty
 
+maybeSingletonStoreLabel :: Maybe StoreLabel -> StoreLabels
+maybeSingletonStoreLabel Nothing  = emptyStoreLabels
+maybeSingletonStoreLabel (Just l) = singletonStoreLabel l
+
 singletonArrLabel :: (StoreLabel,Int) -> StoreLabels
 singletonArrLabel l = StoreLabels S.empty  (S.singleton l)
 
--- | Insert a label into a set of store labels
-insertStoreLabel :: Maybe StoreLabel -> StoreLabels -> StoreLabels
-insertStoreLabel Nothing   ls                 = ls
-insertStoreLabel (Just l) (StoreLabels ls as) = StoreLabels (l `S.insert` ls) as
+maybeSingletonArrLabel :: Maybe (StoreLabel,Int) -> StoreLabels
+maybeSingletonArrLabel Nothing  = emptyStoreLabels
+maybeSingletonArrLabel (Just l) = singletonArrLabel l
 
 -- | Insert an array label into a set of store labels
 insertArrLabel :: Maybe (StoreLabel,Int) -> StoreLabels -> StoreLabels
@@ -1110,79 +1115,16 @@ unionStoreLabels :: StoreLabels -> StoreLabels -> StoreLabels
 unionStoreLabels (StoreLabels ls1 as1) (StoreLabels ls2 as2) =
     StoreLabels (ls1 `S.union` ls2) (as1 `S.union` as2)
 
+-- | Union of a list of store labels
+unionsStoreLabels :: [StoreLabels] -> StoreLabels
+unionsStoreLabels = foldl unionStoreLabels emptyStoreLabels
+
 -- | All array locations written by initializing array
 arrWrites :: Maybe (StoreLabel,Int) -> StoreLabels
 arrWrites Nothing = emptyStoreLabels
 arrWrites (Just (l,dim)) = aW dim
   where aW 0 = emptyStoreLabels
         aW n = insertArrLabel (Just (l,n-1)) (aW (n-1))
-
--- | Get list of labels that a trace writes to
-storeWrites :: Trace -> StoreLabels
--- relevant store assignments
-storeWrites (TRef l t) =
-    l `insertStoreLabel` storeWrites t
-storeWrites (TAssign l t1 t2) =
-    l `insertStoreLabel` storeWrites t1 `unionStoreLabels`  storeWrites t2
--- relevant array assignments
-storeWrites (TArr l t1 t2) = -- All labels (l,0)...(l,dim-1)
-    arrWrites l `unionStoreLabels` storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TArrSet l t1 t2 t3) =
-    l `insertArrLabel` storeWrites t1
-      `unionStoreLabels`  storeWrites t2
-      `unionStoreLabels`  storeWrites t3
--- sliced hole annotated with store labels
-storeWrites (TSlicedHole ls _) = ls
-storeWrites (TIfThen t1 t2)    =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TIfElse t1 t2)    =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TIfExn t)         =
-    storeWrites t
-storeWrites (TCaseL t1 _ t2)   =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TCaseR t1 _ t2)   =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-                   `unionStoreLabels` storeWrites t3
-storeWrites (TCallExn t1 t2)   =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TDeref _ t)       = storeWrites t
-storeWrites (TArrGet _ t1 t2)  =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TWhileDone t)     = storeWrites t
-storeWrites (TWhileStep t1 t2 t3) =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-                   `unionStoreLabels` storeWrites t3
-storeWrites (TRaise t)         = storeWrites t
-storeWrites (TTry t)           = storeWrites t
-storeWrites (TTryWith t1 _ t2) =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TLet _ t1 t2)     =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TPair t1 t2)      =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TSeq t1 t2)       =
-    storeWrites t1 `unionStoreLabels` storeWrites t2
-storeWrites (TOp _ _ ts)       =
-    foldl (\acc t -> acc `unionStoreLabels` storeWrites t) emptyStoreLabels ts
-storeWrites (TFst t)           = storeWrites t
-storeWrites (TSnd t)           = storeWrites t
-storeWrites (TInL t)           = storeWrites t
-storeWrites (TInR t)           = storeWrites t
-storeWrites (TRoll _ t)        = storeWrites t
-storeWrites (TUnroll _ t)      = storeWrites t
-storeWrites TUnit              = emptyStoreLabels
-storeWrites (TVar _)           = emptyStoreLabels
-storeWrites (TBool _)          = emptyStoreLabels
-storeWrites (TInt _)           = emptyStoreLabels
-storeWrites (TString _)        = emptyStoreLabels
-storeWrites (TDouble _)        = emptyStoreLabels
-storeWrites (TFun _)           = emptyStoreLabels
-storeWrites THole              = emptyStoreLabels
-storeWrites (TExp e)
-    = error ("Impossible happened at storeWrites: " ++ show e)
 
 --------------------------------------------------------------------------------
 --              BUILT-IN ARITHMETIC AND LOGICAL OPERATORS                     --

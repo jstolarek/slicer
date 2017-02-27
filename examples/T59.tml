@@ -1,5 +1,5 @@
 let t = trace (
   let p = ref (1,2) in
-  (fst (!p))+ (snd (!p))
+  (fst !p) + (snd !p)
 ) in
 bwdSlice(t,3)

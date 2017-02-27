@@ -1,5 +1,4 @@
 data intlist = Nil | Cons int * intlist
-data reflist = RefNil | RefCons (ref int) * reflist
 
 let t1 = trace ( (raise "foo", 1) ) in
 let s1 = bwdSlice (t1, raise "foo") in
