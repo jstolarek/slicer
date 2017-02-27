@@ -238,7 +238,7 @@ simpleExp =
    -- references
    ref_ <|>
    -- arrays
-   arr_ <|> arrget_ <|> arrset_ <|> 
+   arr_ <|> arrget_ <|> arrset_ <|>
    -- exceptions
    tryWith_ <|> raise_
 
@@ -390,7 +390,7 @@ arr_ = do keyword strArr
 
 -- Get from array
 arrget_ :: Parser (Exp)
-arrget_ = do keyword strGet 
+arrget_ = do keyword strGet
              parenthesise $ do e1 <- exp
                                _  <- comma token_
                                e2 <- exp
@@ -398,7 +398,7 @@ arrget_ = do keyword strGet
 
 -- Updating array
 arrset_ :: Parser (Exp)
-arrset_ = do keyword strSet 
+arrset_ = do keyword strSet
              parenthesise $ do e1 <- exp
                                _  <- comma token_
                                e2 <- exp
