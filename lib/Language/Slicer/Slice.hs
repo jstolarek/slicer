@@ -209,14 +209,14 @@ bwdSliceM outcome trace = do
            return (rho, ERef e, TRef Nothing t')
     (ORet v, TDeref (Just l) t)  ->
         do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeUpdateM l v -- this seems wrong
+           storeTraceUpdateM l v
            return (rho, EDeref e, TDeref (Just l) t')
     (OExn v, TDeref Nothing t) ->
         do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, EDeref e, TDeref Nothing t')
     (ORet _, TAssign (Just l) t1 t2) ->
         do existsInStore <- existsInStoreM l
-           if  not existsInStore
+           if not existsInStore
            then return ( bot, EHole
                        , TSlicedHole (singletonStoreLabel l) RetValue)
            else do p <- storeDerefM l
@@ -225,15 +225,6 @@ bwdSliceM outcome trace = do
                    (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
                    return ( rho1 `lub` rho2, EAssign e1 e2
                           , TAssign (Just l) t1' t2')
-    (OExn v, TAssign (Just l) t1 t2) ->
-        do existsInStore <- existsInStoreM l
-           if not existsInStore
-           then return (bot, EHole,
-                        TSlicedHole (singletonStoreLabel l) RetValue)
-           else   do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
-                     (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
-                     return ( rho1 `lub` rho2, EAssign e1 e2
-                            , TAssign (Just l) t1' t2')
     (OExn v, TAssign Nothing t1 THole) ->
         do (rho, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho, EAssign e1 EHole, TAssign Nothing t1' THole)
@@ -346,7 +337,7 @@ bwdSliceM outcome trace = do
         -> return (bot, bot, bot)
     (OHole, TDeref (Just l) t)  ->
         do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeUpdateHoleM l
+           storeTraceUpdateM l VHole
            return (rho, EDeref e, TDeref (Just l) t')
     (OHole, TInt v) -> return (bot, EInt v, TInt v)
     (OHole, TDouble v) -> return (bot, EDouble v, TDouble v)

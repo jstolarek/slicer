@@ -33,7 +33,7 @@ import           Text.PrettyPrint.HughesPJClass
 data RExp = RVar Var | RLet Var RExp RExp
           | RUnit
           | RBool Bool | RIf RExp RExp RExp
-          | RInt Int | RDouble Double
+          | RInt Integer | RDouble Double
           | ROp Primitive [RExp]
           | RString String
           | RPair RExp RExp | RFst RExp | RSnd RExp
@@ -353,7 +353,7 @@ instance AskConstrs Trace where
 instance Pretty RExp where
     pPrint RHole       = text "_"
     pPrint RUnit       = text "()"
-    pPrint (RInt    i) = int i
+    pPrint (RInt    i) = integer i
     pPrint (RDouble d) = double d
     pPrint (RString s) = text (show s)
     pPrint (RBool b)   = if b then text "true" else text "false"

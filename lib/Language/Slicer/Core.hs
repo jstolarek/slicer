@@ -19,10 +19,10 @@ module Language.Slicer.Core
 
     , getVal, getExn
     -- * Store abstraction
-    , Store, StoreLabel, StoreLabels, emptyStore
-    , singletonStoreLabel, singletonArrLabel
-    , storeDeref, storeInsert, storeUpdate, storeUpdateHole
-    , storeLookupArrIdx, storeUpdateArrIdx
+
+    , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
+    , storeDeref, storeInsert, storeUpdate, storeUpdateHole, storeTraceUpdate
+    , singletonArrLabel, storeLookupArrIdx, storeUpdateArrIdx
     , storeDerefArrIdx, storeUpdateArrHole, storeUpdateArrIdxHole
     , storeCreateArr, storeDerefArr
     , existsInStore, storeLookup, storeWrites, allStoreHoles
@@ -235,7 +235,7 @@ data Syntax a = Var Var
               | Let Var a a
               | Unit
               | CBool Bool
-              | CInt Int
+              | CInt Integer
               | CString String
               | CDouble Double
               | Pair a a | Fst a | Snd a
@@ -275,7 +275,7 @@ pattern EUnit = Exp Unit
 pattern EBool :: Bool -> Exp
 pattern EBool b = Exp (CBool b)
 
-pattern EInt :: Int -> Exp
+pattern EInt :: Integer -> Exp
 pattern EInt i = Exp (CInt i)
 
 pattern EDouble :: Double -> Exp
@@ -422,7 +422,7 @@ pattern TUnit = TExp Unit
 pattern TBool :: Bool -> Trace
 pattern TBool b = TExp (CBool b)
 
-pattern TInt :: Int -> Trace
+pattern TInt :: Integer -> Trace
 pattern TInt i = TExp (CInt i)
 
 pattern TDouble :: Double -> Trace
@@ -471,7 +471,7 @@ data Match = Match { inL :: (Maybe Var, Exp)
                    , inR :: (Maybe Var, Exp) }
                    deriving (Show, Eq, Ord, Generic, NFData)
 
-data Value = VBool Bool | VInt Int | VDouble Double | VUnit | VString String
+data Value = VBool Bool | VInt Integer | VDouble Double | VUnit | VString String
            | VPair Value Value
            | VInL Value | VInR Value
            | VRoll TyVar Value
@@ -502,7 +502,7 @@ getExn _ = VHole
 class Valuable a where
     toValue :: a -> Value
 
-instance Valuable Int where
+instance Valuable Integer where
     toValue i = VInt i
 
 instance Valuable Bool where
@@ -987,8 +987,14 @@ storeInsert (Store refs arrs refCount) v =
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
 storeUpdate (Store refs arrs refCount) (StoreLabel l) v =
-    assert (l `M.member` refs)   $
+    assert (l `M.member` refs) $
     Store (M.insert l v refs) arrs refCount
+
+-- | Update a label already present in a store
+storeTraceUpdate :: Store -> StoreLabel -> Value -> Store
+storeTraceUpdate (Store refs arrs refCount) (StoreLabel l) v =
+    assert (l `M.member` refs) $
+    Store (M.insertWith lub l v refs) arrs refCount
 
 -- | Update a label already present in a store to contain hole
 storeUpdateHole :: Store -> StoreLabel -> Store
@@ -1167,6 +1173,7 @@ storeWrites (TVar _)           = emptyStoreLabels
 storeWrites (TBool _)          = emptyStoreLabels
 storeWrites (TInt _)           = emptyStoreLabels
 storeWrites (TString _)        = emptyStoreLabels
+storeWrites (TDouble _)        = emptyStoreLabels
 storeWrites (TFun _)           = emptyStoreLabels
 storeWrites THole              = emptyStoreLabels
 storeWrites (TExp e)
@@ -1182,7 +1189,7 @@ commonOps = fromList
    , (OpNeq, toValue . uncurry (/=))
    ]
 
-intBinOps :: Map Primitive ((Int, Int) -> Value)
+intBinOps :: Map Primitive ((Integer, Integer) -> Value)
 intBinOps = fromList
    [ (OpPlus , toValue . uncurry (+))
    , (OpMinus, toValue . uncurry (-))

@@ -1,10 +1,11 @@
 module Language.Slicer.Monad.Slice
     ( SliceM, runSliceM
     , allStoreHolesM, existsInStoreM, storeUpdateHoleM, storeDerefM
-    , storeUpdateM
+    , storeUpdateM, storeTraceUpdateM
     , storeUpdateArrIdxM, storeUpdateArrHoleM, storeUpdateArrIdxHoleM
     , storeDerefArrM
     , storeDerefArrIdxM
+    , storeUpdateM, storeTraceUpdateM
     ) where
 
 import           Language.Slicer.Env
@@ -61,6 +62,11 @@ storeUpdateArrIdxM :: StoreLabel -> Int -> Value -> SliceM ()
 storeUpdateArrIdxM label idx value =
     do store <- getStore
        setStore (storeUpdateArrIdx store label idx value)
+
+storeTraceUpdateM :: StoreLabel -> Value -> SliceM ()
+storeTraceUpdateM label value =
+    do store <- getStore
+       setStore (storeTraceUpdate store label value)
 
 storeDerefM :: StoreLabel -> SliceM Value
 storeDerefM label =

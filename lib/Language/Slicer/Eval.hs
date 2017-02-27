@@ -69,8 +69,8 @@ evalM (EUnroll _ e)   = do v <- evalM' e
                            let (VRoll _ v') = getVal v
                            return (v >-< ORet v')
 evalM (ETrace e)      = do env    <- getEnv
-                           store  <- getStore
                            (r, t) <- trace e
+                           store  <- getStore
                            return (ORet (VTrace r t env store))
 -- References
 evalM (ERef e)        = do r <- evalM' e
@@ -198,16 +198,16 @@ evalTraceOp :: Primitive -> [Outcome] -> EvalM Outcome
 evalTraceOp PrimVal [ORet (VTrace r _ _ _)] = return r
 evalTraceOp PrimTraceSlice [ORet (VTrace r t env st), p]
     | p `leq` r
-    = do let (t',penv) = traceSlice st p t
+    = do let (t',penv) = traceSlice emptyStore p t
              r'        = extract p r
              env'      = extract penv env
              -- JSTOLAREK: update store argument
          r' `seq` t' `seq` env' `seq` return (ORet (VTrace r' t' env' st))
     | otherwise = evalError ("slice: criterion " ++ show p ++
                              " is not a prefix of output " ++ show r)
-evalTraceOp PrimBwdSlice [ORet (VTrace r t _ st), p]
+evalTraceOp PrimBwdSlice [ORet (VTrace r t _ _), p]
     | p `leq` r
-    = do let (env', _, e', _) = bwdSlice st p t
+    = do let (env', _, e', _) = bwdSlice emptyStore p t
          -- JSTOLAREK: store store in a VExp
          return (ORet (VExp e' env'))
     | otherwise = evalError ("bwdSlice: criterion "++ show p ++
@@ -343,17 +343,19 @@ trace (EDeref e)     = do (r, t) <- trace' e
                           case r of
                              OExn v -> return (OExn v, TDeref Nothing t)
                              ORet v@(VStoreLoc l) ->
-                                          do v' <- getRef v
-                                             return (ORet v', TDeref (Just l) t  )
+                                 do v' <- getRef v
+                                    return (ORet v', TDeref (Just l) t )
                              _ -> return (OHole,THole)
 trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
                           case (r1,r2) of
-                             (OExn v,_) -> return (OExn v, TAssign Nothing t1 THole)
-                             (_, OExn v) -> return (OExn v, TAssign Nothing t1 t2)
+                             (OExn v,_)  ->
+                                 return (OExn v, TAssign Nothing t1 THole)
+                             (_, OExn v) ->
+                                 return (OExn v, TAssign Nothing t1 t2)
                              (ORet v1@(VStoreLoc l), ORet v2) ->
-                                  do updateRef v1 v2
-                                     return (ORet VUnit, TAssign (Just l) t1 t2)
+                                 do updateRef v1 v2
+                                    return (ORet VUnit, TAssign (Just l) t1 t2)
                              _ -> return (OHole, THole)
 -- Arrays
 trace (EArr e1 e2)    = do (r1,t1) <- trace' e1
