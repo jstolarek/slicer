@@ -190,15 +190,15 @@ desugarM (A.While e1 e2)
 desugarM (A.Arr e1 e2)
     = do (e1', t1) <- desugarM e1
          (e2', t2) <- desugarM e2
-         unless (t2 == IntTy) $ typeError ("Array length has type "
-                                            ++ show t2
-                                            ++ "but should have int type.")
-         return (EArr e1' e2', ArrTy t1)
+         unless (t1 == IntTy) $ typeError ("Array length has type "
+                                            ++ show t1
+                                            ++ " but should have int type.")
+         return (EArr e1' e2', ArrTy t2)
 desugarM (A.ArrGet e1 e2)
     = do (e1', t1) <- desugarM e1
          unless (isArrTy t1) $
-                desugarError ("Dereferenced expression (" ++ show e1 ++
-                             ") does not have a reference type")
+                desugarError ("Expression (" ++ show e1 ++ ") has type " ++
+                              show t1 ++ "but should be an array")
          (e2', t2) <- desugarM e2
          unless (t2 == IntTy) $
                 desugarError ("Dereferenced expression index (" ++ show e2 ++
@@ -244,7 +244,7 @@ desugarTy A.StringTy         = StringTy
 desugarTy A.DoubleTy         = DoubleTy
 desugarTy A.ExnTy            = ExnTy
 desugarTy (A.RefTy ty)       = RefTy (desugarTy ty)
-desugarTy (A.ArrTy ty)       = RefTy (desugarTy ty)
+desugarTy (A.ArrTy ty)       = ArrTy (desugarTy ty)
 desugarTy (A.PairTy ty1 ty2) = PairTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.SumTy  ty1 ty2) = SumTy (desugarTy ty1) (desugarTy ty2)
 desugarTy (A.FunTy  ty1 ty2) = FunTy (desugarTy ty1) (desugarTy ty2)
