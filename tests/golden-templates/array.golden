@@ -1,0 +1,3 @@
+Running ../../examples/array.tml
+val it = let x = array(1, _)
+in set(x, 0, 42) ;; get(x, 0) : trace(int)
