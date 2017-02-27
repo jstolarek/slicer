@@ -144,7 +144,7 @@ inBounds idx dim = 0 <= idx && idx < dim
 getArr :: Value -> Int -> EvalM Value
 getArr (VArrLoc l dim) idx | inBounds idx dim = do
   EvalState { refs } <- get
-  case storeLookupArr refs l idx of
+  case storeLookupArrIdx refs l idx of
     Just ref -> return ref
     Nothing  -> evalError "Cannot read array: not allocated"
 getArr (VArrLoc _ dim) idx = evalError ("Array index " ++ show idx
@@ -156,7 +156,7 @@ updateArr (VArrLoc l dim) idx val | inBounds idx dim = do
   st@(EvalState { refs }) <- get
   unless (existsInStore refs l) $
          evalError "Cannot update array: not allocated"
-  put $ st { refs = storeUpdateArr refs l idx val }
+  put $ st { refs = storeUpdateArrIdx refs l idx val }
 updateArr (VArrLoc _ dim) idx _ = evalError ("Array index " ++ show idx
                                            ++ " out of bounds: " ++ show dim)
 updateArr v _ _ = evalError ("Not a reference value: " ++ show v)

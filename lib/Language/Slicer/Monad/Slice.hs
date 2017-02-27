@@ -3,6 +3,7 @@ module Language.Slicer.Monad.Slice
     , allStoreHolesM, existsInStoreM, storeUpdateHoleM, storeDerefM
     , storeUpdateM
     , storeUpdateArrIdxM, storeUpdateArrHoleM, storeUpdateArrIdxHoleM
+    , storeDerefArrM
     , storeDerefArrIdxM
     ) where
 
@@ -59,7 +60,7 @@ storeUpdateM label value =
 storeUpdateArrIdxM :: StoreLabel -> Int -> Value -> SliceM ()
 storeUpdateArrIdxM label idx value =
     do store <- getStore
-       setStore (storeUpdateArr store label idx value)
+       setStore (storeUpdateArrIdx store label idx value)
 
 storeDerefM :: StoreLabel -> SliceM Value
 storeDerefM label =
@@ -70,3 +71,8 @@ storeDerefArrIdxM :: StoreLabel -> Int -> SliceM Value
 storeDerefArrIdxM label idx =
     do store <- getStore
        return (storeDerefArrIdx store label idx)
+
+storeDerefArrM :: StoreLabel -> Int -> SliceM Value
+storeDerefArrM label dim =
+    do store <- getStore
+       return (storeDerefArr store label dim)

@@ -22,8 +22,9 @@ module Language.Slicer.Core
     , Store, StoreLabel, StoreLabels, emptyStore
     , singletonStoreLabel, singletonArrLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole
-    , storeLookupArr, storeCreateArr, storeUpdateArr
+    , storeLookupArrIdx, storeUpdateArrIdx
     , storeDerefArrIdx, storeUpdateArrHole, storeUpdateArrIdxHole
+    , storeCreateArr, storeDerefArr
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
     , Pattern(extract), Valuable(..)
@@ -1007,7 +1008,7 @@ lookupArray idx (Array arr) = M.lookup idx arr
 updateArray :: Int -> Value -> Array -> Array
 updateArray idx v (Array arr) = Array ( M.insert idx v arr)
 
--- | Dereference a label.  If label is absent in the store return bottom
+-- | Dereference an array element.  If  absent in the store return bottom
 storeDerefArrIdx :: Store -> StoreLabel -> Int -> Value
 storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
     if (label `M.member` arrs)  
@@ -1017,10 +1018,16 @@ storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
          else bot
     else bot
 
+-- | Collect all partial values associated with array in store
+storeDerefArr :: Store -> StoreLabel -> Int -> Value
+storeDerefArr _ _ 0      = bot
+storeDerefArr st label n =
+  storeDerefArrIdx st label (n-1) `lub` storeDerefArr st label (n-1)
+
 -- | Look up an element of an array
 -- | Dereference a label.  If label is absent in the array return bottom
-storeLookupArr :: Store -> StoreLabel -> Int -> Maybe Value
-storeLookupArr (Store _ arrs _) (StoreLabel label) idx =
+storeLookupArrIdx :: Store -> StoreLabel -> Int -> Maybe Value
+storeLookupArrIdx (Store _ arrs _) (StoreLabel label) idx =
     do arr <- M.lookup label arrs
        lookupArray idx arr 
 
@@ -1033,8 +1040,8 @@ storeCreateArr (Store refs arrs refCount) dim v =
      StoreLabel refCount)
 
 -- | Update a label already present in a store
-storeUpdateArr :: Store -> StoreLabel -> Int -> Value -> Store
-storeUpdateArr (Store refs arrs refCount) (StoreLabel l) idx v =
+storeUpdateArrIdx :: Store -> StoreLabel -> Int -> Value -> Store
+storeUpdateArrIdx (Store refs arrs refCount) (StoreLabel l) idx v =
     assert (l `M.member` arrs)   $
     let Just arr = M.lookup l arrs in
     Store refs (M.insert l (updateArray idx v arr) arrs) refCount
@@ -1047,7 +1054,7 @@ storeUpdateArrHole (Store refs arrs refCount) (StoreLabel label) =
 -- | Update a label already present in a store to contain hole
 storeUpdateArrIdxHole :: Store -> StoreLabel -> Int -> Store
 storeUpdateArrIdxHole store label idx =
-    storeUpdateArr store label idx VHole
+  storeUpdateArrIdx store label idx VHole
 
 
 
@@ -1092,6 +1099,13 @@ unionStoreLabels :: StoreLabels -> StoreLabels -> StoreLabels
 unionStoreLabels (StoreLabels ls1 as1) (StoreLabels ls2 as2) =
     StoreLabels (ls1 `S.union` ls2) (as1 `S.union` as2)
 
+-- All array locations written by initializing array
+arrWrites :: Maybe (StoreLabel,Int) -> StoreLabels
+arrWrites Nothing = emptyStoreLabels
+arrWrites (Just (l,dim)) = aW dim
+  where aW 0 = emptyStoreLabels
+        aW n = insertArrLabel (Just (l,n-1)) (aW (n-1))
+        
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> StoreLabels
 -- relevant store assignments
@@ -1100,8 +1114,8 @@ storeWrites (TRef l t) =
 storeWrites (TAssign l t1 t2) =
     l `insertStoreLabel` storeWrites t1 `unionStoreLabels`  storeWrites t2
 -- relevant array assignments
-storeWrites (TArr l t1 t2) =
-    l `insertArrLabel` storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TArr l t1 t2) = -- All labels (l,0)...(l,dim-1)
+    arrWrites l `unionStoreLabels` storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TArrSet l t1 t2 t3) =
     l `insertArrLabel` storeWrites t1
       `unionStoreLabels`  storeWrites t2
