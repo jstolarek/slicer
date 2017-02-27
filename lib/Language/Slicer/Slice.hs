@@ -31,9 +31,9 @@ bwdSliceM :: Outcome -> Trace -> SliceM (Env Value, Exp, Trace)
 bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
   case (outcome, trace) of
-    (OExn VHole, TRaise t) ->
+{-    (OExn VHole, TRaise t) ->
         do (rho, e, t') <- bwdSliceM (OExn VStar) t
-           return (rho, ERaise e, TRaise t')
+           return (rho, ERaise e, TRaise t')-}
     (OExn VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetRaise)
     (ORet VHole, _) | allStoreHoles ->
