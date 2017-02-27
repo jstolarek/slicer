@@ -1,0 +1,3 @@
+Running ../../examples/let-exception.tml
+val it = let x = raise "foo"
+in _ : trace(int)

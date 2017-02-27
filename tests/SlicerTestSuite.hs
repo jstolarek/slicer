@@ -34,6 +34,7 @@ tests =
       , "meanSquare"
       , "mergesort"
       , "merge"
+      , "let-exception"
       , "operators"
       , "proportion"
       , "raise_inside"

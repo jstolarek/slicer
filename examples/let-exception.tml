@@ -1,0 +1,4 @@
+let t = trace (
+  let x = raise "foo"
+  in 17 + 42 ) in
+bwdSlice (t, raise "foo" )
