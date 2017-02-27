@@ -2,4 +2,4 @@ Running ../../examples/while2.tml
 val it = let x = ref 10
 in let y = ref 0
    in let z = _
-      in while !x /= 0 do y := !y + !x ;; _ ;; x := !x - 1 ;; (!y, _) : trace((int * int))
+      in (while !x /= 0 do y := !y + !x ;; _ ;; x := !x - 1) ;; (!y, _) : trace((int * int))
