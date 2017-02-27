@@ -1,0 +1,5 @@
+Running ../../examples/array2.tml
+val it = let x = array(10, _)
+in set(x, 0, 0) ;; _ ;; set(x, 2, 2) ;; _ ;; set(x, 4, 4) ;; _ ;; set(x, 6, 6) ;; _ ;; set(x, 8, 8) ;; _ ;; let i = ref 0
+                                                                                                            in let s = ref 0
+                                                                                                               in while !i < 10 do s := !s + (get(x, !i)) ;; i := !i + 2 ;; !s : trace(int)
