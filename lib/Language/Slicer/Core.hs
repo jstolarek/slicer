@@ -20,7 +20,7 @@ module Language.Slicer.Core
     , getVal, getExn
     -- * Store abstraction
     , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
-    , storeDeref, storeInsert, storeUpdate, storeUpdateHole
+    , storeDeref, storeInsert, storeUpdate, storeUpdateHole, storeTraceUpdate
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
     , Pattern(extract), Valuable(..)
@@ -903,8 +903,14 @@ storeInsert (Store refs refCount) v =
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
 storeUpdate (Store refs refCount) (StoreLabel l) v =
-    assert (l `M.member` refs)   $
+    assert (l `M.member` refs) $
     Store (M.insert l v refs) refCount
+
+-- | Update a label already present in a store
+storeTraceUpdate :: Store -> StoreLabel -> Value -> Store
+storeTraceUpdate (Store refs refCount) (StoreLabel l) v =
+    assert (l `M.member` refs) $
+    Store (M.insertWith lub l v refs) refCount
 
 -- | Update a label already present in a store to contain hole
 storeUpdateHole :: Store -> StoreLabel -> Store

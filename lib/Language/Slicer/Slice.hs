@@ -208,7 +208,7 @@ bwdSliceM outcome trace = do
            return (rho, ERef e, TRef Nothing t')
     (ORet v, TDeref (Just l) t)  ->
         do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeUpdateM l v
+           storeTraceUpdateM l v
            return (rho, EDeref e, TDeref (Just l) t')
     (OExn v, TDeref Nothing t) ->
         do (rho, e, t') <- bwdSliceM (OExn v) t
@@ -255,7 +255,7 @@ bwdSliceM outcome trace = do
         -> return (bot, bot, bot)
     (OHole, TDeref (Just l) t)  ->
         do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeUpdateHoleM l
+           storeTraceUpdateM l VHole
            return (rho, EDeref e, TDeref (Just l) t')
     (OHole, TInt v) -> return (bot, EInt v, TInt v)
     (OHole, TDouble v) -> return (bot, EDouble v, TDouble v)
