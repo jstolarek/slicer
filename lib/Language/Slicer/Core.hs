@@ -990,12 +990,6 @@ storeUpdate (Store refs arrs refCount) (StoreLabel l) v =
     assert (l `M.member` refs) $
     Store (M.insert l v refs) arrs refCount
 
--- | Update a label already present in a store
-storeTraceUpdate :: Store -> StoreLabel -> Value -> Store
-storeTraceUpdate (Store refs refCount) (StoreLabel l) v =
-    assert (l `M.member` refs) $
-    Store (M.insertWith lub l v refs) refCount
-
 -- | Update a label already present in a store to contain hole
 storeUpdateHole :: Store -> StoreLabel -> Store
 storeUpdateHole store label =

@@ -31,9 +31,6 @@ bwdSliceM :: Outcome -> Trace -> SliceM (Env Value, Exp, Trace)
 bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
   case (outcome, trace) of
-{-    (OExn VHole, TRaise t) ->
-        do (rho, e, t') <- bwdSliceM (OExn VStar) t
-           return (rho, ERaise e, TRaise t')-}
     (OExn VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetRaise)
     (ORet VHole, _) | allStoreHoles ->
@@ -336,10 +333,6 @@ bwdSliceM outcome trace = do
     -- JSTOLAREK: hacking OHole rules
     (OHole, THole)
         -> return (bot, bot, bot)
-    (OHole, TDeref (Just l) t)  ->
-        do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeTraceUpdateM l VHole
-           return (rho, EDeref e, TDeref (Just l) t')
     (OHole, TInt v) -> return (bot, EInt v, TInt v)
     (OHole, TDouble v) -> return (bot, EDouble v, TDouble v)
 
