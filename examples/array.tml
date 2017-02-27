@@ -1,5 +1,5 @@
 let t = trace (
-  let x = array(10,0) in
-  set(x,5,5);;
-  get(x,5)
-) in t
+let x = array(1,1000) in
+set(x,0,42);;
+get(x,0)
+) in bwdSlice(t,42)

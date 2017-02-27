@@ -374,7 +374,7 @@ trace (EArrGet e1 e2) = do (r1,t1) <- trace' e1
                              (_,OExn v) -> return (OExn v, TArrGet Nothing t1 t2)
                              (ORet vl@(VArrLoc l _), ORet (VInt i)) ->
                                do v' <- getArr vl i
-                                  return (ORet v', TArr (Just (l,i)) t1 t2)
+                                  return (ORet v', TArrGet (Just (l,i)) t1 t2)
                              _ -> return (OHole,THole)
 trace (EArrSet e1 e2 e3)
                       = do (r1,t1) <- trace' e1

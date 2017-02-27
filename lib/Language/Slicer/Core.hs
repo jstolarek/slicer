@@ -1049,8 +1049,11 @@ storeCreateArr (Store refs arrs refCount) dim v =
 storeUpdateArrIdx :: Store -> StoreLabel -> Int -> Value -> Store
 storeUpdateArrIdx (Store refs arrs refCount) (StoreLabel l) idx v =
     assert (l `M.member` arrs)   $
-    let Just arr = M.lookup l arrs in
+    let arr = case M.lookup l arrs of
+                Just a -> a
+                Nothing -> Array M.empty in 
     Store refs (M.insert l (updateArray idx v arr) arrs) refCount
+
 
 -- | Update an array label
 storeUpdateArrHole :: Store -> StoreLabel -> Store
