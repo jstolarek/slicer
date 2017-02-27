@@ -1,0 +1,5 @@
+let t = trace (
+  let x = ref 42 in
+  (try x := 1/0  with exn => ()) ;; !x
+) in 
+bwdSlice(t,42)

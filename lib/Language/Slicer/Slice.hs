@@ -31,9 +31,9 @@ bwdSliceM :: Outcome -> Trace -> SliceM (Env Value, Exp, Trace)
 bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
   case (outcome, trace) of
-    (OExn VHole, TRaise t) ->
+{-    (OExn VHole, TRaise t) ->
         do (rho, e, t') <- bwdSliceM (OExn VStar) t
-           return (rho, ERaise e, TRaise t')
+           return (rho, ERaise e, TRaise t')-}
     (OExn VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetRaise)
     (ORet VHole, _) | allStoreHoles ->
@@ -198,6 +198,7 @@ bwdSliceM outcome trace = do
     (OExn v, TUnroll tv t) ->
         do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, EUnroll tv e, TUnroll tv t')
+-- References.  
     (ORet _, TRef (Just l) t) ->
         do p <- storeDerefM l
            (rho, e, t') <- bwdSliceM (ORet p) t
@@ -208,7 +209,8 @@ bwdSliceM outcome trace = do
            return (rho, ERef e, TRef Nothing t')
     (ORet v, TDeref (Just l) t)  ->
         do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeTraceUpdateM l v
+           v' <- storeDerefM l
+           storeUpdateM l (v `lub` v')
            return (rho, EDeref e, TDeref (Just l) t')
     (OExn v, TDeref Nothing t) ->
         do (rho, e, t') <- bwdSliceM (OExn v) t
@@ -232,6 +234,60 @@ bwdSliceM outcome trace = do
            (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
            return ( rho1 `lub` rho2, EAssign e1 e2
                   , TAssign Nothing t1' t2')
+-- Arrays
+    (ORet _, TArr (Just (l,dim)) t1 t2) ->
+        do p <- storeDerefArrM l dim
+           (rho2, e2, t2') <- bwdSliceM (ORet p) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           storeUpdateArrHoleM l
+           return (rho1 `lub` rho2, EArr e1 e2, TArr (Just (l,dim)) t1' t2')
+    (OExn v, TArr Nothing t1 THole) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho1, EArr e1 EHole, TArr Nothing t1' THole)
+    (OExn v, TArr Nothing t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return (rho1 `lub` rho2, EArr e1 e2, TArr Nothing t1' t2')
+    (ORet v, TArrGet (Just (l,idx)) t1 t2)  ->
+        do (rho2, e2, t2') <- bwdSliceM (ORet VStar) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           v' <- storeDerefArrIdxM l idx
+           storeUpdateArrIdxM l idx (v `lub` v')
+           return (rho1 `lub` rho2, EArrGet e1 e2, TArrGet (Just (l,idx)) t1' t2')
+    (OExn v, TArrGet Nothing t1 THole) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho1, EArrGet e1 EHole, TArrGet Nothing t1' THole)
+    (OExn v, TArrGet Nothing t1 t2) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return (rho1 `lub` rho2, EArrGet e1 e2, TArrGet Nothing t1' t2')
+    (ORet _, TArrSet (Just (l,idx)) t1 t2 t3) ->
+        do existsInStore <- existsInStoreM l
+           if  not existsInStore
+           then return ( bot, EHole
+                       , TSlicedHole (singletonArrLabel (l,idx)) RetValue)
+           else do p <- storeDerefArrIdxM l idx
+                   storeUpdateArrIdxHoleM l idx
+                   (rho3, e3, t3') <- bwdSliceM (ORet p) t3
+                   (rho2, e2, t2') <- bwdSliceM (ORet (VInt (toInteger idx))) t2
+                   (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
+                   return ( rho1 `lub` rho2 `lub` rho3, EArrSet e1 e2 e3
+                          , TArrSet (Just (l,idx)) t1' t2' t3')
+    (OExn v, TArrSet Nothing t1 THole THole) ->
+        do (rho, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho, EArrSet e1 EHole EHole, TArrSet Nothing t1' THole THole)
+    (OExn v, TArrSet Nothing t1 t2 THole) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2, EArrSet e1 e2 EHole
+                  , TArrSet Nothing t1' t2' THole)
+    (OExn v, TArrSet Nothing t1 t2 t3) ->
+        do (rho3, e3, t3') <- bwdSliceM (OExn v) t3
+           (rho2, e2, t2') <- bwdSliceM (ORet VStar) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2 `lub` rho3, EArrSet e1 e2 e3
+                  , TArrSet Nothing t1' t2' t3')
+-- Sequential composition and WHILE
     (OExn v, TSeq t1 THole) ->
         do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
            return (rho1, ESeq e1 EHole, TSeq t1' THole)
@@ -240,6 +296,33 @@ bwdSliceM outcome trace = do
         do (rho2, e2, t2') <- bwdSliceM r t2
            (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
            return (rho1 `lub` rho2, ESeq e1 e2, TSeq t1' t2')
+    (ORet _, TWhileDone t1) ->
+        do (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return (rho1, EWhile e1 EHole, TWhileDone t1')
+    (OExn v, TWhileDone t1) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return (rho1, EWhile e1 EHole, TWhileDone t1')
+    (ORet _, TWhileStep t1 t2 t3) ->
+        do (rho3, e3, t3') <- bwdSliceM (ORet VHole) t3
+           (rho2, e2, t2') <- bwdSliceM (ORet VHole) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2 `lub` rho3,
+                    (EWhile e1 e2) `lub` e3, TWhileStep t1' t2' t3')
+    (OExn v, TWhileStep t1 THole THole) ->
+        do (rho1, e1, t1') <- bwdSliceM (OExn v) t1
+           return ( rho1,
+                    (EWhile e1 EHole), TWhileStep t1' THole THole)
+    (OExn v, TWhileStep t1 t2 THole) ->
+        do (rho2, e2, t2') <- bwdSliceM (OExn v) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2,
+                    EWhile e1 e2, TWhileStep t1' t2' THole)
+    (OExn v, TWhileStep t1 t2 t3) ->
+        do (rho3, e3, t3') <- bwdSliceM (OExn v) t3
+           (rho2, e2, t2') <- bwdSliceM (ORet VHole) t2
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
+           return ( rho1 `lub` rho2 `lub` rho3,
+                    (EWhile e1 e2) `lub` e3, TWhileStep t1' t2' t3')
     (ORet v, TTry t) ->
         do (rho, e, t') <- bwdSliceM (ORet v) t
            return (rho, ETryWith e bot bot, TTry t')

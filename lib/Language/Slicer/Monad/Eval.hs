@@ -12,6 +12,8 @@ module Language.Slicer.Monad.Eval
 
     -- * References
     , newRef, getRef, updateRef
+    -- * Arrays
+    , newArr, getArr, updateArr
     ) where
 
 import           Language.Slicer.Core
@@ -126,6 +128,38 @@ updateRef (VStoreLoc l) val = do
          evalError "Cannot update reference: not allocated"
   put $ st { refs = storeUpdate refs l val }
 updateRef v _ = evalError ("Not a reference value: " ++ show v)
+
+-- Arrays
+-- | Allocates a new array of n copies of v
+newArr :: Int -> Value -> EvalM Value
+newArr dim val = do
+  st@(EvalState { refs }) <- get
+  let (newRefs, label) = storeCreateArr refs dim val
+  put $ st { refs = newRefs }
+  return (VArrLoc label dim)
+
+inBounds :: Int -> Int -> Bool
+inBounds idx dim = 0 <= idx && idx < dim
+
+getArr :: Value -> Int -> EvalM Value
+getArr (VArrLoc l dim) idx | inBounds idx dim = do
+  EvalState { refs } <- get
+  case storeLookupArrIdx refs l idx of
+    Just ref -> return ref
+    Nothing  -> evalError "Cannot read array: not allocated"
+getArr (VArrLoc _ dim) idx = evalError ("Array index " ++ show idx
+                                         ++ " out of bounds: " ++ show dim)
+getArr v _ = evalError ("Not an array value: " ++ show v)
+
+updateArr :: Value -> Int -> Value -> EvalM ()
+updateArr (VArrLoc l dim) idx val | inBounds idx dim = do
+  st@(EvalState { refs }) <- get
+  unless (existsInStore refs l) $
+         evalError "Cannot update array: not allocated"
+  put $ st { refs = storeUpdateArrIdx refs l idx val }
+updateArr (VArrLoc _ dim) idx _ = evalError ("Array index " ++ show idx
+                                           ++ " out of bounds: " ++ show dim)
+updateArr v _ _ = evalError ("Not a reference value: " ++ show v)
 
 -- | Run monadic evaluation with extra binder in scope
 withBinder :: Var -> Value -> EvalM value -> EvalM value

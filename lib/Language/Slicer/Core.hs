@@ -14,13 +14,17 @@ module Language.Slicer.Core
             , TSnd, TInL, TInR, TFun, TRoll, TUnroll, THole, TSeq, .. )
 
     -- * Helper functions for AST
-    , isRefTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
+    , isRefTy, isArrTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
     , isRaise, isExn, isTHole
 
     , getVal, getExn
     -- * Store abstraction
+
     , Store, StoreLabel, StoreLabels, emptyStore, singletonStoreLabel
     , storeDeref, storeInsert, storeUpdate, storeUpdateHole, storeTraceUpdate
+    , singletonArrLabel, storeLookupArrIdx, storeUpdateArrIdx
+    , storeDerefArrIdx, storeUpdateArrHole, storeUpdateArrIdxHole
+    , storeCreateArr, storeDerefArr
     , existsInStore, storeLookup, storeWrites, allStoreHoles
 
     , Pattern(extract), Valuable(..)
@@ -59,6 +63,8 @@ data Type = IntTy | BoolTy | UnitTy | StringTy | DoubleTy
           | HoleTy
           -- Reference type
           | RefTy Type
+          -- Array type
+          | ArrTy Type
           -- Exception type
           | ExnTy
           -- Trace types
@@ -80,6 +86,7 @@ instance Eq Type where
     RecTy  t1 t2 == RecTy  t1' t2' = t1 == t1' && t2 == t2'
     TyVar t      == TyVar t'       = t == t'
     RefTy t      == RefTy t'       = t == t'
+    ArrTy t      == ArrTy t'       = t == t'
     TraceTy t    == TraceTy t'     = t == t'
     _            == _              = False
 
@@ -88,6 +95,12 @@ isRefTy :: Type -> Bool
 isRefTy (RefTy _) = True
 isRefTy ExnTy     = True
 isRefTy _         = False
+
+-- | Is array type?
+isArrTy :: Type -> Bool
+isArrTy (ArrTy _) = True
+isArrTy ExnTy     = True
+isArrTy _         = False
 
 -- | Is function type?
 isFunTy :: Type -> Bool
@@ -119,6 +132,7 @@ fstTy (PairTy t _) = t
 fstTy (SumTy  t _) = t
 fstTy (FunTy  t _) = t
 fstTy (RefTy  t  ) = t
+fstTy (ArrTy  t  ) = t
 fstTy (TraceTy t ) = t
 fstTy _  =
     error "Impossible happened: type does not have a first component"
@@ -148,6 +162,7 @@ instance UpperSemiLattice Type where
     leq (RecTy  a ty   ) (RecTy  a' ty'   ) = a == a' && ty `leq` ty'
     leq (TyVar  a      ) (TyVar  b        ) = a == b
     leq (RefTy   ty    ) (RefTy   ty'     ) = ty `leq` ty'
+    leq (ArrTy   ty    ) (ArrTy   ty'     ) = ty `leq` ty'
     leq (TraceTy ty    ) (TraceTy ty'     ) = ty `leq` ty'
     leq _                _                  = error "UpperSemiLattice Type: leq"
 
@@ -169,6 +184,8 @@ instance UpperSemiLattice Type where
         = FunTy (ty1 `lub` ty1') (ty2 `lub` ty2')
     lub (RefTy ty) (RefTy ty')
         = RefTy (ty `lub` ty')
+    lub (ArrTy ty) (ArrTy ty')
+        = ArrTy (ty `lub` ty')
     lub (TraceTy ty) (TraceTy ty')
         = TraceTy (ty `lub` ty')
     lub a b = error $ "UpperSemiLattice Type: error taking lub of " ++
@@ -191,6 +208,7 @@ instance Pretty Type where
     pPrint (TyVar v) = pPrint v
     pPrint (RecTy a ty) = text "rec" <+> pPrint a <+> text "." <+> pPrint ty
     pPrint (RefTy ty)   = text "ref" <> parens (pPrint ty)
+    pPrint (ArrTy ty)   = text "array" <> parens (pPrint ty)
     pPrint (TraceTy ty) = text "trace" <> parens (pPrint ty)
 
 type Ctx = Env Type
@@ -238,6 +256,9 @@ data Exp = Exp (Syntax Exp)
          | ETrace Exp
          -- References
          | ERef Exp | EDeref Exp | EAssign Exp Exp
+         | EWhile Exp Exp
+         -- Arrays
+         | EArr Exp Exp | EArrGet Exp Exp | EArrSet Exp Exp Exp
          -- Exceptions
          | ERaise Exp | ETryWith Exp Var Exp
            deriving (Show, Eq, Ord, Generic, NFData)
@@ -310,6 +331,12 @@ data Trace = TExp (Syntax Trace)
            -- References.  See Note [Maybe trace labels]
            | TRef (Maybe StoreLabel) Trace | TDeref (Maybe StoreLabel) Trace
            | TAssign (Maybe StoreLabel) Trace Trace
+           -- Arrays
+           | TArr (Maybe (StoreLabel,Int)) Trace Trace
+           | TArrGet (Maybe (StoreLabel,Int)) Trace Trace
+           | TArrSet (Maybe (StoreLabel,Int)) Trace Trace Trace
+           -- Loops
+           | TWhileDone Trace | TWhileStep Trace Trace Trace
             -- Exceptions
            | TRaise Trace             -- ^ Raise exception
            | TTry Trace               -- ^ Not throwing an exception in a
@@ -358,6 +385,11 @@ isExn (TSlicedHole _ RetValue) = False
 isExn (TRef _ t)               = isExn t
 isExn (TDeref _ t)             = isExn t
 isExn (TAssign _ t1 t2)        = isExn t1 || isExn t2
+isExn (TArr _ t1 t2)           = isExn t1 || isExn t2
+isExn (TArrGet _ t1 t2)        = isExn t1 || isExn t2
+isExn (TArrSet _ t1 t2 t3)     = isExn t1 || isExn t2 || isExn t3
+isExn (TWhileDone t)           = isExn t
+isExn (TWhileStep t1 t2 t3)    = isExn t1 || isExn t2 || isExn t3
 isExn (TRaise _)               = True     -- whether or not subtrace raises
 isExn (TTry _)                 = False    -- subtrace is masked
 isExn (TTryWith _ _ t2)        = isExn t2 -- first subtrace is masked
@@ -448,12 +480,16 @@ data Value = VBool Bool | VInt Integer | VDouble Double | VUnit | VString String
            | VExp Exp (Env Value)
            -- mutable store locations
            | VStoreLoc StoreLabel
+           | VArrLoc StoreLabel Int
            -- run-time traces
            | VTrace Outcome Trace (Env Value) Store
            deriving (Show, Eq, Ord, Generic, NFData)
 
 data Outcome = ORet Value | OExn Value | OHole | OStar
              deriving (Show, Eq, Ord, Generic, NFData)
+
+newtype Array = Array (M.IntMap Value)
+             deriving ( Show, Eq, Ord, Generic, NFData )
 
 getVal :: Outcome -> Value
 getVal (ORet v) = v
@@ -513,6 +549,10 @@ instance FVs Exp where
     fvs (ERef e)          = fvs e
     fvs (EDeref e)        = fvs e
     fvs (EAssign e1 e2)   = fvs e1 `union` fvs e2
+    fvs (EWhile e1 e2)    = fvs e1 `union` fvs e2
+    fvs (EArr e1 e2)      = fvs e1 `union` fvs e2
+    fvs (EArrGet e1 e2)   = fvs e1 `union` fvs e2
+    fvs (EArrSet e1 e2 e3)= fvs e1 `union` fvs e2 `union` fvs e3
     fvs (Exp e)           = fvs e
 
 instance FVs Match where
@@ -535,6 +575,11 @@ instance FVs Trace where
     fvs (TRef _ t)         = fvs t
     fvs (TDeref _ t)       = fvs t
     fvs (TAssign _ t1 t2)  = fvs t1 `union` fvs t2
+    fvs (TArr _ t1 t2)     = fvs t1 `union` fvs t2
+    fvs (TArrGet _ t1 t2)  = fvs t1 `union` fvs t2
+    fvs (TArrSet _ t1 t2 t3) = fvs t1 `union` fvs t2 `union` fvs t3
+    fvs (TWhileDone t)     = fvs t
+    fvs (TWhileStep t1 t2 t3) = fvs t1 `union` fvs t2 `union` fvs t3
     fvs (TRaise t)         = fvs t
     fvs (TTry t)           = fvs t
     fvs (TTryWith t1 x t2) = fvs t1 `union` (delete x (fvs t2))
@@ -554,9 +599,10 @@ promote (VInL v)            = VInL (promote v)
 promote (VInR v)            = VInR (promote v)
 promote (VRoll tv v)        = VRoll tv (promote v)
 promote (VStoreLoc l)       = VStoreLoc l
+promote (VArrLoc l n)       = VArrLoc l n
 promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace r t env (Store refs refCount)) =
-    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) refCount)
+promote (VTrace r t env (Store refs arrs refCount)) =
+    VTrace (promoteOutcome r) t (fmap promote env) (Store (fmap promote refs) (fmap promoteArray arrs) refCount)
 promote (VExp     e env)    = VExp e (fmap promote env)
 
 promoteOutcome :: Outcome -> Outcome
@@ -564,6 +610,9 @@ promoteOutcome OStar = OStar
 promoteOutcome OHole = OStar
 promoteOutcome (OExn v) = OExn (promote v)
 promoteOutcome (ORet v) = ORet (promote v)
+
+promoteArray :: Array -> Array
+promoteArray (Array arr) = Array (fmap promote arr)
 
 instance UpperSemiLattice Value where
     bot                                = VHole
@@ -688,6 +737,14 @@ instance UpperSemiLattice Exp where
     leq (EDeref e1) (EDeref e2)        = e1 `leq` e2
     leq (EAssign e1 e2) (EAssign e1' e2')
         = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EWhile e1 e2) (EWhile e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EArr   e1 e2) (EArr   e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EArrGet e1 e2) (EArrGet e1' e2')
+        = e1 `leq`  e1' && e2 `leq` e2'
+    leq (EArrSet e1 e2 e3) (EArrSet e1' e2' e3')
+        = e1 `leq`  e1' && e2 `leq` e2' && e3 `leq` e3'
     leq (ERaise e1) (ERaise e2)        = e1 `leq` e2
     leq (ETryWith e1 x e2) (ETryWith e1' x' e2')
         = e1 `leq` e1' && x `leq` x' && e2 `leq` e2'
@@ -709,6 +766,13 @@ instance UpperSemiLattice Exp where
     lub (EDeref e1) (EDeref e2)        = EDeref (e1 `lub` e2)
     lub (EAssign e1 e2) (EAssign e1' e2')
         = EAssign (e1 `lub` e1') (e2 `lub` e2')
+    lub (EWhile e1 e2) (EWhile e1' e2')
+        = EWhile (e1 `lub` e1') (e2 `lub` e2')
+    lub (EArr e1 e2) (EArr e1' e2')    = EArr   (e1 `lub` e1') (e2 `lub` e2')
+    lub (EArrGet e1 e2) (EArrGet e1' e2')
+        = EArrGet (e1 `lub` e1') (e2 `lub` e2')
+    lub (EArrSet e1 e2 e3) (EArrSet e1' e2' e3')
+        = EArrSet (e1 `lub` e1') (e2 `lub` e2') (e3 `lub` e3')
     lub (ERaise e1) (ERaise e2)        = ERaise (e1 `lub` e2)
     lub (ETryWith e1 x e2) (ETryWith e1' x' e2')
         = ETryWith (e1 `lub` e1') (x `lub` x') (e2 `lub` e2')
@@ -761,6 +825,17 @@ instance UpperSemiLattice Trace where
     leq (TDeref l t) (TDeref l' t') | l == l' = t `leq` t'
     leq (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
         = t1 `leq` t1' && t2 `leq` t2'
+
+    leq (TArr l t1 t2) (TArr l' t1' t2') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2'
+    leq (TArrGet l t1 t2) (TArrGet l' t1' t2') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2'
+    leq (TArrSet l t1 t2 t3) (TArrSet l' t1' t2' t3') | l == l'
+        = t1 `leq` t1' && t2 `leq` t2' && t3 `leq` t3'
+
+    leq (TWhileDone t) (TWhileDone t') = t `leq` t'
+    leq (TWhileStep t1 t2 t3) (TWhileStep t1' t2' t3')
+        = t1 `leq` t1' && t2 `leq` t2' && t3 `leq` t3'
     leq (TRaise t) (TRaise t') = t `leq` t'
     leq (TTry t) (TTry t') = t `leq` t'
     leq (TTryWith t1 x t2) (TTryWith t1' x' t2')
@@ -792,6 +867,15 @@ instance UpperSemiLattice Trace where
     lub (TDeref l t) (TDeref l' t') | l == l' = TDeref l (t `lub` t')
     lub (TAssign l t1 t2) (TAssign l' t1' t2') | l == l'
         = TAssign l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TArr l t1 t2) (TArr l' t1' t2') | l == l'
+        = TArr l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TArrGet l t1 t2) (TArrGet l' t1' t2') | l == l'
+        = TArrGet l (t1 `lub` t1') (t2 `lub` t2')
+    lub (TArrSet l t1 t2 t3) (TArrSet l' t1' t2' t3') | l == l'
+        = TArrSet l (t1 `lub` t1') (t2 `lub` t2') (t3 `lub` t3')
+    lub (TWhileDone t) (TWhileDone t') = TWhileDone(t `lub` t')
+    lub (TWhileStep t1 t2 t3) (TWhileStep t1' t2' t3')
+        = TWhileStep(t1 `lub` t1') (t2 `lub` t2') (t3 `lub` t3')
     lub (TRaise t) (TRaise t') = TRaise (t `lub` t')
     lub (TTry t) (TTry t') = TTry (t `lub` t')
     lub (TTryWith t1 x t2) (TTryWith t1' x' t2')
@@ -869,87 +953,174 @@ newtype StoreLabel  = StoreLabel Int
     deriving ( Show, Eq, Ord, Generic, NFData )
 
 -- | A set of store labels
-newtype StoreLabels = StoreLabels (S.Set StoreLabel)
+data StoreLabels = StoreLabels (S.Set StoreLabel) (S.Set (StoreLabel,Int))
     deriving ( Show, Eq, Ord, Generic, NFData )
 
 instance Valuable StoreLabel where
     toValue = VStoreLoc
 
 -- | Reference store
-data Store = Store (M.IntMap Value) Int
+data Store = Store (M.IntMap Value) (M.IntMap Array) Int
              deriving ( Show, Eq, Ord, Generic, NFData )
 
 -- | Empty reference store
 emptyStore :: Store
-emptyStore = Store M.empty 0
+emptyStore = Store M.empty M.empty 0
 
 -- | Dereference a label.  If label is absent in the store return bottom
 storeDeref :: Store -> StoreLabel -> Value
-storeDeref (Store refs _) (StoreLabel label) =
+storeDeref (Store refs _ _) (StoreLabel label) =
     if (label `M.member` refs)
     then refs M.! label
     else bot
 
 storeLookup :: Store -> StoreLabel -> Maybe Value
-storeLookup (Store refs _) (StoreLabel label) =
+storeLookup (Store refs _ _) (StoreLabel label) =
     M.lookup label refs
 
 -- | Insert new value into a store.  Return new store and label under which the
 -- value was allocated
 storeInsert :: Store -> Value -> (Store, StoreLabel)
-storeInsert (Store refs refCount) v =
-    (Store (M.insert refCount v refs) (refCount + 1), StoreLabel refCount)
+storeInsert (Store refs arrs refCount) v =
+    (Store (M.insert refCount v refs) arrs (refCount + 1), StoreLabel refCount)
 
 -- | Update a label already present in a store
 storeUpdate :: Store -> StoreLabel -> Value -> Store
-storeUpdate (Store refs refCount) (StoreLabel l) v =
+storeUpdate (Store refs arrs refCount) (StoreLabel l) v =
     assert (l `M.member` refs) $
-    Store (M.insert l v refs) refCount
+    Store (M.insert l v refs) arrs refCount
 
 -- | Update a label already present in a store
 storeTraceUpdate :: Store -> StoreLabel -> Value -> Store
-storeTraceUpdate (Store refs refCount) (StoreLabel l) v =
+storeTraceUpdate (Store refs arrs refCount) (StoreLabel l) v =
     assert (l `M.member` refs) $
-    Store (M.insertWith lub l v refs) refCount
+    Store (M.insertWith lub l v refs) arrs refCount
 
 -- | Update a label already present in a store to contain hole
 storeUpdateHole :: Store -> StoreLabel -> Store
 storeUpdateHole store label =
     storeUpdate store label VHole
 
+-- | Array ops
+mkArray :: Int -> Value -> Array
+mkArray dim vInit | dim >= 0 = Array(mkArr dim vInit)
+  where mkArr n _ | n == 0 = M.empty
+        mkArr n v = M.insert (n-1) v (mkArr (n-1) v)
+mkArray dim _ = error ("Cannot make an array of negative length "++ show dim ++" .")
+
+lookupArray :: Int -> Array -> Maybe Value
+lookupArray idx (Array arr) = M.lookup idx arr
+
+updateArray :: Int -> Value -> Array -> Array
+updateArray idx v (Array arr) = Array ( M.insert idx v arr)
+
+-- | Dereference an array element.  If  absent in the store return bottom
+storeDerefArrIdx :: Store -> StoreLabel -> Int -> Value
+storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
+    if (label `M.member` arrs)  
+    then let Array arr = arrs M.! label in
+         if (idx `M.member` arr)
+         then arr M.! idx
+         else bot
+    else bot
+
+-- | Collect all partial values associated with array in store
+storeDerefArr :: Store -> StoreLabel -> Int -> Value
+storeDerefArr _ _ 0      = bot
+storeDerefArr st label n =
+  storeDerefArrIdx st label (n-1) `lub` storeDerefArr st label (n-1)
+
+-- | Look up an element of an array
+-- | Dereference a label.  If label is absent in the array return bottom
+storeLookupArrIdx :: Store -> StoreLabel -> Int -> Maybe Value
+storeLookupArrIdx (Store _ arrs _) (StoreLabel label) idx =
+    do arr <- M.lookup label arrs
+       lookupArray idx arr 
+
+
+-- | Insert new array into a store.  Return new store and label under which the
+-- array was allocated
+storeCreateArr :: Store -> Int -> Value -> (Store, StoreLabel)
+storeCreateArr (Store refs arrs refCount) dim v =
+    (Store refs (M.insert refCount (mkArray dim v) arrs) (refCount + 1),
+     StoreLabel refCount)
+
+-- | Update a label already present in a store
+storeUpdateArrIdx :: Store -> StoreLabel -> Int -> Value -> Store
+storeUpdateArrIdx (Store refs arrs refCount) (StoreLabel l) idx v =
+    assert (l `M.member` arrs)   $
+    let arr = case M.lookup l arrs of
+                Just a -> a
+                Nothing -> Array M.empty in 
+    Store refs (M.insert l (updateArray idx v arr) arrs) refCount
+
+
+-- | Update an array label
+storeUpdateArrHole :: Store -> StoreLabel -> Store
+storeUpdateArrHole (Store refs arrs refCount) (StoreLabel label) =
+    (Store refs (M.insert label (Array M.empty) arrs) refCount)
+
+-- | Update a label already present in a store to contain hole
+storeUpdateArrIdxHole :: Store -> StoreLabel -> Int -> Store
+storeUpdateArrIdxHole store label idx =
+  storeUpdateArrIdx store label idx VHole
+
+
+
 -- | Check if a label is allocated in a store
 existsInStore :: Store -> StoreLabel -> Bool
-existsInStore (Store refs _) (StoreLabel label) =
-    label `M.member` refs
+existsInStore (Store refs arrs _) (StoreLabel label) =
+    label `M.member` refs || label `M.member` arrs
 
 -- | Return true if a label does not exists in a store or exsists and points to
 -- a hole
 isStoreHole :: Store -> StoreLabel -> Bool
-isStoreHole (Store refs _) (StoreLabel label) =
+isStoreHole (Store refs _ _) (StoreLabel label) =
     not (label `M.member` refs) || refs M.! label == VHole
+
+
+isArrayHole :: Store -> (StoreLabel,Int) -> Bool
+isArrayHole store (label,idx) =
+    storeDerefArrIdx store label idx == VHole
 
 -- | Check if all store labels are store holes (according to `isStoreHole`)
 allStoreHoles :: Store -> StoreLabels -> Bool
-allStoreHoles store (StoreLabels labels) =
-    F.all (isStoreHole store) labels
+allStoreHoles store (StoreLabels labels arrlabels) =
+    F.all (isStoreHole store) labels &&
+    F.all (isArrayHole store) arrlabels
 
 -- | An empty set of store labels
 emptyStoreLabels :: StoreLabels
-emptyStoreLabels = StoreLabels S.empty
+emptyStoreLabels = StoreLabels S.empty S.empty
 
 singletonStoreLabel :: StoreLabel -> StoreLabels
-singletonStoreLabel l = StoreLabels (S.singleton l)
+singletonStoreLabel l = StoreLabels (S.singleton l) S.empty
+
+singletonArrLabel :: (StoreLabel,Int) -> StoreLabels
+singletonArrLabel l = StoreLabels S.empty  (S.singleton l)
 
 -- | Insert a label into a set of store labels
 insertStoreLabel :: Maybe StoreLabel -> StoreLabels -> StoreLabels
-insertStoreLabel Nothing   ls              = ls
-insertStoreLabel (Just l) (StoreLabels ls) = StoreLabels (l `S.insert` ls)
+insertStoreLabel Nothing   ls                 = ls
+insertStoreLabel (Just l) (StoreLabels ls as) = StoreLabels (l `S.insert` ls) as
+
+-- | Insert an array label into a set of store labels
+insertArrLabel :: Maybe (StoreLabel,Int) -> StoreLabels -> StoreLabels
+insertArrLabel Nothing   ls                 = ls
+insertArrLabel (Just l) (StoreLabels ls as) = StoreLabels ls (l `S.insert` as)
 
 -- | Union of two store label sets
 unionStoreLabels :: StoreLabels -> StoreLabels -> StoreLabels
-unionStoreLabels (StoreLabels ls1) (StoreLabels ls2) =
-    StoreLabels (ls1 `S.union` ls2)
+unionStoreLabels (StoreLabels ls1 as1) (StoreLabels ls2 as2) =
+    StoreLabels (ls1 `S.union` ls2) (as1 `S.union` as2)
 
+-- All array locations written by initializing array
+arrWrites :: Maybe (StoreLabel,Int) -> StoreLabels
+arrWrites Nothing = emptyStoreLabels
+arrWrites (Just (l,dim)) = aW dim
+  where aW 0 = emptyStoreLabels
+        aW n = insertArrLabel (Just (l,n-1)) (aW (n-1))
+        
 -- | Get list of labels that a trace writes to
 storeWrites :: Trace -> StoreLabels
 -- relevant store assignments
@@ -957,6 +1128,13 @@ storeWrites (TRef l t) =
     l `insertStoreLabel` storeWrites t
 storeWrites (TAssign l t1 t2) =
     l `insertStoreLabel` storeWrites t1 `unionStoreLabels`  storeWrites t2
+-- relevant array assignments
+storeWrites (TArr l t1 t2) = -- All labels (l,0)...(l,dim-1)
+    arrWrites l `unionStoreLabels` storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TArrSet l t1 t2 t3) =
+    l `insertArrLabel` storeWrites t1
+      `unionStoreLabels`  storeWrites t2
+      `unionStoreLabels`  storeWrites t3
 -- sliced hole annotated with store labels
 storeWrites (TSlicedHole ls _) = ls
 storeWrites (TIfThen t1 t2)    =
@@ -975,6 +1153,12 @@ storeWrites (TCall t1 t2 _ (Rec _ _ t3 _)) =
 storeWrites (TCallExn t1 t2)   =
     storeWrites t1 `unionStoreLabels` storeWrites t2
 storeWrites (TDeref _ t)       = storeWrites t
+storeWrites (TArrGet _ t1 t2)  = 
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+storeWrites (TWhileDone t)     = storeWrites t
+storeWrites (TWhileStep t1 t2 t3) =
+    storeWrites t1 `unionStoreLabels` storeWrites t2
+                   `unionStoreLabels` storeWrites t3
 storeWrites (TRaise t)         = storeWrites t
 storeWrites (TTry t)           = storeWrites t
 storeWrites (TTryWith t1 _ t2) =

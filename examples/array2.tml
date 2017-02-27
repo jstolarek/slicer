@@ -1,0 +1,19 @@
+let t = trace (let x = array(10,0) in
+  set(x,0,0);;
+  set(x,1,1);;
+  set(x,2,2);;
+  set(x,3,3);;
+  set(x,4,4);;
+  set(x,5,5);;
+  set(x,6,6);;
+  set(x,7,7);;
+  set(x,8,8);;
+  set(x,9,9);;
+  let i = ref 0 in
+  let s = ref 0 in
+  (while (!i < 10) do (
+    s := !s + get(x,!i);;
+    i := !i + 2
+  ));;
+  !s
+  ) in bwdSlice(t,20)
