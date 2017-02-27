@@ -302,8 +302,8 @@ trace (EDeref e)     = do (r, t) <- trace' e
                           case r of
                              OExn v -> return (OExn v, TDeref Nothing t)
                              ORet v@(VStoreLoc l) ->
-                                          do v' <- getRef v
-                                             return (ORet v', TDeref (Just l) t  )
+                                 do v' <- getRef v
+                                    return (ORet v', TDeref (Just l) t )
                              _ -> return (OHole,THole)
 trace (EAssign e1 e2)= do (r1, t1) <- trace' e1
                           (r2, t2) <- withExnTrace r1 (trace' e2)
