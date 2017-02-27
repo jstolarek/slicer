@@ -15,8 +15,7 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Data.Foldable
 
--- Trace slicing (backward slicing) as described in section 5 of the ICFP 12
--- paper
+-- Trace slicing
 traceSlice :: Store -> Outcome -> Trace -> (Trace, Env Value)
 traceSlice store outcome trace =
     let (env, _, _, trace') = bwdSlice store outcome trace
@@ -25,8 +24,7 @@ traceSlice store outcome trace =
 bwdSlice :: Store -> Outcome -> Trace -> (Env Value, Store, Exp, Trace)
 bwdSlice store outcome trace = runSliceM store (bwdSliceM outcome trace)
 
--- Unevaluation (program slicing) as described in Section 4.3 of the ICFP'12
--- paper
+-- Unevaluation (program slicing) as described in the ICFP'17 submission
 bwdSliceM :: Outcome -> Trace -> SliceM (Env Value, Exp, Trace)
 bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
