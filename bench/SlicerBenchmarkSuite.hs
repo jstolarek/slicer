@@ -59,6 +59,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
       , "meanSquare"
       , "mergesort"
       , "merge"
+      , "let-exception"
       , "operators"
       , "proportion"
       , "raise_inside"

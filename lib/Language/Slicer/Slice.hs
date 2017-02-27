@@ -31,12 +31,12 @@ bwdSliceM :: Outcome -> Trace -> SliceM (Env Value, Exp, Trace)
 bwdSliceM outcome trace = do
   allStoreHoles <- allStoreHolesM (storeWrites trace)
   case (outcome, trace) of
+    (OHole, THole) ->
+        return (bot, bot, bot)
     (OExn VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetRaise)
     (ORet VHole, _) | allStoreHoles ->
         return (bot, EHole, TSlicedHole (storeWrites trace) RetValue)
-    (OStar, THole) -> -- JSTOLAREK: another speculative equation
-        return (bot, EHole, THole)
     (OExn v, TRaise t) | isExn t->
         do (rho, e, t') <- bwdSliceM (OExn v) t
            return (rho, ERaise e, TRaise t')
@@ -114,8 +114,8 @@ bwdSliceM outcome trace = do
     (OExn v, TInR t)  ->
         do (rho, e', t') <- bwdSliceM (OExn v) t
            return (rho, EInR e', TInR t')
-    (r, TLet x t THole) -> -- JSTOLAREK: This case should be redundant
-        do (rho, e1, t1') <- bwdSliceM r t
+    (OExn r, TLet x t THole) ->
+        do (rho, e1, t1') <- bwdSliceM (OExn r) t
            return (rho, ELet x e1 EHole, TLet x t1' THole)
     (r, TLet x t1 t2) ->
         do (rho2, e2, t2') <- bwdSliceM r t2
@@ -123,7 +123,7 @@ bwdSliceM outcome trace = do
                rho2' = unbindEnv  rho2 x
            (rho1, e1, t1') <- bwdSliceM (ORet p1) t1
            return (rho1 `lub` rho2', ELet x e1 e2, TLet x t1' t2')
-    (r, TOp f op ts) -> -- JRC: need to be more careful here, cf issue #47
+    (r, TOp f op ts) -> -- See issue #47
         do let scs = if (not (any isExn ts))
                      then map (const (ORet VStar)) ts
                      else snd (foldr expectedOutcome (False, []) ts)
@@ -329,12 +329,6 @@ bwdSliceM outcome trace = do
                rho2' = unbindEnv  rho2 x
            (rho1, e1, t1') <- bwdSliceM (OExn p1) t1
            return (rho1 `lub` rho2', ETryWith e1 x e2, TTryWith t1' x t2')
-
-    -- JSTOLAREK: hacking OHole rules
-    (OHole, THole)
-        -> return (bot, bot, bot)
-    (OHole, TInt v) -> return (bot, EInt v, TInt v)
-    (OHole, TDouble v) -> return (bot, EDouble v, TDouble v)
 
     _ -> error $ "Cannot slice outcome " ++ show outcome ++
                  " from trace " ++ show trace
