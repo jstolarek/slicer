@@ -77,7 +77,7 @@ instance Uneval Trace Exp where
     uneval (TIfElse t t2)    = EIf (uneval t) bot (uneval t2)
     uneval (TIfExn t)        = EIf (uneval t) bot bot
     uneval (TOp _ f es)      = EOp f (map uneval es)
-    uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)  -- jrc: ???
+    uneval (TCall t1 t2 _ _) = EApp (uneval t1) (uneval t2)
     uneval (TCallExn t1 t2)  = EApp (uneval t1) (uneval t2)
     uneval (TRef _ t)        = ERef (uneval t)
     uneval (TDeref _ t)      = EDeref (uneval t)
@@ -86,7 +86,7 @@ instance Uneval Trace Exp where
     uneval (TArrGet _ t1 t2) = EArrGet (uneval t1) (uneval t2)
     uneval (TArrSet _ t1 t2 t3) = EArrSet (uneval t1) (uneval t2) (uneval t3)
     uneval (TWhileDone t)    = EWhile (uneval t) bot
-    uneval (TWhileStep t1 t2 _) = (EWhile (uneval t1) (uneval t2)) -- jrc: ???
+    uneval (TWhileStep t1 t2 _) = (EWhile (uneval t1) (uneval t2))
     uneval (TRaise t)        = ERaise (uneval t)
     uneval (TTry t)          = ETryWith (uneval t) bot bot
     uneval (TTryWith t x h)  = ETryWith (uneval t) x (uneval h)
