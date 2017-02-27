@@ -1,6 +1,10 @@
 let t = trace (
 let n = 3 in
 let as = array(n,array(n,0.0)) in
+set(as, 0, array(n, 0.0)) ;;
+set(as, 1, array(n, 0.0)) ;;
+set(as, 2, array(n, 0.0)) ;;
+
 set(get(as,0),0, 3.0) ;;
 set(get(as,0),1, 3.0) ;;
 set(get(as,0),2, 1.0) ;;
@@ -54,7 +58,6 @@ let xs = gauss as bs in
 let a = get(xs, 0) in
 let b = get(xs, 1) in
 let c = get(xs, 2) in
-let d = get(xs, 3) in
-(a, (b, (c, d))) ) in
---read t
- bwdSlice (t, raise "Division by zero" )
+(a, (b, c)) ) in
+read t
+--bwdSlice (t, raise "Division by zero" )
