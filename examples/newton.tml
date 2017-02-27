@@ -4,7 +4,6 @@ let t = trace (
     -- Derivative of a polynomial
     let poly' = fun poly' (x : double) : double => 3.0 * x * x in
 
-    let x = ref 0.0 in
 
     -- Newton's method.
     --   f  : function which root want to find
@@ -12,9 +11,11 @@ let t = trace (
     --   n  : number of iterations to perform
     let newton = fun newton (f : double -> double) (f' : double -> double)
                             (n : int) : double =>
-        if n == 0
-        then !x
-        else x := !x - (f( !x ) / f'( !x )) ;;
-             newton f f' (n - 1) in
-    newton poly poly' 2 ) in
+        let x = ref 0.0 in
+        let i = ref 0 in
+        (while !i < n do
+           x := !x - (f( !x ) / f'( !x )) ;;
+           i := !i + 1
+        ) ;; !x in
+    newton poly poly' 4 ) in
 bwdSlice( t, raise "Division by zero" )
