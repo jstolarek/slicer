@@ -1059,8 +1059,6 @@ storeUpdateArrIdxHole :: Store -> StoreLabel -> Int -> Store
 storeUpdateArrIdxHole store label idx =
   storeUpdateArrIdx store label idx VHole
 
-
-
 -- | Check if a label is allocated in a store
 existsInStore :: Store -> StoreLabel -> Bool
 existsInStore (Store refs arrs _) (StoreLabel label) =
