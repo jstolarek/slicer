@@ -267,7 +267,7 @@ bwdSliceM outcome trace = do
            else do p <- storeDerefArrIdxM l idx
                    storeUpdateArrIdxHoleM l idx
                    (rho3, e3, t3') <- bwdSliceM (ORet p) t3
-                   (rho2, e2, t2') <- bwdSliceM (ORet (VInt idx)) t2
+                   (rho2, e2, t2') <- bwdSliceM (ORet (VInt (toInteger idx))) t2
                    (rho1, e1, t1') <- bwdSliceM (ORet (toValue l)) t1
                    return ( rho1 `lub` rho2 `lub` rho3, EArrSet e1 e2 e3
                           , TArrSet (Just (l,idx)) t1' t2' t3')
@@ -321,7 +321,6 @@ bwdSliceM outcome trace = do
            (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
            return ( rho1 `lub` rho2 `lub` rho3,
                     (EWhile e1 e2) `lub` e3, TWhileStep t1' t2' t3')
-
     (ORet v, TTry t) ->
         do (rho, e, t') <- bwdSliceM (ORet v) t
            return (rho, ETryWith e bot bot, TTry t')
