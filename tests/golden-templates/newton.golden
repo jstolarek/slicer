@@ -1,0 +1,8 @@
+Running ../../examples/newton.tml
+val it = let poly = (fun poly x => ((x * x) * x) + 1.0)
+in let poly' = (fun poly' x => (3.0 * x) * x)
+   in let newton = (fun newton f f' n => let x = ref 0.0
+                                         in let i = ref 0
+                                            in (while !i < n do x := _ - ((f !x) / (f'
+                                                                                    !x)) ;; _) ;; _)
+      in newton poly poly' 4 : trace(double)

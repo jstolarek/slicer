@@ -35,6 +35,7 @@ tests =
       , "meanSquare"
       , "mergesort"
       , "merge"
+      , "newton"
       , "let-exception"
       , "operators"
       , "proportion"

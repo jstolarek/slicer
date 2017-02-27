@@ -60,6 +60,7 @@ benchmarkFiles = map (\file -> "examples" ++ [pathSeparator] ++ file ++ ".tml")
       , "meanSquare"
       , "mergesort"
       , "merge"
+      , "newton"
       , "let-exception"
       , "operators"
       , "proportion"
