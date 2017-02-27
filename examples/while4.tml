@@ -1,7 +1,6 @@
 let t = trace(
   let x = ref 10 in
-  (while !x /= 0 do 
-     
+  (while !x /= 0 do
      x := 1 / 0
   );;
   !x
