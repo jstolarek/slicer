@@ -1078,10 +1078,16 @@ isStoreHole :: Store -> StoreLabel -> Bool
 isStoreHole (Store refs _ _) (StoreLabel label) =
     not (label `M.member` refs) || refs M.! label == VHole
 
+
+isArrayHole :: Store -> (StoreLabel,Int) -> Bool
+isArrayHole store (label,idx) =
+    storeDerefArrIdx store label idx == VHole
+
 -- | Check if all store labels are store holes (according to `isStoreHole`)
 allStoreHoles :: Store -> StoreLabels -> Bool
-allStoreHoles store (StoreLabels labels _) =
-    F.all (isStoreHole store) labels
+allStoreHoles store (StoreLabels labels arrlabels) =
+    F.all (isStoreHole store) labels &&
+    F.all (isArrayHole store) arrlabels
 
 -- | An empty set of store labels
 emptyStoreLabels :: StoreLabels

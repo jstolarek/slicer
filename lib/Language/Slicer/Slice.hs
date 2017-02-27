@@ -209,7 +209,8 @@ bwdSliceM outcome trace = do
            return (rho, ERef e, TRef Nothing t')
     (ORet v, TDeref (Just l) t)  ->
         do (rho, e, t') <- bwdSliceM (ORet (toValue l)) t
-           storeTraceUpdateM l v
+           v' <- storeDerefM l
+           storeUpdateM l (v `lub` v')
            return (rho, EDeref e, TDeref (Just l) t')
     (OExn v, TDeref Nothing t) ->
         do (rho, e, t') <- bwdSliceM (OExn v) t
@@ -237,7 +238,7 @@ bwdSliceM outcome trace = do
     (ORet _, TArr (Just (l,dim)) t1 t2) ->
         do p <- storeDerefArrM l dim
            (rho2, e2, t2') <- bwdSliceM (ORet p) t2
-           (rho1, e1, t1') <- bwdSliceM (ORet VHole) t1
+           (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
            storeUpdateArrHoleM l
            return (rho1 `lub` rho2, EArr e1 e2, TArr (Just (l,dim)) t1' t2')
     (OExn v, TArr Nothing t1 THole) ->
@@ -250,7 +251,8 @@ bwdSliceM outcome trace = do
     (ORet v, TArrGet (Just (l,idx)) t1 t2)  ->
         do (rho2, e2, t2') <- bwdSliceM (ORet VStar) t2
            (rho1, e1, t1') <- bwdSliceM (ORet VStar) t1
-           storeUpdateArrIdxM l idx v -- this seems wrong
+           v' <- storeDerefArrIdxM l idx
+           storeUpdateArrIdxM l idx (v `lub` v')
            return (rho1 `lub` rho2, EArrGet e1 e2, TArrGet (Just (l,idx)) t1' t2')
     (OExn v, TArrGet Nothing t1 THole) ->
         do (rho1, e1, t1') <- bwdSliceM (OExn v) t1

@@ -5,7 +5,6 @@ module Language.Slicer.Monad.Slice
     , storeUpdateArrIdxM, storeUpdateArrHoleM, storeUpdateArrIdxHoleM
     , storeDerefArrM
     , storeDerefArrIdxM
-    , storeUpdateM, storeTraceUpdateM
     ) where
 
 import           Language.Slicer.Env
