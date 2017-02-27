@@ -1,0 +1,60 @@
+let t = trace (
+let n = 3 in
+let as = array(n,array(n,0.0)) in
+set(get(as,0),0, 3.0) ;;
+set(get(as,0),1, 3.0) ;;
+set(get(as,0),2, 1.0) ;;
+
+set(get(as,1),0, 2.0) ;;
+set(get(as,1),1, 5.0) ;;
+set(get(as,1),2, 7.0) ;;
+
+set(get(as,2),0, 1.0) ;;
+set(get(as,2),1, 2.0) ;;
+set(get(as,2),2, 1.0) ;;
+
+let bs = array (n, 0.0) in
+set(bs, 0, 12.0) ;;
+set(bs, 1, 33.0) ;;
+set(bs, 2,  8.0) ;;
+
+-- Adapted from: https://rosettacode.org/wiki/Gaussian_elimination#C
+let gauss = fun gauss (a : array(array(double))) (b : array(double)) : array(double) =>
+   let dia = ref 0 in
+   (while !dia < n do -- for each element on the diagonal
+    let row = ref (!dia + 1) in -- start with row below
+    (while !row < n do -- for each row
+      let tmp = get(get(a, !row), !dia) / get(get(a, !dia),!dia) in
+      let col = ref (!dia + 1) in
+      (while !col < n do
+        let x = get(get(a, !row), !col) in
+        set(get(a, !row), !col, x - (tmp * get(get(a, !dia), !col)));;
+        col := !col + 1
+      ) ;;
+      set(get(a, !row), !dia, 0.0) ;;
+      let b_row = get(b, !row) in
+      set(b, !row, b_row - tmp * get(b, !dia)) ;;
+      row := !row + 1
+    ) ;;
+    dia := !dia + 1
+   ) ;;
+   let row = ref (n - 1) in
+   let x = array(n, 0.0) in
+   (while !row >= 0 do
+     let tmp = ref (get(b, !row)) in
+     let j = ref (n - 1) in
+     (while !j > !row do
+        tmp := !tmp - (get(x, !j) * get(get(a, !row), !j));;
+        j := !j - 1
+     ) ;;
+     set(x, !row, !tmp / get(get(as, !row), !row));;
+     row := !row - 1
+   );; x in
+let xs = gauss as bs in
+let a = get(xs, 0) in
+let b = get(xs, 1) in
+let c = get(xs, 2) in
+let d = get(xs, 3) in
+(a, (b, (c, d))) ) in
+--read t
+ bwdSlice (t, raise "Division by zero" )
