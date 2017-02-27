@@ -25,6 +25,7 @@ tests =
       , "exceptions3"
       , "filter"
       , "foo"
+      , "gauss"
       , "icfp17-example"
       , "icfp17-example2"
       , "map-increment-closed"
