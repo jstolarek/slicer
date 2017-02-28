@@ -953,7 +953,7 @@ newtype StoreLabel  = StoreLabel Int
     deriving ( Show, Eq, Ord, Generic, NFData )
 
 -- | A set of store labels
-data StoreLabels = StoreLabels (S.Set StoreLabel) (S.Set (StoreLabel,Int))
+data StoreLabels = StoreLabels (S.Set StoreLabel) (S.Set (StoreLabel, Int))
     deriving ( Show, Eq, Ord, Generic, NFData )
 
 instance Valuable StoreLabel where
@@ -974,6 +974,7 @@ storeDeref (Store refs _ _) (StoreLabel label) =
     then refs M.! label
     else bot
 
+-- | Lookup a reference in a store.  Return Nothing if not found
 storeLookup :: Store -> StoreLabel -> Maybe Value
 storeLookup (Store refs _ _) (StoreLabel label) =
     M.lookup label refs
@@ -995,20 +996,24 @@ storeUpdateHole :: Store -> StoreLabel -> Store
 storeUpdateHole store label =
     storeUpdate store label VHole
 
--- | Array ops
+-- | Construct an array of a given size and initialize its cells with a given
+-- value
 mkArray :: Int -> Value -> Array
-mkArray dim vInit | dim >= 0 = Array(mkArr dim vInit)
+mkArray dim vInit | dim >= 0 = Array (mkArr dim vInit)
   where mkArr n _ | n == 0 = M.empty
-        mkArr n v = M.insert (n-1) v (mkArr (n-1) v)
-mkArray dim _ = error ("Cannot make an array of negative length "++ show dim ++" .")
+        mkArr n v = M.insert (n - 1) v (mkArr (n - 1) v)
+mkArray dim _ = error ("Cannot make an array of negative length "++ show dim)
 
+-- | Return element at a given index in the array.  Return Nothing if index out
+-- of bounds
 lookupArray :: Int -> Array -> Maybe Value
 lookupArray idx (Array arr) = M.lookup idx arr
 
+-- | Update array cell at a given index
 updateArray :: Int -> Value -> Array -> Array
-updateArray idx v (Array arr) = Array ( M.insert idx v arr)
+updateArray idx v (Array arr) = Array (M.insert idx v arr)
 
--- | Dereference an array element.  If  absent in the store return bottom
+-- | Dereference an array element.  If absent in the store return bottom
 storeDerefArrIdx :: Store -> StoreLabel -> Int -> Value
 storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
     if (label `M.member` arrs)
@@ -1018,19 +1023,17 @@ storeDerefArrIdx (Store _ arrs _) (StoreLabel label) idx =
          else bot
     else bot
 
--- | Collect all partial values associated with array in store
+-- | Lub all values stored in an array
 storeDerefArr :: Store -> StoreLabel -> Int -> Value
 storeDerefArr _ _ 0      = bot
 storeDerefArr st label n =
-  storeDerefArrIdx st label (n-1) `lub` storeDerefArr st label (n-1)
+  storeDerefArrIdx st label (n - 1) `lub` storeDerefArr st label (n - 1)
 
--- | Look up an element of an array
--- | Dereference a label.  If label is absent in the array return bottom
+-- | Dereference array cell.  If label is absent in the array return bottom
 storeLookupArrIdx :: Store -> StoreLabel -> Int -> Maybe Value
 storeLookupArrIdx (Store _ arrs _) (StoreLabel label) idx =
     do arr <- M.lookup label arrs
        lookupArray idx arr
-
 
 -- | Insert new array into a store.  Return new store and label under which the
 -- array was allocated
@@ -1039,7 +1042,7 @@ storeCreateArr (Store refs arrs refCount) dim v =
     (Store refs (M.insert refCount (mkArray dim v) arrs) (refCount + 1),
      StoreLabel refCount)
 
--- | Update a label already present in a store
+-- | Update an array already present in a store
 storeUpdateArrIdx :: Store -> StoreLabel -> Int -> Value -> Store
 storeUpdateArrIdx (Store refs arrs refCount) (StoreLabel l) idx v =
     assert (l `M.member` arrs)   $
@@ -1048,13 +1051,12 @@ storeUpdateArrIdx (Store refs arrs refCount) (StoreLabel l) idx v =
                 Nothing -> Array M.empty in
     Store refs (M.insert l (updateArray idx v arr) arrs) refCount
 
-
--- | Update an array label
+-- | Replace a given array in a store with empty array
 storeUpdateArrHole :: Store -> StoreLabel -> Store
 storeUpdateArrHole (Store refs arrs refCount) (StoreLabel label) =
     (Store refs (M.insert label (Array M.empty) arrs) refCount)
 
--- | Update a label already present in a store to contain hole
+-- | Update cell of array already present in a store to contain hole
 storeUpdateArrIdxHole :: Store -> StoreLabel -> Int -> Store
 storeUpdateArrIdxHole store label idx =
   storeUpdateArrIdx store label idx VHole
@@ -1070,12 +1072,14 @@ isStoreHole :: Store -> StoreLabel -> Bool
 isStoreHole (Store refs _ _) (StoreLabel label) =
     not (label `M.member` refs) || refs M.! label == VHole
 
-
+-- | Return true if element of an array does not exists in a store or exsists
+-- and is a hole
 isArrayHole :: Store -> (StoreLabel,Int) -> Bool
 isArrayHole store (label,idx) =
     storeDerefArrIdx store label idx == VHole
 
--- | Check if all store labels are store holes (according to `isStoreHole`)
+-- | Check if all store labels (including arrays) are store holes (according to
+-- `isStoreHole`)
 allStoreHoles :: Store -> StoreLabels -> Bool
 allStoreHoles store (StoreLabels labels arrlabels) =
     F.all (isStoreHole store) labels &&
@@ -1106,7 +1110,7 @@ unionStoreLabels :: StoreLabels -> StoreLabels -> StoreLabels
 unionStoreLabels (StoreLabels ls1 as1) (StoreLabels ls2 as2) =
     StoreLabels (ls1 `S.union` ls2) (as1 `S.union` as2)
 
--- All array locations written by initializing array
+-- | All array locations written by initializing array
 arrWrites :: Maybe (StoreLabel,Int) -> StoreLabels
 arrWrites Nothing = emptyStoreLabels
 arrWrites (Just (l,dim)) = aW dim
