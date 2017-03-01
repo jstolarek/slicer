@@ -1,3 +1,9 @@
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+-- Silence orphan instance warning when declaring UpperSemiLattices to be
+-- Monoids
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Language.Slicer.UpperSemiLattice (
     UpperSemiLattice(..)
   ) where
@@ -25,3 +31,7 @@ instance Eq a => UpperSemiLattice (Maybe a) where
     leq Nothing  _        = True
     leq _        Nothing  = False
     leq (Just x) (Just y) = x == y
+
+instance UpperSemiLattice a => Monoid a where
+    mempty  = bot
+    mappend = lub

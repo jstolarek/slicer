@@ -1,3 +1,9 @@
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+
 module Language.Slicer.Monad.Slice
     ( SliceM, runSliceM
     , allStoreHolesM, existsInStoreM, storeUpdateHoleM, storeDerefM
@@ -5,26 +11,61 @@ module Language.Slicer.Monad.Slice
     , storeUpdateArrIdxM, storeUpdateArrHoleM, storeUpdateArrIdxHoleM
     , storeDerefArrM
     , storeDerefArrIdxM
+
+    , setEnv, withEmptyEnv, resetEnv, setSingletonEnv
+    , lookupAndUnbind, maybeLookupAndUnbind
     ) where
 
 import           Language.Slicer.Env
 import           Language.Slicer.Core
+import           Language.Slicer.UpperSemiLattice
 
 import           Control.Monad.State.Strict
 
-type SliceM = State Store
+type SliceM = State (Env Value, Store)
 
-runSliceM :: Store -> SliceM (Env Value, Exp, Trace)
-          -> (Env Value, Store, Exp, Trace)
+runSliceM :: Store -> SliceM (Exp, Trace) -> (Env Value, Store, Exp, Trace)
 runSliceM store thing =
-    let ((env, e, t), store') = runState thing store
+    let ((e, t), (env, store')) = runState thing (emptyEnv, store)
     in (env, store', e, t)
 
+getEnv :: SliceM (Env Value)
+getEnv = do
+  (env, _) <- get
+  return env
+
+setEnv :: Env Value -> SliceM ()
+setEnv env = do
+  store <- getStore
+  put (env, store)
+
+-- | Returns current environment and empties it.
+resetEnv :: SliceM (Env Value)
+resetEnv = do
+  env <- getEnv
+  setEnv emptyEnv
+  return env
+
+-- | Runs a given monadic computation inside an empty environment.
+-- See Note [Handling slicing environment inside a monad]
+withEmptyEnv :: SliceM a -> SliceM a
+withEmptyEnv thing = do
+  store <- getStore
+  let (result, (env', store')) = runState thing (emptyEnv, store)
+  env <- getEnv
+  setEnv (env `lub` env')
+  setStore store'
+  return result
+
 getStore :: SliceM Store
-getStore = get
+getStore = do
+  (_, store) <- get
+  return store
 
 setStore :: Store -> SliceM ()
-setStore = put
+setStore store = do
+  env <- getEnv
+  put (env, store)
 
 -- | Check if all store labels are store holes (according to `isStoreHole`)
 allStoreHolesM :: StoreLabels -> SliceM Bool
@@ -76,3 +117,17 @@ storeDerefArrM :: StoreLabel -> Int -> SliceM Value
 storeDerefArrM label dim =
     do store <- getStore
        return (storeDerefArr store label dim)
+
+setSingletonEnv :: Var -> Value -> SliceM ()
+setSingletonEnv x v = setEnv (singletonEnv x v)
+
+lookupAndUnbind :: Var -> SliceM Value
+lookupAndUnbind x = do
+  env <- getEnv
+  let p = lookupEnv' env x
+  setEnv (unbindEnv env x)
+  return p
+
+maybeLookupAndUnbind :: Maybe Var -> SliceM Value
+maybeLookupAndUnbind Nothing  = return bot
+maybeLookupAndUnbind (Just x) = lookupAndUnbind x

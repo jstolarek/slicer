@@ -26,7 +26,7 @@ in
 let l = Cons(1,Cons(2,Cons(3,Nil))) in
 let t = trace(mergesort(l)) in
 let s0 = traceSlice(t,Cons(_:int,Cons(_:int,Cons(_:int,Nil)))) in
-let s1 = traceSlice(t,Cons(_:int,Cons(3    ,Cons(_:int,Nil)))) in
-let z = visualizeDiff("sortbug1.pdf",t,s0) in
-let zz = visualizeDiff("sortbug2.pdf",s1,s0) in
+--let s1 = traceSlice(t,Cons(_:int,Cons(3    ,Cons(_:int,Nil)))) in
+--let z = visualizeDiff("sortbug1.pdf",t,s0) in
+--let zz = visualizeDiff("sortbug2.pdf",s1,s0) in
 read(t)
