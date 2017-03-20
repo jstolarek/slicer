@@ -1,4 +1,14 @@
+data eqnlist = Nil | Cons (array(array(double)) * array(double) ) * eqnlist
+
+data reslist = RNil | RCons array(double) * reslist
+
+let map = fun map (f : array(array(double)) * array(double) -> array(double)) (xs : eqnlist) : reslist =>
+   case xs of
+      Nil -> RNil;
+      Cons y -> RCons (f (fst y), map f (snd y)) in
+
 let t = trace (
+
 let n = 4 in
 let as = array(n,array(n,0.0)) in
 set(as, 0, array(n, 0.0)) ;;
@@ -11,15 +21,15 @@ set(get(as,0),1,(-1.0));;
 set(get(as,0),2,  2.0) ;;
 set(get(as,0),3,(-1.0));;
 
-set(get(as,1),0,  3.0) ;;
-set(get(as,1),1,(-1.0));;
-set(get(as,1),2,  1.0) ;;
-set(get(as,1),3,  1.0) ;;
+set(get(as,1),0,  1.0) ;;
+set(get(as,1),1,  2.0) ;;
+set(get(as,1),2,(-1.0));;
+set(get(as,1),3,  2.0) ;;
 
-set(get(as,2),0,  1.0) ;;
-set(get(as,2),1,  2.0) ;;
-set(get(as,2),2,(-1.0));;
-set(get(as,2),3,  2.0) ;;
+set(get(as,2),0,  3.0) ;;
+set(get(as,2),1,(-1.0));;
+set(get(as,2),2,  1.0) ;;
+set(get(as,2),3,  1.0) ;;
 
 set(get(as,3),0,(-1.0));;
 set(get(as,3),1,  1.0) ;;
@@ -28,9 +38,43 @@ set(get(as,3),3,(-3.0));;
 
 let bs = array (n, 0.0) in
 set(bs, 0,(-13.0));;
-set(bs, 1,   1.0) ;;
-set(bs, 2,  21.0) ;;
+set(bs, 1,  21.0) ;;
+set(bs, 2,   1.0) ;;
 set(bs, 3, (-5.0));;
+
+-- same system as before but 2nd and 3rd row are now swapped leading to division
+-- by 0
+let as' = array(n,array(n,0.0)) in
+set(as', 0, array(n, 0.0)) ;;
+set(as', 1, array(n, 0.0)) ;;
+set(as', 2, array(n, 0.0)) ;;
+set(as', 3, array(n, 0.0)) ;;
+
+set(get(as',0),0,  3.0) ;;
+set(get(as',0),1,(-1.0));;
+set(get(as',0),2,  2.0) ;;
+set(get(as',0),3,(-1.0));;
+
+set(get(as',1),0,  3.0) ;;
+set(get(as',1),1,(-1.0));;
+set(get(as',1),2,  1.0) ;;
+set(get(as',1),3,  1.0) ;;
+
+set(get(as',2),0,  1.0) ;;
+set(get(as',2),1,  2.0) ;;
+set(get(as',2),2,(-1.0));;
+set(get(as',2),3,  2.0) ;;
+
+set(get(as',3),0,(-1.0));;
+set(get(as',3),1,  1.0) ;;
+set(get(as',3),2,(-2.0));;
+set(get(as',3),3,(-3.0));;
+
+let bs' = array (n, 0.0) in
+set(bs', 0,(-13.0));;
+set(bs', 1,   1.0) ;;
+set(bs', 2,  21.0) ;;
+set(bs', 3, (-5.0));;
 
 -- Adapted from: https://rosettacode.org/wiki/Gaussian_elimination#C
 let gauss = fun gauss (a : array(array(double))) (b : array(double)) : array(double) =>
@@ -64,10 +108,6 @@ let gauss = fun gauss (a : array(array(double))) (b : array(double)) : array(dou
      set(x, !row, !tmp / get(get(as, !row), !row));;
      row := !row - 1
    );; x in
-let xs = gauss as bs in
-let a = get(xs, 0) in
-let b = get(xs, 1) in
-let c = get(xs, 2) in
-let d = get(xs, 3) in
-(a, (b, (c, d))) ) in
+map (fun f (x : array(array(double)) * array(double)) : array(double) =>
+     gauss (fst x) (snd x)) (Cons ( (as, bs) , Cons ((as', bs'),Nil))) ) in
 bwdSlice (t, raise "Division by zero" )
