@@ -1,5 +1,7 @@
 Running ../../examples/while.tml
-val it = let x = ref 10
-in let y = _
-   in let z = ref _
-      in (while !x /= 0 do _ ;; z := 1000 / (!x - 1) ;; x := !x - 1) ;; _ : trace((int * int))
+val it = let x = ref 10 in
+let y = _ in
+let z = ref _ in
+(while !x /= 0 do
+   _ ;; z := 1000 / (!x - 1) ;; x := !x - 1)
+;; _ : trace((int * int))

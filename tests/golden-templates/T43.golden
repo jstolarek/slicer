@@ -1,5 +1,5 @@
 Running ../../examples/T43.tml
-val it = let a = ref 1
-in let b = ref 1
-   in let c = ref 1
-      in b := (!b + !a) - !c ;; !b : trace(int)
+val it = let a = ref 1 in
+let b = ref 1 in
+let c = ref 1 in
+b := (!b + !a) - !c ;; !b : trace(int)

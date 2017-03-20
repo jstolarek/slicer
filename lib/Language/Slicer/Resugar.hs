@@ -359,8 +359,8 @@ instance Pretty RExp where
     pPrint (RBool b)   = if b then text "true" else text "false"
     pPrint (RVar    x) = pPrint x
     pPrint (RLet x e1 e2)
-        = text "let" <+> pPrint x <+> equals <+> pPrint e1 $$
-          text "in" <+> pPrint e2
+        = text "let" <+> pPrint x <+> equals <+> pPrint e1 <+> text "in" $$
+          pPrint e2
     pPrint (RIf e e1 e2)
         = text "if" <+> pPrint e
                 $$ text "then" <+> pPrint e1
@@ -380,15 +380,16 @@ instance Pretty RExp where
     pPrint (RCase e m)     = text "case" <+> pPrint e <+> text "of" $$
                              nest 2 (pPrint m)
     pPrint (RFun k)        = pPrint k
-    pPrint (RApp e1 e2)    = sep [ pPrint e1, pPrint e2 ]
+    pPrint (RApp e1 e2)    = hsep [ pPrint e1, pPrint e2 ]
     pPrint (RRef e)        = text "ref" <+> partial_parensOpt e
     pPrint (RDeref e)      = text "!" <> partial_parensOpt e
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
     pPrint (RArr e1 e2)    = text "array" <> parens (pPrint e1 <> comma <+> pPrint e2)
     pPrint (RArrGet e1 e2) = text "get" <> parens (pPrint e1  <> comma <+> pPrint e2)
     pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+> pPrint e2 <> comma <+> pPrint e3)
-    pPrint (RSeq e1 e2)    = pPrint e1 <+> text ";;" <+> pPrint e2
-    pPrint (RWhile e1 e2)  = parens (text "while" <+> pPrint e1 <+> text "do" <+> pPrint e2)
+    pPrint (RSeq e1 e2)    = fsep [pPrint e1, text ";;", pPrint e2]
+    pPrint (RWhile e1 e2)  = parens (text "while" <+> pPrint e1 <+> text "do" $$
+                                          nest 2 (pPrint e2))
     pPrint (RTrace e)      = text "trace" <+> partial_parensOpt e
     pPrint (RRaise e)      = text "raise" <+> partial_parensOpt e
     pPrint (RCatch e x h)  = text "try" $$ nest 2 (pPrint e) $$
@@ -404,8 +405,8 @@ instance Pretty RMatch where
 
 instance Pretty RCode where
     pPrint (RRec name args body)
-        = parens (text "fun" <+> pPrint name <+> sep (map pPrint args)
-                  <+> text "=>" <+> nest 2 (pPrint body))
+        = parens (fsep [text "fun" <+> pPrint name <+> sep (map pPrint args)
+                  <+> text "=>", (pPrint body)])
 
 -- | Should the expression be wrapped in parentheses?
 parenth :: RExp -> Bool

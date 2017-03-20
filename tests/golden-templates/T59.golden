@@ -1,3 +1,3 @@
 Running ../../examples/T59.tml
-val it = let p = ref (1, 2)
-in (fst !p) + (snd !p) : trace(int)
+val it = let p = ref (1, 2) in
+(fst !p) + (snd !p) : trace(int)

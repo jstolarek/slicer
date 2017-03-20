@@ -1,8 +1,10 @@
 Running ../../examples/exceptions.tml
-val it = trace (let n = ref 0
-       in try
-            n := 17 ;; raise (if false
-                              then _
-                              else raise "foo") ;; _
-          with x =>
-            !n) : trace(int)
+val it = trace (let n = ref 0 in
+       try
+         n := 17 ;;
+         raise (if false
+                then _
+                else raise "foo")
+         ;; _
+       with x =>
+         !n) : trace(int)

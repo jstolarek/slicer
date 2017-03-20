@@ -1,7 +1,9 @@
 Running ../../examples/exceptions3.tml
 val it = try
-  _ ;; raise (if false
-              then _
-              else raise "foo") ;; _
+  _ ;;
+  raise (if false
+         then _
+         else raise "foo")
+  ;; _
 with x =>
   x == "foo" : trace(bool)

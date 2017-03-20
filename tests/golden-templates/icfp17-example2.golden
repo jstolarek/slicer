@@ -1,5 +1,4 @@
 Running ../../examples/icfp17-example2.tml
-val it = let a = _
-in let b = ref 2
-   in map (fun f c => b := !b - 1 ;; 1 / !c)
-      RefCons (_, RefCons (b, _)) : trace(intlist)
+val it = let a = _ in
+let b = ref 2 in
+map (fun f c => b := !b - 1 ;; 1 / !c) RefCons (_, RefCons (b, _)) : trace(intlist)
