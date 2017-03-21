@@ -70,8 +70,7 @@ evalM (EUnroll _ e)   = do v <- evalM' e
                            return (v >-< ORet v')
 evalM (ETrace e)      = do env    <- getEnv
                            (r, t) <- trace e
-                           store  <- getStore
-                           return (ORet (VTrace r t env store))
+                           return (ORet (VTrace r t env))
 -- References
 evalM (ERef e)        = do r <- evalM' e
                            case r of
@@ -195,20 +194,18 @@ evalOpArgs (x:xs) = do r <- evalM' x
                          _ -> return (OHole : map (const OHole) xs)
 
 evalTraceOp :: Primitive -> [Outcome] -> EvalM Outcome
-evalTraceOp PrimVal [ORet (VTrace r _ _ _)] = return r
-evalTraceOp PrimTraceSlice [ORet (VTrace r t env st), p]
+evalTraceOp PrimVal [ORet (VTrace r _ _)] = return r
+evalTraceOp PrimTraceSlice [ORet (VTrace r t env), p]
     | p `leq` r
     = do let (t',penv) = traceSlice emptyStore p t
              r'        = extract p r
              env'      = extract penv env
-             -- JSTOLAREK: update store argument
-         r' `seq` t' `seq` env' `seq` return (ORet (VTrace r' t' env' st))
+         r' `seq` t' `seq` env' `seq` return (ORet (VTrace r' t' env'))
     | otherwise = evalError ("slice: criterion " ++ show p ++
                              " is not a prefix of output " ++ show r)
-evalTraceOp PrimBwdSlice [ORet (VTrace r t _ _), p]
+evalTraceOp PrimBwdSlice [ORet (VTrace r t _), p]
     | p `leq` r
     = do let (env', _, e', _) = bwdSlice emptyStore p t
-         -- JSTOLAREK: store store in a VExp
          return (ORet (VExp e' env'))
     | otherwise = evalError ("bwdSlice: criterion "++ show p ++
                              " is not a prefix of output " ++ show r)
@@ -222,12 +219,12 @@ evalTraceOp PrimVisualizeDiff [ORet (VString s), ORet (v1), ORet (v2)]
         ".pdf" -> lift (visualizeDiffPDF s v1 v2) >> return (ORet VUnit)
         ".svg" -> lift (visualizeDiffSVG s v1 v2) >> return (ORet VUnit)
         ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
-evalTraceOp PrimTreeSize [ORet (VTrace _ t _ _)] =
+evalTraceOp PrimTreeSize [ORet (VTrace _ t _)] =
     return (ORet (VInt (forestsize (toTree t))))
-evalTraceOp PrimProfile [ORet (VTrace _ t _ _)]
+evalTraceOp PrimProfile [ORet (VTrace _ t _)]
     = do liftIO $ putStrLn (show (profile t))
          return (ORet VUnit)
-evalTraceOp PrimProfileDiff [ORet (VTrace _ t _ _)]
+evalTraceOp PrimProfileDiff [ORet (VTrace _ t _)]
     = do liftIO $ putStrLn (show (profileDiff t))
          return (ORet VUnit)
 evalTraceOp op vs = evalOpExn op vs

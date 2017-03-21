@@ -478,7 +478,7 @@ data Value = VBool Bool | VInt Integer | VDouble Double | VUnit | VString String
            | VStoreLoc StoreLabel
            | VArrLoc StoreLabel Int
            -- run-time traces
-           | VTrace Outcome Trace (Env Value) Store
+           | VTrace Outcome Trace (Env Value)
            deriving (Show, Eq, Ord, Generic, NFData)
 
 data Outcome = ORet Value | OExn Value | OHole | OStar
@@ -597,9 +597,7 @@ promote (VRoll tv v)        = VRoll tv (promote v)
 promote (VStoreLoc l)       = VStoreLoc l
 promote (VArrLoc l n)       = VArrLoc l n
 promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace r t env (Store refs arrs refCount)) =
-    VTrace (promoteOutcome r) t (fmap promote env)
-               (Store (fmap promote refs) (fmap promoteArray arrs) refCount)
+promote (VTrace r t env   ) = VTrace (promoteOutcome r) t (fmap promote env)
 promote (VExp     e env)    = VExp e (fmap promote env)
 
 promoteOutcome :: Outcome -> Outcome
@@ -607,9 +605,6 @@ promoteOutcome OStar = OStar
 promoteOutcome OHole = OStar
 promoteOutcome (OExn v) = OExn (promote v)
 promoteOutcome (ORet v) = ORet (promote v)
-
-promoteArray :: Array -> Array
-promoteArray (Array arr) = Array (fmap promote arr)
 
 instance UpperSemiLattice Value where
     bot                                = VHole

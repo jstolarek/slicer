@@ -278,7 +278,7 @@ instance Resugarable Value where
     resugarM (VExp v _)     = resugarM v
     resugarM (VStoreLoc _)  = return (RRef RHole)
     resugarM (VArrLoc _ n)  = return (RArr (RInt (toInteger n)) RHole)
-    resugarM (VTrace _ t _ _)
+    resugarM (VTrace _ t _)
         = do e <- resugarM t
              return (RTrace e)
     resugarM (VInL v)
