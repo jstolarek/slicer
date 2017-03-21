@@ -4,10 +4,8 @@
 {-# LANGUAGE MultiWayIf              #-}
 {-# LANGUAGE UndecidableInstances    #-}
 
--- We silence all the warnings in this module to suppress "pattern match checker
--- maximum iterations exceeded" warning.  This is an overkill.
--- See GHC bug #13464
-{-# OPTIONS_GHC -w #-}
+-- Suppress "pattern match checker maximum iterations exceeded" warning.
+{-# OPTIONS_GHC -Wno-incomplete-patterns -Wno-overlapping-patterns #-}
 -- | Implementations of slicing
 module Language.Slicer.Slice
     ( traceSlice, bwdSlice
