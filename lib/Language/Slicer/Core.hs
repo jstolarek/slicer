@@ -15,7 +15,7 @@ module Language.Slicer.Core
 
     -- * Helper functions for AST
     , isRefTy, isArrTy, isFunTy, isCondTy, isExnTy, isPairTy, fstTy, sndTy
-    , isRaise, isExn, isTHole
+    , isExn, isTHole
 
     , getVal, getExn
     -- * Store abstraction
@@ -349,11 +349,6 @@ data Trace = TExp (Syntax Trace)
 -- | Did computations returned a result or raised an exception?
 data ReturnType = RetValue | RetRaise
                   deriving (Show, Eq, Ord, Generic, NFData)
-
--- JSTOLAREK: rename to TRaise
-isRaise :: Trace -> Bool
-isRaise (TRaise _) = True
-isRaise _          = False
 
 isExn :: Trace -> Bool
 isExn (TVar _)                 = False
