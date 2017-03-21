@@ -38,7 +38,7 @@ data RExp = RVar Var | RLet Var RExp RExp
           | RString String
           | RPair RExp RExp | RFst RExp | RSnd RExp
           | RCon Con RExp | RCase RExp RMatch
-          | RFun RCode | RApp RExp RExp
+          | RFun RCode | RApp RExp [RExp]
           | RTrace RExp
           | RHole
           -- References
@@ -198,10 +198,14 @@ instance Resugarable Exp where
     resugarM (ECase e _)
         = resugarError ("Case scrutinee not wrapped in unroll, can't resugar "
                         ++ show e)
+    resugarM (EApp e1@(EApp _ _) e2)
+        = do (RApp e1' e1'') <- resugarM e1
+             e2'             <- resugarM e2
+             return (RApp e1' (e1'' ++ [e2']))
     resugarM (EApp e1 e2)
         = do e1' <- resugarM e1
              e2' <- resugarM e2
-             return (RApp e1' e2')
+             return (RApp e1' [e2'])
     resugarM (EOp f args)
         = do args' <- mapM resugarM args
              return (ROp f args')
@@ -380,7 +384,7 @@ instance Pretty RExp where
     pPrint (RCase e m)     = text "case" <+> pPrint e <+> text "of" $$
                              nest 2 (pPrint m)
     pPrint (RFun k)        = pPrint k
-    pPrint (RApp e1 e2)    = hsep [ pPrint e1, pPrint e2 ]
+    pPrint (RApp e1 e2)    = fsep (pPrint e1 : map pPrint e2)
     pPrint (RRef e)        = text "ref" <+> partial_parensOpt e
     pPrint (RDeref e)      = text "!" <> partial_parensOpt e
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
