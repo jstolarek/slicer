@@ -18,6 +18,7 @@ import           Language.Slicer.Monad.Desugar
 import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
+import qualified Control.Arrow as A
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
 import           Text.PrettyPrint.HughesPJClass
@@ -165,7 +166,7 @@ instance (Resugarable a, AskConstrs a, Show a) => Resugarable (Syntax a) where
           -- reconstruct multi-argument functions
           do let (args, body) = resugarMultiFun code
              body' <- resugarM body
-             return (RFun (RRec name' (reverse args) body'))
+             return (RFun (RRec name' args body'))
     resugarM  Hole = return RHole
     resugarM (Seq e1 e2)
         = do e1' <- resugarM e1
@@ -322,7 +323,7 @@ resugarMatch dataty (v1, e1) (v2, e2)
            Nothing -> resugarError ("Unknown data type: " ++ show dataty)
 
 resugarMultiFun :: Code Exp -> ([Var], Exp)
-resugarMultiFun = go []
+resugarMultiFun c = reverse `A.first` go [] c
     where go :: [Var] -> Code Exp -> ([Var], Exp)
           go args (Rec _ arg (EFun code) _) = go (arg:args) code
           go args (Rec _ arg body        _) = (arg:args, body)
@@ -390,7 +391,8 @@ instance Pretty RExp where
     pPrint (RAssign e1 e2) = pPrint e1 <+> text ":=" <+> pPrint e2
     pPrint (RArr e1 e2)    = text "array" <> parens (pPrint e1 <> comma <+> pPrint e2)
     pPrint (RArrGet e1 e2) = text "get" <> parens (pPrint e1  <> comma <+> pPrint e2)
-    pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+> pPrint e2 <> comma <+> pPrint e3)
+    pPrint (RArrSet e1 e2 e3) = text "set" <> parens (pPrint e1  <> comma <+>
+                                pPrint e2 <> comma <+> pPrint e3)
     pPrint (RSeq e1 e2)    = fsep [pPrint e1, text ";;", pPrint e2]
     pPrint (RWhile e1 e2)  = parens (text "while" <+> pPrint e1 <+> text "do" $$
                                           nest 2 (pPrint e2))
