@@ -48,6 +48,11 @@ lookupOp PrimTraceSlice [ty@(TraceTy ty1), ty2] =
     then return ty
     else typeError ("Slice type mismatch: " ++ show ty1 ++
                     " does not match " ++ show ty2)
+lookupOp PrimFwdSlice [TraceTy ty1, TraceTy ty2] =
+    if ty1 == ty2
+    then return ty1
+    else typeError ("Forward slice type mismatch: " ++ show ty1 ++
+                    " does not match " ++ show ty2)
 lookupOp PrimBwdSlice [ty@(TraceTy ty1), ty2] =
     if ty1 == ty2
     then return ty

@@ -473,7 +473,7 @@ data Value = VBool Bool | VInt Integer | VDouble Double | VUnit | VString String
            | VRoll TyVar Value
            | VClosure (Code Exp) (Env Value)
            | VHole | VStar
-           | VExp Exp (Env Value)
+           | VExp Exp (Env Value) Store
            -- mutable store locations
            | VStoreLoc StoreLabel
            | VArrLoc StoreLabel Int
@@ -583,28 +583,33 @@ instance FVs Trace where
     fvs (TSlicedHole _ _)  = []
 
 promote :: Value -> Value
-promote VStar               = VStar
-promote VHole               = VStar
-promote VUnit               = VUnit
-promote (VBool b)           = VBool b
-promote (VInt i)            = VInt i
-promote (VDouble d)         = VDouble d
-promote (VString s)         = VString s
-promote (VPair v1 v2)       = VPair (promote v1) (promote v2)
-promote (VInL v)            = VInL (promote v)
-promote (VInR v)            = VInR (promote v)
-promote (VRoll tv v)        = VRoll tv (promote v)
-promote (VStoreLoc l)       = VStoreLoc l
-promote (VArrLoc l n)       = VArrLoc l n
-promote (VClosure k env)    = VClosure k (fmap promote env)
-promote (VTrace r t env   ) = VTrace (promoteOutcome r) t (fmap promote env)
-promote (VExp     e env)    = VExp e (fmap promote env)
+promote VStar              = VStar
+promote VHole              = VStar
+promote VUnit              = VUnit
+promote (VBool b)          = VBool b
+promote (VInt i)           = VInt i
+promote (VDouble d)        = VDouble d
+promote (VString s)        = VString s
+promote (VPair v1 v2)      = VPair (promote v1) (promote v2)
+promote (VInL v)           = VInL (promote v)
+promote (VInR v)           = VInR (promote v)
+promote (VRoll tv v)       = VRoll tv (promote v)
+promote (VStoreLoc l)      = VStoreLoc l
+promote (VArrLoc l n)      = VArrLoc l n
+promote (VClosure k env)   = VClosure k (fmap promote env)
+promote (VTrace r t env)   = VTrace (promoteOutcome r) t (fmap promote env)
+promote (VExp e env (Store refs arrs refCount))
+    = VExp e (fmap promote env) (Store (fmap promote refs)
+                                       (fmap promoteArray arrs) refCount)
 
 promoteOutcome :: Outcome -> Outcome
 promoteOutcome OStar = OStar
 promoteOutcome OHole = OStar
 promoteOutcome (OExn v) = OExn (promote v)
 promoteOutcome (ORet v) = ORet (promote v)
+
+promoteArray :: Array -> Array
+promoteArray (Array arr) = Array (fmap promote arr)
 
 instance UpperSemiLattice Value where
     bot                                = VHole

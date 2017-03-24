@@ -113,7 +113,7 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strUnit, strUnroll, strWith
            , strArr, strGet, strSet, strWhile, strDo
            ] ++ map show
-           [ PrimVal, PrimTraceSlice, PrimBwdSlice
+           [ PrimVal, PrimTraceSlice, PrimFwdSlice, PrimBwdSlice
            , PrimVisualize, PrimVisualizeDiff, PrimProfile, PrimProfileDiff
            , PrimTreeSize
            ]
@@ -231,10 +231,9 @@ simpleExp :: Parser Exp
 simpleExp =
    unitVal <|> try double <|> try int <|> string_ <|> true <|> false <|> if_ <|>
    try ctr <|> try var <|> fun <|> try (parenthesise exp) <|> try let_ <|>
-   pair <|> fst_ <|> snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|>
-   pslice_ <|> traceval_ <|> visualize <|> visualize2 <|> profile_ <|>
-   profileDiff_ <|> treesize_ <|>
-   while_ <|>
+   pair <|> fst_ <|> snd_ <|> case_ <|> hole <|> trace_ <|> traceSlice_ <|>
+   fwdSlice_ <|> bwdSlice_ <|> traceval_ <|> visualize <|> visualize2 <|>
+   profile_ <|> profileDiff_ <|> treesize_ <|> while_ <|>
    -- references
    ref_ <|>
    -- arrays
@@ -491,27 +490,38 @@ visualize2 = do
 
 traceval_ :: Parser Exp
 traceval_ = do
-   e <- keyword (show PrimVal) >> exp
-   return (Op PrimVal [e])
+  e <- keyword (show PrimVal) >> exp
+  return (Op PrimVal [e])
 
-slice_ :: Parser Exp
-slice_ = do keyword (show PrimTraceSlice)
-            (e1,e2) <- parenthesise $ do
-                          e1 <- exp
-                          _  <- comma token_
-                          e2 <- exp
-                          return (e1,e2)
-            return (Op PrimTraceSlice [e1,e2])
+traceSlice_ :: Parser Exp
+traceSlice_ = do
+  keyword (show PrimTraceSlice)
+  (e1,e2) <- parenthesise $ do
+                e1 <- exp
+                _  <- comma token_
+                e2 <- exp
+                return (e1,e2)
+  return (Op PrimTraceSlice [e1,e2])
 
+fwdSlice_ :: Parser Exp
+fwdSlice_ = do
+  keyword (show PrimFwdSlice)
+  (e1,e2) <-  parenthesise $ do
+                e1 <- exp
+                _  <- comma token_
+                e2 <- exp
+                return (e1,e2)
+  return (Op PrimFwdSlice [e1,e2])
 
-pslice_ :: Parser Exp
-pslice_ = do keyword (show PrimBwdSlice)
-             (e1,e2) <-  parenthesise $ do
-                            e1 <- exp
-                            _  <- comma token_
-                            e2 <- exp
-                            return (e1,e2)
-             return (Op PrimBwdSlice [e1,e2])
+bwdSlice_ :: Parser Exp
+bwdSlice_ = do
+  keyword (show PrimBwdSlice)
+  (e1,e2) <-  parenthesise $ do
+                e1 <- exp
+                _  <- comma token_
+                e2 <- exp
+                return (e1,e2)
+  return (Op PrimBwdSlice [e1,e2])
 
 -- In REPL mode we either parse a data definition or an expression
 repl :: Parser (ParserState, Maybe Exp)

@@ -197,17 +197,19 @@ evalTraceOp :: Primitive -> [Outcome] -> EvalM Outcome
 evalTraceOp PrimVal [ORet (VTrace r _ _)] = return r
 evalTraceOp PrimTraceSlice [ORet (VTrace r t env), p]
     | p `leq` r
-    = do let (t',penv) = traceSlice emptyStore p t
+    = do let (t',penv) = traceSlice p t
              r'        = extract p r
              env'      = extract penv env
          r' `seq` t' `seq` env' `seq` return (ORet (VTrace r' t' env'))
     | otherwise = evalError ("slice: criterion " ++ show p ++
                              " is not a prefix of output " ++ show r)
+evalTraceOp PrimFwdSlice [ORet (VExp e env store), ORet (VTrace _ t _)]
+    = return (ORet (fwdSlice env store e t))
 evalTraceOp PrimBwdSlice [ORet (VTrace r t _), p]
     | p `leq` r
-    = do let (env', _, e', _) = bwdSlice emptyStore p t
-         return (ORet (VExp e' env'))
-    | otherwise = evalError ("bwdSlice: criterion "++ show p ++
+    = do let (env', store, e', _) = bwdSlice p t
+         return (ORet (VExp e' env' store))
+    | otherwise = evalError ("bwdSlice: criterion " ++ show p ++
                              " is not a prefix of output " ++ show r)
 evalTraceOp PrimVisualize [ORet (VString s), ORet v]
     = case takeExtension s of

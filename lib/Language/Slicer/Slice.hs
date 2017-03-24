@@ -8,7 +8,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns -Wno-overlapping-patterns #-}
 -- | Implementations of slicing
 module Language.Slicer.Slice
-    ( traceSlice, bwdSlice
+    ( traceSlice, fwdSlice, bwdSlice
     ) where
 
 import           Language.Slicer.Core hiding ( allStoreHoles, existsInStore )
@@ -18,14 +18,24 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Data.Foldable
 
+
 --------------------------------------------------------------------------------
---                           TRACE SLICING                                    --
+--                          FORWARD SLICING                                   --
 --------------------------------------------------------------------------------
 
 
-traceSlice :: Store -> Outcome -> Trace -> (Trace, Env Value)
-traceSlice store outcome trace =
-    let (env, _, _, trace') = bwdSlice store outcome trace
+fwdSlice :: Env Value -> Store -> Exp -> Trace -> Value
+fwdSlice env store expr trace = error "forward slicing not yet implemented"
+
+
+--------------------------------------------------------------------------------
+--                          TRACE SLICING                                     --
+--------------------------------------------------------------------------------
+
+
+traceSlice :: Outcome -> Trace -> (Trace, Env Value)
+traceSlice outcome trace =
+    let (env, _, _, trace') = bwdSlice outcome trace
     in (trace', env)
 
 
@@ -58,10 +68,10 @@ traceSlice store outcome trace =
 --
 -- See #36
 
-bwdSlice :: Store -> Outcome -> Trace -> (Env Value, Store, Exp, Trace)
-bwdSlice store outcome trace =
+bwdSlice :: Outcome -> Trace -> (Env Value, Store, Exp, Trace)
+bwdSlice outcome trace =
     let annotatedTrace = annotTrace trace
-    in runSliceM store (bwdSliceGo outcome trace annotatedTrace)
+    in runSliceM emptyStore (bwdSliceGo outcome trace annotatedTrace)
 
 -- | Backwards slicing wrapper that ensures every slicing is started in an empty
 -- environment.  See Note [Handling slicing environment inside a monad]

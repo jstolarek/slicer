@@ -276,7 +276,7 @@ instance Resugarable Value where
                Just decl -> return (RCon (conR decl) e)
                Nothing -> resugarError ("Unknown data type: " ++ show dataty)
     resugarM (VClosure v _) = resugarM (EFun v)
-    resugarM (VExp v _)     = resugarM v
+    resugarM (VExp v _ _)   = resugarM v
     resugarM (VStoreLoc _)  = return (RRef RHole)
     resugarM (VArrLoc _ n)  = return (RArr (RInt (toInteger n)) RHole)
     resugarM (VTrace _ t _)

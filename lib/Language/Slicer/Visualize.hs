@@ -246,7 +246,7 @@ instance Visualizable Value where
              edge i j
              return i
     graphDiff VStar VStar = withColor emptyColor (node "*")
-    graphDiff (VExp e _) (VExp e' _)
+    graphDiff (VExp e _ _) (VExp e' _ _)
         = graphDiff e e'
     graphDiff (VStoreLoc i) (VStoreLoc i')
         | i == i'
