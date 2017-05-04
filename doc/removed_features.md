@@ -3,8 +3,8 @@ Removed features
 
 This version of the source code was cleaned up to be as close as possible to the
 ICFP'12 published version.  In the process some features added in later papers
-were removed with a view we might want to restore them someday.  Here's a list
-of what was removed together with relevant commit hash.
+were removed with a view that we might want to restore them someday.  Here's a
+list of what was removed together with relevant commit hash.
 
   * **Compact** (40e38ed2) - whole module removed
 
