@@ -23,3 +23,5 @@ list of what was removed together with relevant commit hash.
       `Annot` module
 
   * **`profile`, `profileDiff` and `treesize` primitives** (f90b8df6)
+
+  * **`visualize` and `visualizeDiff` primitives** (039bdea6)

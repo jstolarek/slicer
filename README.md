@@ -100,7 +100,8 @@ Welcome to Slicer REPL
 slicer>
 ```
 
-You can interact with REPL by providing single-line declarations:
+You can interact with REPL by providing single-line declarations and
+expressions:
 
 ```
 slicer> data intlist = Nil | Cons int * intlist
