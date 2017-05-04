@@ -1,9 +1,9 @@
 name:                slicer
-version:             0.1.0.0
-synopsis:            Companion code to "Functional Programs that Explain their Work" paper
+version:             1.0.0.0
+synopsis:            Companion code to "Imperative Functional Programs that Explain their Work" paper
 license:             GPL-3
 license-file:        LICENSE
-author:              James Cheney <jcheney@inf.ed.ac.uk>, Roly Perera <rperera@inf.ed.ac.uk>
+author:              Wilmer Ricciotti <wricciot@inf.ed.ac.uk>, Jan Stolarek <jan.stolarek@ed.ac.uk>, Roly Perera <rperera@inf.ed.ac.uk>, James Cheney <jcheney@inf.ed.ac.uk>
 maintainer:          Jan Stolarek <jan.stolarek@ed.ac.uk>
 bug-reports:         https://github.com/jstolarek/slicer/issues
 tested-with:         GHC == 8.0.1
