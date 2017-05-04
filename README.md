@@ -15,9 +15,8 @@ published at [International Conference on Functional Programming
 Requirements
 ============
 
-This software is written in Haskell.  To build and install this software you
-will need GHC 8.0 or newer and typical Haskell infrastructure (Cabal, access to
-Hackage).
+This software is written in Haskell.  To build and install it you will need GHC
+8.0 or newer and typical Haskell infrastructure (Cabal, access to Hackage).
 
 
 Installation
