@@ -194,20 +194,21 @@ source files inside `examples/` directory.
    because we know our program divides by zero and we want to understand why.
    After running the program observe the results:
 
-     a) all elements of arrays `as` and `bs` are replaced with holes.  This
-        means that neither of them contributed to raising the exception.
+     * all elements of arrays `as` and `bs` are replaced with holes.  This
+       means that neither of them contributed to raising the exception.
 
-     b) some elements of `as'` are replaced with holes and some are not.  This
-        means that some elements of that array contributed to raising the
-        exception.  The last of the elements that was not replaced with a hole
-        is located at row 2, column 1 (0-based indexing).  Knowing the nature of
-        Gaussian elimination leads us to conclusion that this is where the
-        division by zero must have taken place.
+     * some elements of `as'` are replaced with holes and some are not.  This
+       means that some elements of that array contributed to raising the
+       exception.  The last of the elements that was not replaced with a hole
+       is located at row 2, column 1 (0-based indexing).  Knowing the nature of
+       Gaussian elimination leads us to conclusion that this is where the
+       division by zero must have taken place.
 
-     c) in the definition of `gauss` method code responsible for zeroing
-        elements above the diagonal has been replaced by a hole.  This means
-        that this code did not contribute to the result and so the exception was
-        raised when zeroing elements below the diagonal.
+     * in the definition of `gauss` method code responsible for zeroing
+       elements above the diagonal has been replaced by a hole.  This means
+       that this code did not contribute to the result and so the exception was
+       raised when zeroing elements below the diagonal.
+
 
 Learning iTML
 =============
