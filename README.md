@@ -5,7 +5,8 @@ Slicer
 
 Slicer is an interpreter for a simple ML-like language called iTML (imperative
 Transparent ML).  This is companion code for paper "Imperative Functional
-Programs that Explain their Work" by Wilmer Ricciotti,
+Programs that Explain their Work" by
+[Wilmer Ricciotti](http://www.wilmer-ricciotti.net/),
 [Jan Stolarek](http://ics.p.lodz.pl/~stolarek),
 [Roly Perera](http://www.dcs.gla.ac.uk/~roly/) and
 [James Cheney](http://homepages.inf.ed.ac.uk/jcheney/), published at
