@@ -164,8 +164,6 @@ library.  The library is located in `lib` directory.  Under
 
   * `UpperSemiLattice` - lattice definition
 
-  * `Visualize` - visualize traces and slices ad PDF/SVG
-
 
 Executable is located inside `src` directory.  `src/Language/Slicer/` contains:
 

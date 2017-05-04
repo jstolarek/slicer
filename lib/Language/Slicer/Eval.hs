@@ -12,12 +12,9 @@ import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Eval
 import           Language.Slicer.Primitives
 import           Language.Slicer.Slice
-import           Language.Slicer.Visualize
 import           Language.Slicer.UpperSemiLattice
 
-import           Control.Monad.Except
-import           Data.Map  ( (!)  )
-import           System.FilePath.Posix
+import           Data.Map ((!))
 
 run :: EvalState -> Exp -> SlMIO (Outcome, EvalState)
 run st e = runEvalM st (evalM e)
@@ -207,16 +204,6 @@ evalTraceOp PrimBwdSlice [ORet (VTrace r t _), p]
          return (ORet (VExp e' env'))
     | otherwise = evalError ("bwdSlice: criterion "++ show p ++
                              " is not a prefix of output " ++ show r)
-evalTraceOp PrimVisualize [ORet (VString s), ORet v]
-    = case takeExtension s of
-        ".pdf" -> lift (visualizePDF s v) >> return (ORet VUnit)
-        ".svg" -> lift (visualizeSVG s v) >> return (ORet VUnit)
-        ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
-evalTraceOp PrimVisualizeDiff [ORet (VString s), ORet (v1), ORet (v2)]
-    = case takeExtension s of
-        ".pdf" -> lift (visualizeDiffPDF s v1 v2) >> return (ORet VUnit)
-        ".svg" -> lift (visualizeDiffSVG s v1 v2) >> return (ORet VUnit)
-        ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
 evalTraceOp op vs = evalOpExn op vs
 
 evalOpExn :: Primitive -> [Outcome] -> EvalM Outcome

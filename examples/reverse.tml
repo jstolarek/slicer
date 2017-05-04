@@ -42,7 +42,4 @@ in
 let t = trace(reverse xs) in
 let t2 = trace(fastreverse xs) in
 let s1 = traceSlice(t,Cons(1,_:intlist)) in
--- let z = visualize("reverse.pdf", t) in
--- let z2 = visualize("reverse2.pdf", t2) in
--- let z3 = visualize("reverse3.pdf",s1) in
 (listeq (read t) (read t2))

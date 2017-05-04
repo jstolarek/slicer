@@ -20,8 +20,7 @@ data Primitive
     -- Logical operators
     | OpAnd | OpOr | OpNot
     -- Builtin functions
-    | PrimBwdSlice | PrimTraceSlice | PrimVal | PrimVisualize
-    | PrimVisualizeDiff
+    | PrimBwdSlice | PrimTraceSlice | PrimVal
     deriving (Eq, Ord, Generic, NFData)
 
 instance Show Primitive where
@@ -47,8 +46,6 @@ instance Show Primitive where
     show PrimBwdSlice      = "bwdSlice"
     show PrimTraceSlice    = "traceSlice"
     show PrimVal           = "read"
-    show PrimVisualize     = "visualize"
-    show PrimVisualizeDiff = "visualizeDiff"
 
 instance Pretty Primitive where
     pPrint op = text (show op)
@@ -78,6 +75,4 @@ acceptsExns :: Primitive -> Bool
 acceptsExns PrimBwdSlice      = True
 acceptsExns PrimTraceSlice    = True
 acceptsExns PrimVal           = True
-acceptsExns PrimVisualize     = True
-acceptsExns PrimVisualizeDiff = True
 acceptsExns _                 = False

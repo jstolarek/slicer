@@ -16,8 +16,6 @@ let equalsthree =
     fun equalsthree (x : int) : bool => (x == 3)
 in
 let t = trace(filter equalsthree xs) in
-let u = visualize ("filter.pdf", t) in
 let s1 = traceSlice (t,Cons(_:int,_:intlist)) in
 let s2 = traceSlice (t,Cons(_:int,Cons(3,_:intlist))) in
-let u = visualizeDiff ("filterslice.pdf", s1, s2) in
 read(t)

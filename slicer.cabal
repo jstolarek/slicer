@@ -30,13 +30,11 @@ library
                     Language.Slicer.Monad
                     Language.Slicer.Monad.Desugar
                     Language.Slicer.Monad.Slice
-                    Language.Slicer.Monad.Visualize
                     Language.Slicer.Parser
                     Language.Slicer.Primitives
                     Language.Slicer.Resugar
                     Language.Slicer.Slice
                     Language.Slicer.UpperSemiLattice
-                    Language.Slicer.Visualize
   build-depends:    base       >= 4.8 && < 4.10,
                     containers >= 0.5 && < 0.6,
                     deepseq    >= 1.4 && < 1.5,

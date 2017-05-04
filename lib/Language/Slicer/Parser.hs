@@ -114,7 +114,6 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strArr, strGet, strSet, strWhile, strDo
            ] ++ map show
            [ PrimVal, PrimTraceSlice, PrimBwdSlice
-           , PrimVisualize, PrimVisualizeDiff
            ]
 
 -- Some helpers.
@@ -231,7 +230,7 @@ simpleExp =
    unitVal <|> try double <|> try int <|> string_ <|> true <|> false <|> if_ <|>
    try ctr <|> try var <|> fun <|> try (parenthesise exp) <|> try let_ <|>
    pair <|> fst_ <|> snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|>
-   pslice_ <|> traceval_ <|> visualize <|> visualize2 <|>
+   pslice_ <|> traceval_ <|>
    while_ <|>
    -- references
    ref_ <|>
@@ -453,24 +452,6 @@ trace_ :: Parser Exp
 trace_ = do
    e <- keyword strTrace >> exp
    return (Trace e)
-
-visualize :: Parser Exp
-visualize = do
-   keyword (show PrimVisualize)
-   parenthesise $ do e1 <- exp
-                     _  <- comma token_
-                     e2 <- exp
-                     return (Op PrimVisualize [e1, e2])
-
-visualize2 :: Parser Exp
-visualize2 = do
-   keyword (show PrimVisualizeDiff)
-   parenthesise $ do e  <- exp
-                     _  <- comma token_
-                     e1 <- exp
-                     _  <- comma token_
-                     e2 <- exp
-                     return (Op PrimVisualizeDiff [e, e1, e2])
 
 traceval_ :: Parser Exp
 traceval_ = do

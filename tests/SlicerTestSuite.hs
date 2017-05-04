@@ -57,8 +57,6 @@ tests =
       , "sum-eval-trace-slice"
       , "sum-eval-trace"
       , "T2"
-      , "T9"
-      , "T13"
       , "T43"
       , "T47"
       , "T52"

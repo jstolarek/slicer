@@ -38,7 +38,4 @@ let p3 = Cons((-22), Cons((-19), Cons(41, Cons(2, Nil)))) in
 let s1 = traceSlice(t, p1) in
 let s2 = traceSlice(t, p2) in
 let s3 = traceSlice(t, p3) in
-let z = visualizeDiff("meanSquareDiff-none.pdf", s3, s1) in
-let z = visualizeDiff("meanSquareDiff-one.pdf", s2, s1) in
-let z = visualizeDiff("meanSquareDiff-all.pdf", s3, s2) in
 read t

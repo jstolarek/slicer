@@ -16,7 +16,5 @@ let t = trace(
      l
   )
 in
-let z = visualize("map.svg", t) in
 let s = traceSlice(t,Cons(_:int,Cons(5,_:intlist))) in
-let z2 = visualizeDiff("map-slice.svg",t,s) in
 read(t)
