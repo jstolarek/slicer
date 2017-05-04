@@ -20,8 +20,8 @@ data Primitive
     -- Logical operators
     | OpAnd | OpOr | OpNot
     -- Builtin functions
-    | PrimProfile | PrimProfileDiff | PrimBwdSlice | PrimTraceSlice
-    | PrimTreeSize | PrimVal | PrimVisualize | PrimVisualizeDiff
+    | PrimBwdSlice | PrimTraceSlice | PrimVal | PrimVisualize
+    | PrimVisualizeDiff
     deriving (Eq, Ord, Generic, NFData)
 
 instance Show Primitive where
@@ -44,11 +44,8 @@ instance Show Primitive where
     show OpOr              = "||"
     show OpNot             = "not"
     -- Builtin functions
-    show PrimProfile       = "profile"
-    show PrimProfileDiff   = "profileDiff"
     show PrimBwdSlice      = "bwdSlice"
     show PrimTraceSlice    = "traceSlice"
-    show PrimTreeSize      = "treesize"
     show PrimVal           = "read"
     show PrimVisualize     = "visualize"
     show PrimVisualizeDiff = "visualizeDiff"
@@ -78,11 +75,8 @@ isInfixOp _       = False
 
 -- | Does operator accept exception values as arguments?
 acceptsExns :: Primitive -> Bool
-acceptsExns PrimProfile       = True
-acceptsExns PrimProfileDiff   = True
 acceptsExns PrimBwdSlice      = True
 acceptsExns PrimTraceSlice    = True
-acceptsExns PrimTreeSize      = True
 acceptsExns PrimVal           = True
 acceptsExns PrimVisualize     = True
 acceptsExns PrimVisualizeDiff = True

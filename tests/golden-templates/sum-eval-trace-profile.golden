@@ -1,3 +1,0 @@
-Running ../../examples/sum-eval-trace-profile.tml
-Profile {unProfile = fromList [(sum,1001)]}
-val it = 500500 : int

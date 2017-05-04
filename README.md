@@ -155,16 +155,12 @@ library.  The library is located in `lib` directory.  Under
 
   * `Primitives` - built-in language primitives
 
-  * `Profile` - profiling.  Not part of the paper.
-
   * `Resugar` - translate core programs into surface-like syntax.  Used for
     pretty-printing.
 
   * `Run` - entry points to the interpreter
 
   * `Slice` - implementation of slicing
-
-  * `TraceTree` - not part of the paper (required for profiling)
 
   * `UpperSemiLattice` - lattice definition
 

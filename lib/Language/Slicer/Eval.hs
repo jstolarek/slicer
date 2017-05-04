@@ -11,10 +11,8 @@ import           Language.Slicer.Error
 import           Language.Slicer.Monad
 import           Language.Slicer.Monad.Eval
 import           Language.Slicer.Primitives
-import           Language.Slicer.Profile
 import           Language.Slicer.Slice
 import           Language.Slicer.Visualize
-import           Language.Slicer.TraceTree
 import           Language.Slicer.UpperSemiLattice
 
 import           Control.Monad.Except
@@ -219,14 +217,6 @@ evalTraceOp PrimVisualizeDiff [ORet (VString s), ORet (v1), ORet (v2)]
         ".pdf" -> lift (visualizeDiffPDF s v1 v2) >> return (ORet VUnit)
         ".svg" -> lift (visualizeDiffSVG s v1 v2) >> return (ORet VUnit)
         ext    -> evalError $ "visualizeDiff: unknown file extension : " ++ ext
-evalTraceOp PrimTreeSize [ORet (VTrace _ t _)] =
-    return (ORet (VInt (forestsize (toTree t))))
-evalTraceOp PrimProfile [ORet (VTrace _ t _)]
-    = do liftIO $ putStrLn (show (profile t))
-         return (ORet VUnit)
-evalTraceOp PrimProfileDiff [ORet (VTrace _ t _)]
-    = do liftIO $ putStrLn (show (profileDiff t))
-         return (ORet VUnit)
 evalTraceOp op vs = evalOpExn op vs
 
 evalOpExn :: Primitive -> [Outcome] -> EvalM Outcome

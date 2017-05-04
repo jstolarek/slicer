@@ -1,2 +1,0 @@
-Running ../../examples/reverse-slice-size.tml
-val it = (405, 304) : (int * int)

@@ -1,4 +1,2 @@
 Running ../../examples/filter.tml
-Profile {unProfile = fromList [(filter,10),(equalsthree,9)]}
-Profile {unProfile = fromList [((_root,filter),10),((_root,equalsthree),9)]}
 val it = Cons (3, Cons (3, Nil)) : intlist

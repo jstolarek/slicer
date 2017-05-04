@@ -114,8 +114,7 @@ keywords = [ strBool, strCase, strData, strElse, strFalse, strFst, strFun
            , strArr, strGet, strSet, strWhile, strDo
            ] ++ map show
            [ PrimVal, PrimTraceSlice, PrimBwdSlice
-           , PrimVisualize, PrimVisualizeDiff, PrimProfile, PrimProfileDiff
-           , PrimTreeSize
+           , PrimVisualize, PrimVisualizeDiff
            ]
 
 -- Some helpers.
@@ -232,8 +231,7 @@ simpleExp =
    unitVal <|> try double <|> try int <|> string_ <|> true <|> false <|> if_ <|>
    try ctr <|> try var <|> fun <|> try (parenthesise exp) <|> try let_ <|>
    pair <|> fst_ <|> snd_ <|> case_ <|> hole <|> trace_ <|> slice_ <|>
-   pslice_ <|> traceval_ <|> visualize <|> visualize2 <|> profile_ <|>
-   profileDiff_ <|> treesize_ <|>
+   pslice_ <|> traceval_ <|> visualize <|> visualize2 <|>
    while_ <|>
    -- references
    ref_ <|>
@@ -455,21 +453,6 @@ trace_ :: Parser Exp
 trace_ = do
    e <- keyword strTrace >> exp
    return (Trace e)
-
-profile_ :: Parser Exp
-profile_ = do
-   e <- keyword (show PrimProfile) >> exp
-   return (Op PrimProfile [e])
-
-treesize_ :: Parser Exp
-treesize_ = do
-   e <- keyword (show PrimTreeSize) >> exp
-   return (Op PrimTreeSize [e])
-
-profileDiff_ :: Parser Exp
-profileDiff_ = do
-   e <- keyword (show PrimProfileDiff) >> exp
-   return (Op PrimProfileDiff [e])
 
 visualize :: Parser Exp
 visualize = do

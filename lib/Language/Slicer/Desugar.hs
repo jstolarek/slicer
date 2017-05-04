@@ -38,9 +38,6 @@ lookupOp op tys | tys == [BoolTy  ]           && isBoolUnOp  op = return BoolTy
 -- built-in primitives.  No exceptions allowed here, thus we use direct pattern
 -- matching on arguments.
 lookupOp PrimVal           [TraceTy ty] = return ty
-lookupOp PrimTreeSize      [TraceTy _ ] = return IntTy
-lookupOp PrimProfile       [TraceTy _ ] = return UnitTy
-lookupOp PrimProfileDiff   [TraceTy _ ] = return UnitTy
 lookupOp PrimVisualize     [StringTy, _]               = return UnitTy
 lookupOp PrimVisualizeDiff [StringTy, t, t'] | t == t' = return UnitTy
 lookupOp PrimTraceSlice [ty@(TraceTy ty1), ty2] =

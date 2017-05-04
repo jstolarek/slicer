@@ -20,6 +20,4 @@ let u = visualize ("filter.pdf", t) in
 let s1 = traceSlice (t,Cons(_:int,_:intlist)) in
 let s2 = traceSlice (t,Cons(_:int,Cons(3,_:intlist))) in
 let u = visualizeDiff ("filterslice.pdf", s1, s2) in
-let z = profile(t) in
-let z = profileDiff(t) in
 read(t)
