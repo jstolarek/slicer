@@ -21,3 +21,5 @@ list of what was removed together with relevant commit hash.
 
   * **`dep`, `expr`, and `where` primitives** (38b6ef8c) - removed the whole
       `Annot` module
+
+  * **`profile`, `profileDiff` and `treesize` primitives** (f90b8df6)
