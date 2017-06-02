@@ -35,7 +35,7 @@ library
                     Language.Slicer.Resugar
                     Language.Slicer.Slice
                     Language.Slicer.UpperSemiLattice
-  build-depends:    base       >= 4.8 && < 4.10,
+  build-depends:    base       >= 4.8 && < 4.12,
                     containers >= 0.5 && < 0.6,
                     deepseq    >= 1.4 && < 1.5,
                     directory  >= 1.2.6.2,
@@ -52,7 +52,7 @@ library
 executable slicer
   hs-source-dirs:   src
   main-is:          Language/Slicer/Main.hs
-  build-depends:    base       >= 4.8 && < 4.10,
+  build-depends:    base       >= 4.8 && < 4.12,
                     directory  >= 1.2.6.2,
                     filepath   >= 1.4 && < 1.5,
                     haskeline  >= 0.7.2.3,
@@ -68,7 +68,7 @@ test-suite slicer-test-suite
   ghc-options:      -Wall
   default-language: Haskell2010
   main-is:          SlicerTestSuite.hs
-  build-depends:    base         >= 4.8 && < 4.10,
+  build-depends:    base         >= 4.8 && < 4.12,
                     directory    >= 1.2.6.2,
                     filepath     >= 1.4,
                     process      >= 1.4,
@@ -79,7 +79,7 @@ benchmark slicer-benchmark-suite
   hs-source-dirs:   bench
   type:             exitcode-stdio-1.0
   main-is:          SlicerBenchmarkSuite.hs
-  build-depends:    base       >= 4.8 && < 4.10,
+  build-depends:    base       >= 4.8 && < 4.12,
                     criterion  >= 1.1.4.0,
                     deepseq    >= 1.4 && < 1.5,
                     filepath   >= 1.4 && < 1.5,
