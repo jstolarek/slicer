@@ -144,7 +144,8 @@ source files inside `examples/` directory.
 1. On the first page of the paper we present a following example:
 
    ```ml
-   let f(x) = if (x == 0) then y := 6 * !z else (y := 84 / !z; w := g(!y + 12))
+   let f(x) = if (x == 0) then y := 6 * !z else (y := 84 / !z; w := g(!y + 12)) in
+   try f 0 with x => y := 42);; !y
    ```
 
    This example can be found in file `icfp17-example.tml`.  Run it with:
@@ -157,17 +158,9 @@ source files inside `examples/` directory.
    obtain different results.  Remember that you must change the slicing
    criterion to match the obtained result.  So for example if you change initial
    value of `z` to be `0` rather than `7` you need to change the slicing
-   criterion from:
-
-   ```ml
-   bwdSlice ( t, 42 )
-   ```
-
-   to
-
-   ```ml
-   bwdSlice ( t, raise "Division by zero" )
-   ```
+   criterion from `42` to `0`.  If you remove the `try`-`with` exception handler
+   and modify the code to cause division by zero the slicing criterion should be
+   `raise "Division by zero"`.
 
 2. On the third page of the paper we present a more elaborate example containing
    a usage of `map`.  This example can be found in `icfp17-example2.tml` source
