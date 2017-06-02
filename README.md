@@ -11,6 +11,8 @@ Programs that Explain their Work" by
 [Roly Perera](http://www.dcs.gla.ac.uk/~roly/) and
 [James Cheney](http://homepages.inf.ed.ac.uk/jcheney/), published at
 [International Conference on Functional Programming 2017](http://icfp17.sigplan.org).
+Upstream source code repository is located at
+[https://github.com/jstolarek/slicer](https://github.com/jstolarek/slicer).
 
 
 Requirements
