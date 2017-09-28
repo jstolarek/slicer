@@ -210,8 +210,8 @@ source files inside `examples/` directory.
 Learning iTML
 =============
 
-Syntax iTML is based on ML.  Here are some basic information that should get you
-started:
+Syntax of iTML is based on ML.  Here are some basic information that should get
+you started:
 
   * built-in primitive types are: `int`, `double`, `bool`, `string` and `unit`.
 
@@ -264,7 +264,7 @@ Source code tour
 
 Source code is divided into a library and an executable that depends on the
 library.  The library is located in `lib` directory.  Under
-`lib/Language/Slicer/ you will find these modules:
+`lib/Language/Slicer/` you will find these modules:
 
   * `Absyn`: abstract syntax for TML language.  This is what the parser
     produces (`Parser` module).
