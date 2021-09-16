@@ -17,59 +17,50 @@ Requirements
 ============
 
 This software is written in Haskell.  To build and install it you will need GHC
-8.0 or newer and a typical Haskell infrastructure (Cabal, access to Hackage).
+8.10 or above (some lower versions might work but were not tested) and a typical
+Haskell infrastructure (Cabal, access to Hackage).
 
 
 Installation
 ============
 
-1. Get the sources:
+```
+git clone https://github.com/jstolarek/slicer
+cd slicer
+cabal build
+```
 
-   ```
-   git clone https://github.com/jstolarek/slicer
-   cd slicer
-   ```
+ICFP 2017 version
+-----------------
 
-2. If you want to work on the exact version that was submitted for the ICFP 2017
-   artefact evaluation check out the relevant tag:
+To run the exact version published at ICFP 2017 checkout the relevant tag and
+follow a README there:
 
-   ```
-   git checkout icfp2017-final
-   ```
+```
+git checkout icfp2017-final
+```
 
-3. Initialize cabal sandbox:
-
-   ```
-   cd slicer
-   cabal sandbox init
-   ```
-
-4. Install dependencies:
-
-   ```
-   cabal install --dependencies-only
-   ```
-
-   If you want to run tests or benchmarks add `--enable-tests` or
-   `--enable-benchmarks` respectively to the above command.
-
-5. Configure and build the project
-
-   ```
-   cabal configure
-   cabal build
-   ```
+**Note:** you will need GHC 8.0 and legacy Cabal.
 
 
 Usage
 =====
 
 After following the above steps the slicer executable will be located at
-`dist/build/slicer/slicer`.  Example TML programs are located in `examples`
-sub-directory.  You can run them by passing file name on the command line:
+`dist-newstyle/build/$ARCH/$GHC-VER/slicer-1.0.0.0/x/slicer/build/slicer/slicer`
+where `$ARCH` is your system architecture (e.g. `x86_64-linux`) and `$GHC-VER`
+is your GHC version (e.g. `ghc-9.0.1`).  For ease of use it's best to create a
+symlink to the executable, e.g.:
 
 ```
-$ ./dist/build/slicer/slicer examples/icfp17-example.tml
+ln -s dist-newstyle/build/x86_64-linux/ghc-9.0.1/slicer-1.0.0.0/x/slicer/build/slicer/slicer slicer
+```
+
+Example TML programs are located in `examples` sub-directory.  You can run them
+by passing file name on the command line:
+
+```
+$ ./slicer examples/icfp17-example.tml
 ```
 
 If all went well you should see the output:
@@ -96,7 +87,7 @@ REPL
 Slicer provides a very simple REPL.  Invoke it by passing `--repl` flag:
 
 ```
-$ ./dist/build/slicer/slicer --repl
+$ ./slicer --repl
 Welcome to Slicer REPL
 slicer>
 ```
@@ -125,7 +116,6 @@ All example programs are packaged into a single test suite.  Build and run the
 testsuite with:
 
 ```
-cabal install --dependencies-only --enable-tests
 cabal build
 cabal test
 ```
@@ -133,6 +123,21 @@ cabal test
 The test suite will run every program in `examples` directory and compare its
 output with the expected output stored in a corresponding `*.golden` file inside
 `tests/golden-templates/`.
+
+**Note:** tests hardcode the executable path, which includes a particular
+version of GHC.  See `SlicerTestSuiteUtils.slicerPath` - you might have to
+adjust it on your machine.
+
+
+Running the benchmarks
+----------------------
+
+You can run benchmarks with:
+
+```
+cabal build
+cabal bench
+```
 
 
 Reproducing examples from the paper
@@ -151,7 +156,7 @@ source files inside `examples/` directory.
    This example can be found in file `icfp17-example.tml`.  Run it with:
 
    ```
-   $ ./dist/build/slicer/slicer examples/icfp17-example.tml
+   $ ./slicer examples/icfp17-example.tml
    ```
 
    You can tweak initial value of `z` and the value of argument passed to `f` to
@@ -167,7 +172,7 @@ source files inside `examples/` directory.
    file.  Run it with:
 
    ```
-   $ ./dist/build/slicer/slicer examples/icfp17-example2.tml
+   $ ./slicer examples/icfp17-example2.tml
    ```
 
 3. In section 6 we discuss an iTML program that solves a system of linear
@@ -177,7 +182,7 @@ source files inside `examples/` directory.
    with:
 
    ```
-   $ ./dist/build/slicer/slicer examples/gauss.tml
+   $ ./slicer examples/gauss.tml
    ```
 
    In this program we define two systems of equations.  System defined by arrays

@@ -21,7 +21,7 @@ tmlFilesPath = [ "examples" ]
 -- robust way.
 slicerPath :: FilePath
 slicerPath = joinPath $ [ "dist-newstyle", "build", "x86_64-linux",
-                          "ghc-8.10.7", "slicer-1.0.0.0", "x", "slicer",
+                          "ghc-9.0.1", "slicer-1.0.0.0", "x", "slicer",
                           "build", "slicer", "slicer" ]
 
 -- location of tests
