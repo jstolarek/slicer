@@ -1,8 +1,6 @@
 Slicer
 ======
 
-[![Build Status](https://travis-ci.org/jstolarek/slicer.svg?branch=master)](https://travis-ci.org/jstolarek/slicer)
-
 Slicer is an interpreter for a simple ML-like language called iTML (imperative
 Transparent ML).  This is companion code for paper "Imperative Functional
 Programs that Explain their Work" by
