@@ -8,7 +8,6 @@ import           Control.DeepSeq
 import           Control.Exception.Base
 import           Criterion.Main
 import           System.FilePath   ( pathSeparator )
-import           System.IO         ( readFile      )
 import           System.Process    ( callCommand   )
 
 main :: IO ()

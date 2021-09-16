@@ -17,8 +17,12 @@ tmlFilesPath :: [FilePath]
 tmlFilesPath = [ "examples" ]
 
 -- path to slicer executable relative to goldenPath
+-- JSTOLAREK: this is horrible and absolutely non-portable.  Need to find a more
+-- robust way.  For now I'm setting a compiler used by Travis
 slicerPath :: FilePath
-slicerPath = joinPath $ [ "dist", "build", "slicer", "slicer" ]
+slicerPath = joinPath $ [ "dist-newstyle", "build", "x86_64-linux",
+                          "ghc-8.10.4", "slicer-1.0.0.0", "x", "slicer",
+                          "build", "slicer", "slicer" ]
 
 -- location of tests
 relativeTestPath :: [FilePath]

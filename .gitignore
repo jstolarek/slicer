@@ -2,6 +2,7 @@
 cabal.sandbox.config
 .cabal-sandbox
 dist
+dist-newstyle
 
 # Files generated when running tests
 *.svg

@@ -21,6 +21,7 @@ import           Language.Slicer.UpperSemiLattice
 import qualified Control.Arrow as A
 import           Control.DeepSeq ( NFData  )
 import           GHC.Generics    ( Generic )
+import           Prelude hiding  ( (<>)    )
 import           Text.PrettyPrint.HughesPJClass
 
 -- See GitHub ticket #10 and pull request #20 for discussion and thoughts on
@@ -200,8 +201,8 @@ instance Resugarable Exp where
         = resugarError ("Case scrutinee not wrapped in unroll, can't resugar "
                         ++ show e)
     resugarM (EApp e1@(EApp _ _) e2)
-        = do (RApp e1' e1'') <- resugarM e1
-             e2'             <- resugarM e2
+        = do ~(RApp e1' e1'') <- resugarM e1
+             e2'              <- resugarM e2
              return (RApp e1' (e1'' ++ [e2']))
     resugarM (EApp e1 e2)
         = do e1' <- resugarM e1

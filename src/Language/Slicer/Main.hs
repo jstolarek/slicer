@@ -6,7 +6,8 @@ module Main
 import           Language.Slicer.Run
 import           Language.Slicer.Repl
 
-import           Control.Monad.Trans            ( lift              )
+import           Control.Monad.Trans            ( MonadIO, lift     )
+import           Control.Monad.Catch
 import           System.Console.GetOpt
 import           System.Console.Haskeline
 import           System.Directory               ( getHomeDirectory  )
@@ -28,8 +29,8 @@ isReplEnabled :: [Flag] -> Bool
 isReplEnabled f = Repl `elem` f
 
 -- | Catch C^ interrupts when running the REPL
-noesc :: MonadException m => InputT m a -> InputT m a
-noesc w = withInterrupt $ let loop = handle (\Interrupt -> loop) w in loop
+noesc :: (MonadMask m, MonadIO m) => InputT m a -> InputT m a
+noesc w = withInterrupt $ let loop = handleInterrupt loop w in loop
 
 -- | Haskeline settings: store REPL command history in users' home directory
 haskelineSettings :: IO (Settings ReplM)

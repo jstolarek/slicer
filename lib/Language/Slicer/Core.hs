@@ -47,7 +47,7 @@ import           Language.Slicer.Primitives
 import           Language.Slicer.UpperSemiLattice
 
 import           Control.DeepSeq    ( NFData                                  )
-import           Control.Exception ( assert      )
+import           Control.Exception  ( assert                                  )
 import           Data.Map as Map    ( Map, fromList, mapWithKey, keys, member )
 import           Data.Maybe
 import qualified Data.Foldable as F ( all                                     )
@@ -56,6 +56,7 @@ import           Data.List          ( union, delete, (\\)                     )
 import qualified Data.Hashable as H ( hash                                    )
 import qualified Data.Set as S
 import           GHC.Generics       ( Generic                                 )
+import           Prelude hiding     ( (<>)                                    )
 import           Text.PrettyPrint.HughesPJClass
 
 data Type = IntTy | BoolTy | UnitTy | StringTy | DoubleTy

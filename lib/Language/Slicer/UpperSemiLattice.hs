@@ -32,6 +32,6 @@ instance Eq a => UpperSemiLattice (Maybe a) where
     leq _        Nothing  = False
     leq (Just x) (Just y) = x == y
 
-instance UpperSemiLattice a => Monoid a where
+instance (UpperSemiLattice a, Semigroup a) => Monoid a where
     mempty  = bot
     mappend = lub
