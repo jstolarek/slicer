@@ -45,7 +45,7 @@ loadLinesToRepl (line : ls) = do
 parseAndEvalLine :: String -> ReplM ParseResult
 parseAndEvalLine line = do
   tyCtx  <- getTyCtx
-  result <- runSlMIO $ liftSlM (parseRepl line tyCtx)
+  result <- runSlM $ parseRepl line tyCtx
   case result of
     Left err -> return (Error err)
     Right (tyCtx', Nothing  ) -> addDataDefn tyCtx' >> return OK
@@ -55,7 +55,7 @@ parseAndEvalLine line = do
         assert (nullTyCtx tyCtx') $
         do evalS  <- getEvalState
            gamma  <- getGamma
-           dsgres <- runSlMIO (desugarEval tyCtx gamma evalS expr)
+           dsgres <- runSlM (desugarEval tyCtx gamma evalS expr)
            case dsgres of
              Right (ORet val, res, ty, st) ->
                  do setEvalState st

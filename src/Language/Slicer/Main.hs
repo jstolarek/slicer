@@ -48,7 +48,7 @@ compileAndRun arg = do
   putStrLn $ "Running " ++ arg
   hFlush stdout -- otherwise errors get printed before "Running"
   code   <- readFile arg
-  result <- runSlMIO (parseDesugarEval code)
+  result <- runSlM (parseDesugarEval code)
   case result of
     Right (_, res, ty, _) -> putStrLn $ "val it = " ++ show (pPrint res) ++
                                         " : "       ++ show (pPrint ty )

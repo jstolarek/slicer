@@ -16,10 +16,10 @@ import           Language.Slicer.UpperSemiLattice
 
 import           Data.Map ((!))
 
-run :: EvalState -> Exp -> SlMIO (Outcome, EvalState)
+run :: EvalState -> Exp -> SlM (Outcome, EvalState)
 run st e = runEvalM st (evalM e)
 
-eval :: Env Value -> Exp -> SlMIO Outcome
+eval :: Env Value -> Exp -> SlM Outcome
 eval env e = evalEvalM env (evalM e)
 
 evalM :: Exp -> EvalM Outcome
@@ -310,7 +310,7 @@ trace (ETrace _)     = evalError "Cannot trace a trace"
 trace (ERef e)       = do (r, t) <- trace' e
                           case r of
                              OExn v -> return (OExn v, TRef Nothing t)
-                             ORet v -> do v'@(VStoreLoc l) <- newRef v
+                             ORet v -> do ~v'@(VStoreLoc l) <- newRef v
                                           return (ORet v', TRef (Just l) t)
                              _ -> return (OHole,THole)
 trace (EDeref e)     = do (r, t) <- trace' e
@@ -339,7 +339,7 @@ trace (EArr e1 e2)    = do (r1,t1) <- trace' e1
                              (_,OExn v) -> return (OExn v, TArr Nothing t1 t2)
                              (ORet (VInt i), ORet v) ->
                                let dim = fromInteger i in
-                               do v'@(VArrLoc l _) <- newArr dim v
+                               do ~v'@(VArrLoc l _) <- newArr dim v
                                   return (ORet v', TArr (Just (l,dim)) t1 t2)
                              _ -> return (OHole,THole)
 trace (EArrGet e1 e2) = do (r1,t1) <- trace' e1

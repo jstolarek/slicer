@@ -4,7 +4,7 @@
 
 module Language.Slicer.Monad.Eval
     ( -- * Evaluation monad
-      EvalM, EvalState(..), runEvalM, evalEvalM, liftEvalM
+      EvalM, EvalState(..), runEvalM, evalEvalM
     , emptyEvalState, getEvalState, setEvalState, getStore, setStore, addBinding
 
     -- * Variable environment
@@ -32,9 +32,7 @@ import           GHC.Generics                  ( Generic    )
 --
 --   * State  - to access and modify variables in scope
 --
---   * IO     - to perform side effects
---
-type EvalM = StateT EvalState (ExceptT SlicerError IO)
+type EvalM = StateT EvalState (Except SlicerError)
 
 -- See Note [Monad transformers bog]
 
@@ -46,12 +44,12 @@ data EvalState = EvalState
 
 -- | Run the evaluation monad with a supplied state.  Return result and final
 -- state inside an error monad.
-runEvalM :: EvalState -> EvalM value -> SlMIO (value, EvalState)
+runEvalM :: EvalState -> EvalM value -> SlM (value, EvalState)
 runEvalM st m = runStateT m st
 
 -- | Run the evaluation monad with a supplied state.  Return result inside an
 -- error monad.
-evalEvalM :: Env Value -> EvalM value -> SlMIO value
+evalEvalM :: Env Value -> EvalM value -> SlM value
 evalEvalM st m = evalStateT m (addEmptyStore st)
 
 -- | Construct empty EvalState
@@ -88,10 +86,6 @@ addBinding :: EvalState -> Var -> Value -> EvalState
 addBinding st var val =
     let env = envS st
     in st { envS = updateEnv env var val }
-
--- | Lift monadic action from SlM to EvalM.
-liftEvalM :: SlM value -> EvalM value
-liftEvalM slm = lift (liftSlM slm)
 
 -- | Get the environment
 getEnv :: EvalM (Env Value)
