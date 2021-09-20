@@ -6,13 +6,12 @@ module Language.Slicer.Monad
 import           Language.Slicer.Error
 
 import           Control.Monad.Except
-import           Data.Functor.Identity
 
 -- | Error monad
 type SlM a = Except SlicerError a
 
 runSlM :: Monad m => SlM a -> m (Either SlicerError a)
-runSlM = return . runIdentity . runExceptT
+runSlM = return . runExcept
 
 -- Note [Monad transformers bog]
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
