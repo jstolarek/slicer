@@ -55,13 +55,13 @@ parseAndEvalLine line = do
         assert (nullTyCtx tyCtx') $
         do evalS  <- getEvalState
            gamma  <- getGamma
-           dsgres <- runSlM (desugarEval tyCtx gamma evalS expr)
+           dsgres <- runSlM $ desugarEval tyCtx gamma evalS expr
            case dsgres of
              Right (ORet val, res, ty, st) ->
                  do setEvalState st
                      -- See Note [Handling let bindings]
                     when (isLetBinding expr)
-                             (val `seq` addBinding (getVar expr) val ty)
+                         (addBinding (getVar expr) val ty)
                     return (It $ "val it = " ++ show (pPrint res) ++
                                  " : "       ++ show (pPrint ty))
              Right (OExn _, res, _, st) ->
