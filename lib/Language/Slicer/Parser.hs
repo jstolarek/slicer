@@ -480,7 +480,7 @@ pslice_ = do keyword (show PrimBwdSlice)
 -- In REPL mode we either parse a data definition or an expression
 repl :: Parser (ParserState, Maybe Exp)
 repl =
-  (typeDef >> getState >>= (\s -> return (s, Nothing))) <|>
+  (typeDef >> eof >> getState >>= (\s -> return (s, Nothing))) <|>
   (do e <- exp
       s <- getState
       return (s, Just e))
